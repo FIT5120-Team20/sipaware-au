@@ -6,6 +6,8 @@ export const SAVED_DRINKS_STORAGE_KEY = 'sipaware.savedDrinks.v1'
 export interface SavedDrinkRepository {
   list(): SavedDrink[]
   add(savedDrink: SavedDrink): SavedDrink[]
+  update(savedDrink: SavedDrink): SavedDrink[]
+  delete(savedDrinkId: string): SavedDrink[]
 }
 
 function isNonEmptyString(value: unknown): value is string {
@@ -91,5 +93,56 @@ export class LocalStorageSavedDrinkRepository
     const savedDrinks = [...this.readFrom(storage), savedDrink]
     storage.setItem(this.storageKey, JSON.stringify(savedDrinks))
     return savedDrinks
+  }
+
+  update(savedDrink: SavedDrink): SavedDrink[] {
+    if (!isSavedDrink(savedDrink)) {
+      throw new Error('Cannot update an invalid saved drink.')
+    }
+
+    const storage = this.resolveStorage()
+    const savedDrinks = this.readFrom(storage)
+    const existingSavedDrink = savedDrinks.find(
+      (candidate) => candidate.id === savedDrink.id,
+    )
+
+    if (!existingSavedDrink) {
+      throw new Error('The saved drink no longer exists.')
+    }
+
+    if (savedDrink.createdAt !== existingSavedDrink.createdAt) {
+      throw new Error('A saved drink creation time cannot be changed.')
+    }
+
+    if (
+      new Date(savedDrink.updatedAt).getTime() <=
+      new Date(existingSavedDrink.updatedAt).getTime()
+    ) {
+      throw new Error('A saved drink update time must move forward.')
+    }
+
+    const updatedSavedDrinks = savedDrinks.map((candidate) =>
+      candidate.id === savedDrink.id ? savedDrink : candidate,
+    )
+    storage.setItem(this.storageKey, JSON.stringify(updatedSavedDrinks))
+    return updatedSavedDrinks
+  }
+
+  delete(savedDrinkId: string): SavedDrink[] {
+    if (!isNonEmptyString(savedDrinkId)) {
+      throw new Error('A saved drink ID is required for deletion.')
+    }
+
+    const storage = this.resolveStorage()
+    const savedDrinks = this.readFrom(storage)
+    if (!savedDrinks.some((savedDrink) => savedDrink.id === savedDrinkId)) {
+      throw new Error('The saved drink no longer exists.')
+    }
+
+    const remainingSavedDrinks = savedDrinks.filter(
+      (savedDrink) => savedDrink.id !== savedDrinkId,
+    )
+    storage.setItem(this.storageKey, JSON.stringify(remainingSavedDrinks))
+    return remainingSavedDrinks
   }
 }

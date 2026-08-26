@@ -115,6 +115,15 @@
   list-style: none;
 }
 
+.saved-drink-item {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid #bcccdc;
+  border-radius: 0.55rem;
+  background: #ffffff;
+}
+
 .saved-drink-button {
   display: grid;
   width: 100%;
@@ -142,6 +151,73 @@
 .saved-drink-button[aria-pressed='true'] {
   border-color: #0b4f6c;
   background: #eaf6fb;
+}
+
+.saved-drink-actions,
+.management-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.saved-drink-actions .secondary-button,
+.saved-drink-actions .danger-button {
+  min-height: 2.75rem;
+  padding: 0.5rem 0.875rem;
+}
+
+.saved-drink-editor,
+.delete-confirmation {
+  padding: 1rem;
+  border: 2px solid #829ab1;
+  border-radius: 0.5rem;
+  background: #f8fafb;
+}
+
+.saved-drink-editor h4 {
+  margin: 0;
+  color: #102a43;
+  font-size: 1.125rem;
+}
+
+.delete-confirmation {
+  border-color: #b42318;
+  background: #fff2f0;
+}
+
+.delete-confirmation p {
+  margin: 0;
+  color: #7a1911;
+  line-height: 1.5;
+}
+
+.delete-confirmation p + p {
+  margin-top: 0.35rem;
+}
+
+.delete-confirmation .management-actions {
+  margin-top: 0.875rem;
+}
+
+.management-notice {
+  margin-bottom: 1rem;
+  padding: 0.75rem 0.875rem;
+  border: 2px solid;
+  border-radius: 0.45rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.management-notice--success {
+  border-color: #2f855a;
+  color: #205c40;
+  background: #edfdf4;
+}
+
+.management-notice--error {
+  border-color: #b42318;
+  color: #7a1911;
+  background: #fff2f0;
 }
 
 .selected-drink-notice {
@@ -208,6 +284,7 @@
 .form-field select:focus-visible,
 .primary-button:focus-visible,
 .secondary-button:focus-visible,
+.danger-button:focus-visible,
 .saved-drink-button:focus-visible,
 .text-button:focus-visible {
   outline: 3px solid #8a4b08;
@@ -289,6 +366,22 @@
 .secondary-button:hover {
   color: #ffffff;
   background: #0b4f6c;
+}
+
+.danger-button {
+  min-height: 3.125rem;
+  padding: 0.75rem 1.25rem;
+  border: 2px solid #b42318;
+  border-radius: 0.5rem;
+  color: #8a1c13;
+  background: #ffffff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.danger-button:hover {
+  color: #ffffff;
+  background: #b42318;
 }
 
 .form-notice {
@@ -398,6 +491,12 @@
   }
 
   .form-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .saved-drink-actions,
+  .management-actions {
+    display: grid;
     grid-template-columns: 1fr;
   }
 

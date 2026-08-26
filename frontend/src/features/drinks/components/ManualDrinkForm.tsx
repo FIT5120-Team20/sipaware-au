@@ -29,6 +29,8 @@ interface ManualDrinkFormProps {
   savedDrinks: readonly SavedDrink[]
   onSave: (record: DrinkingRecord) => void
   onSaveSavedDrink: (savedDrink: SavedDrink) => void
+  onUpdateSavedDrink: (savedDrink: SavedDrink) => void
+  onDeleteSavedDrink: (savedDrinkId: string) => void
 }
 
 interface FieldErrorProps {
@@ -113,6 +115,8 @@ export function ManualDrinkForm({
   savedDrinks,
   onSave,
   onSaveSavedDrink,
+  onUpdateSavedDrink,
+  onDeleteSavedDrink,
 }: ManualDrinkFormProps) {
   const formRef = useRef<HTMLFormElement>(null)
   const [values, setValues] = useState(createInitialManualDrinkFormValues)
@@ -210,6 +214,20 @@ export function ManualDrinkForm({
     clearErrors(...REUSABLE_DRINK_FIELDS)
     setSelectedSavedDrinkId(null)
     setSaveStatus(null)
+  }
+
+  function handleSavedDrinkUpdate(savedDrink: SavedDrink) {
+    onUpdateSavedDrink(savedDrink)
+    if (savedDrink.id === selectedSavedDrinkId) {
+      handleSavedDrinkSelect(savedDrink)
+    }
+  }
+
+  function handleSavedDrinkDelete(savedDrinkId: string) {
+    onDeleteSavedDrink(savedDrinkId)
+    if (savedDrinkId === selectedSavedDrinkId) {
+      clearSavedDrinkSelection()
+    }
   }
 
   function focusFirstInvalidField(validationErrors: ManualDrinkFormErrors) {
@@ -326,6 +344,8 @@ export function ManualDrinkForm({
         selectedSavedDrinkId={selectedSavedDrinkId}
         onSelect={handleSavedDrinkSelect}
         onClear={clearSavedDrinkSelection}
+        onUpdate={handleSavedDrinkUpdate}
+        onDelete={handleSavedDrinkDelete}
       />
 
       <form ref={formRef} onSubmit={handleSubmit} noValidate>

@@ -254,6 +254,8 @@ describe('ManualDrinkForm save failures', () => {
           throw new Error('Storage is unavailable')
         }}
         onSaveSavedDrink={() => undefined}
+        onUpdateSavedDrink={() => undefined}
+        onDeleteSavedDrink={() => undefined}
       />,
     )
     const user = await completeValidForm()

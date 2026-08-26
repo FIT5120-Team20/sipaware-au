@@ -112,10 +112,14 @@ describe('ManualDrinkPage saved drinks', () => {
     view.unmount()
     render(<ManualDrinkPage />)
     expect(
-      screen.getByRole('button', { name: /Pale Ale/ }),
+      screen.getByRole('button', {
+        name: /Pale Ale.*Beer.*375 mL.*4.5% ABV/,
+      }),
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('button', { name: /Shiraz/ }),
+      screen.getByRole('button', {
+        name: /Shiraz.*Wine.*150 mL.*13.5% ABV/,
+      }),
     ).toBeInTheDocument()
   })
 
@@ -125,7 +129,9 @@ describe('ManualDrinkPage saved drinks', () => {
     render(<ManualDrinkPage />)
 
     await user.click(
-      screen.getByRole('button', { name: /Carlton Draught/ }),
+      screen.getByRole('button', {
+        name: /Carlton Draught.*Beer.*375 mL.*4.6% ABV/,
+      }),
     )
 
     expect(screen.getByRole('status')).toHaveTextContent(
@@ -153,10 +159,6 @@ describe('ManualDrinkPage saved drinks', () => {
     expect(screen.getByLabelText('Number of servings consumed')).toHaveValue(2)
     expect(screen.getByLabelText('Date')).toHaveValue('2026-08-26')
     expect(screen.getByLabelText('Time')).toHaveValue('22:17')
-    expect(
-      screen.queryByRole('button', { name: /edit|delete/i }),
-    ).not.toBeInTheDocument()
-
     await user.click(
       screen.getByRole('button', { name: 'Enter drink manually instead' }),
     )
@@ -178,7 +180,9 @@ describe('ManualDrinkPage saved drinks', () => {
     render(<ManualDrinkPage />)
 
     await user.click(
-      screen.getByRole('button', { name: /Carlton Draught/ }),
+      screen.getByRole('button', {
+        name: /Carlton Draught.*Beer.*375 mL.*4.6% ABV/,
+      }),
     )
     fireEvent.change(screen.getByLabelText('Number of servings consumed'), {
       target: { value: '2' },
@@ -244,7 +248,9 @@ describe('ManualDrinkPage saved drinks', () => {
     render(<ManualDrinkPage />)
 
     await user.click(
-      screen.getByRole('button', { name: /Carlton Draught/ }),
+      screen.getByRole('button', {
+        name: /Carlton Draught.*Beer.*375 mL.*4.6% ABV/,
+      }),
     )
     await user.click(
       screen.getByRole('button', { name: 'Save drinking record' }),
@@ -295,6 +301,8 @@ describe('ManualDrinkForm saved-drink failures', () => {
         onSaveSavedDrink={() => {
           throw new Error('Saved-drink storage is unavailable')
         }}
+        onUpdateSavedDrink={() => undefined}
+        onDeleteSavedDrink={() => undefined}
       />,
     )
     const user = await enterReusableDrinkDetails()

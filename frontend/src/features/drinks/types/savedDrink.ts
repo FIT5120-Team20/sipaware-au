@@ -36,3 +36,20 @@ export function createSavedDrink(values: NewSavedDrink): SavedDrink {
     updatedAt: timestamp,
   }
 }
+
+export function createUpdatedSavedDrink(
+  savedDrink: SavedDrink,
+  values: NewSavedDrink,
+): SavedDrink {
+  const previousUpdatedAtMilliseconds = new Date(savedDrink.updatedAt).getTime()
+  const updatedAtMilliseconds = Math.max(
+    Date.now(),
+    previousUpdatedAtMilliseconds + 1,
+  )
+
+  return {
+    ...savedDrink,
+    ...values,
+    updatedAt: new Date(updatedAtMilliseconds).toISOString(),
+  }
+}

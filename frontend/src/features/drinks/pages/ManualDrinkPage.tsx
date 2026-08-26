@@ -32,6 +32,14 @@ export function ManualDrinkPage() {
     setSavedDrinks(savedDrinkRepository.add(savedDrink))
   }
 
+  function updateSavedDrink(savedDrink: SavedDrink) {
+    setSavedDrinks(savedDrinkRepository.update(savedDrink))
+  }
+
+  function deleteSavedDrink(savedDrinkId: string) {
+    setSavedDrinks(savedDrinkRepository.delete(savedDrinkId))
+  }
+
   return (
     <main className="manual-drink-page">
       <div className="manual-drink-shell">
@@ -49,6 +57,8 @@ export function ManualDrinkPage() {
             savedDrinks={savedDrinks}
             onSave={saveRecord}
             onSaveSavedDrink={saveDrinkForFutureUse}
+            onUpdateSavedDrink={updateSavedDrink}
+            onDeleteSavedDrink={deleteSavedDrink}
           />
           <RecentDrinkingRecords records={records} />
         </div>

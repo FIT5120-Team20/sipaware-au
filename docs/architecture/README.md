@@ -13,6 +13,8 @@ Personal drinking data is local-only and must remain on the user's device. Epic 
 
 `SavedDrink` contains reusable drink type, name, serving volume and ABV data, but no servings-consumed or consumption date/time fields. Creating history from My Drinks copies those reusable values into an independent `DrinkingRecord` snapshot. Historical rendering therefore does not depend on the saved definition continuing to exist or remaining unchanged.
 
+US1.3 extends the SavedDrink repository with local update and delete operations. Updates preserve the SavedDrink ID and creation timestamp, and deletions require explicit user confirmation. Neither operation reads from or writes to the drinking-record repository, so there is no update or delete cascade into history.
+
 For the current data model, `amountConsumed` is the number of servings consumed. It is stored alongside the per-serving volume in millilitres. No standard-drink, guideline, or health value is calculated.
 
 Amazon RDS for PostgreSQL is intended only for approved official or public reference data.

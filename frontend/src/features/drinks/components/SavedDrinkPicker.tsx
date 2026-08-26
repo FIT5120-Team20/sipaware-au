@@ -1,22 +1,79 @@
+import { useState } from 'react'
+
 import { getDrinkTypeLabel } from '../config/drinkTypes'
 import type { SavedDrink } from '../types/savedDrink'
+import { SavedDrinkEditor } from './SavedDrinkEditor'
 
 interface SavedDrinkPickerProps {
   savedDrinks: readonly SavedDrink[]
   selectedSavedDrinkId: string | null
   onSelect: (savedDrink: SavedDrink) => void
   onClear: () => void
+  onUpdate: (savedDrink: SavedDrink) => void
+  onDelete: (savedDrinkId: string) => void
 }
+
+type ManagementStatus =
+  | { kind: 'success' | 'error'; message: string }
+  | null
 
 export function SavedDrinkPicker({
   savedDrinks,
   selectedSavedDrinkId,
   onSelect,
   onClear,
+  onUpdate,
+  onDelete,
 }: SavedDrinkPickerProps) {
+  const [editingSavedDrinkId, setEditingSavedDrinkId] = useState<string | null>(
+    null,
+  )
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
+  const [managementStatus, setManagementStatus] =
+    useState<ManagementStatus>(null)
   const selectedSavedDrink = savedDrinks.find(
     (savedDrink) => savedDrink.id === selectedSavedDrinkId,
   )
+
+  function beginEditing(savedDrinkId: string) {
+    setEditingSavedDrinkId(savedDrinkId)
+    setPendingDeleteId(null)
+    setManagementStatus(null)
+  }
+
+  function saveEditedDrink(savedDrink: SavedDrink) {
+    onUpdate(savedDrink)
+    setEditingSavedDrinkId(null)
+    setManagementStatus({
+      kind: 'success',
+      message: `${savedDrink.drinkName} was updated in My Drinks.`,
+    })
+  }
+
+  function requestDelete(savedDrinkId: string) {
+    setPendingDeleteId(savedDrinkId)
+    setEditingSavedDrinkId(null)
+    setManagementStatus(null)
+  }
+
+  function confirmDelete(savedDrink: SavedDrink) {
+    try {
+      onDelete(savedDrink.id)
+    } catch {
+      setManagementStatus({
+        kind: 'error',
+        message:
+          'This drink could not be deleted from My Drinks on this device. Nothing was changed.',
+      })
+      return
+    }
+
+    setPendingDeleteId(null)
+    setManagementStatus({
+      kind: 'success',
+      message: `${savedDrink.drinkName} was deleted from My Drinks. Past drinking records were not changed.`,
+    })
+  }
 
   return (
     <section className="my-drinks-panel" aria-labelledby="my-drinks-title">
@@ -29,6 +86,15 @@ export function SavedDrinkPicker({
         </p>
       </div>
 
+      {managementStatus && (
+        <div
+          className={`management-notice management-notice--${managementStatus.kind}`}
+          role={managementStatus.kind === 'error' ? 'alert' : 'status'}
+        >
+          {managementStatus.message}
+        </div>
+      )}
+
       {savedDrinks.length === 0 ? (
         <p className="empty-state">
           No saved drinks yet. Enter drink details below and choose Save this
@@ -38,18 +104,75 @@ export function SavedDrinkPicker({
         <ul className="saved-drinks-list">
           {savedDrinks.map((savedDrink) => (
             <li key={savedDrink.id}>
-              <button
-                className="saved-drink-button"
-                type="button"
-                aria-pressed={savedDrink.id === selectedSavedDrinkId}
-                onClick={() => onSelect(savedDrink)}
-              >
-                <strong>{savedDrink.drinkName}</strong>
-                <span>
-                  {getDrinkTypeLabel(savedDrink.drinkType)} -{' '}
-                  {savedDrink.servingVolumeMl} mL - {savedDrink.abvPercent}% ABV
-                </span>
-              </button>
+              <article className="saved-drink-item">
+                <button
+                  className="saved-drink-button"
+                  type="button"
+                  aria-pressed={savedDrink.id === selectedSavedDrinkId}
+                  onClick={() => onSelect(savedDrink)}
+                >
+                  <strong>{savedDrink.drinkName}</strong>
+                  <span>
+                    {getDrinkTypeLabel(savedDrink.drinkType)} -{' '}
+                    {savedDrink.servingVolumeMl} mL - {savedDrink.abvPercent}%
+                    {' '}ABV
+                  </span>
+                </button>
+
+                <div className="saved-drink-actions">
+                  <button
+                    className="secondary-button"
+                    type="button"
+                    aria-label={`Edit ${savedDrink.drinkName}`}
+                    onClick={() => beginEditing(savedDrink.id)}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    className="danger-button"
+                    type="button"
+                    aria-label={`Delete ${savedDrink.drinkName} from My Drinks`}
+                    onClick={() => requestDelete(savedDrink.id)}
+                  >
+                    Delete from My Drinks
+                  </button>
+                </div>
+
+                {editingSavedDrinkId === savedDrink.id && (
+                  <SavedDrinkEditor
+                    savedDrink={savedDrink}
+                    onSave={saveEditedDrink}
+                    onCancel={() => setEditingSavedDrinkId(null)}
+                  />
+                )}
+
+                {pendingDeleteId === savedDrink.id && (
+                  <div className="delete-confirmation" role="alert">
+                    <p>
+                      <strong>
+                        Delete {savedDrink.drinkName} from My Drinks?
+                      </strong>
+                    </p>
+                    <p>This will not delete past drinking records.</p>
+                    <div className="management-actions">
+                      <button
+                        className="danger-button"
+                        type="button"
+                        onClick={() => confirmDelete(savedDrink)}
+                      >
+                        Yes, delete {savedDrink.drinkName} from My Drinks
+                      </button>
+                      <button
+                        className="secondary-button"
+                        type="button"
+                        onClick={() => setPendingDeleteId(null)}
+                      >
+                        Keep {savedDrink.drinkName}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </article>
             </li>
           ))}
         </ul>

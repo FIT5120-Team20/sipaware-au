@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import type { SavedDrink } from '../types/savedDrink'
+import {
+  createUpdatedSavedDrink,
+  type SavedDrink,
+} from '../types/savedDrink'
 import { DRINKING_RECORDS_STORAGE_KEY } from './drinkingRecordRepository'
 import {
   LocalStorageSavedDrinkRepository,
@@ -46,6 +49,77 @@ describe('LocalStorageSavedDrinkRepository', () => {
       firstSavedDrink,
       secondSavedDrink,
     ])
+  })
+
+  it('updates one saved drink, preserves identity and unrelated drinks, and reloads it', () => {
+    const repository = new LocalStorageSavedDrinkRepository()
+    repository.add(firstSavedDrink)
+    repository.add(secondSavedDrink)
+    const updatedFirstSavedDrink: SavedDrink = {
+      ...firstSavedDrink,
+      drinkName: 'Carlton Draught Large',
+      servingVolumeMl: 500,
+      abvPercent: 4.8,
+      updatedAt: '2026-08-27T10:30:00.000Z',
+    }
+
+    expect(repository.update(updatedFirstSavedDrink)).toEqual([
+      updatedFirstSavedDrink,
+      secondSavedDrink,
+    ])
+    expect(new LocalStorageSavedDrinkRepository().list()).toEqual([
+      updatedFirstSavedDrink,
+      secondSavedDrink,
+    ])
+    expect(updatedFirstSavedDrink.id).toBe(firstSavedDrink.id)
+    expect(updatedFirstSavedDrink.createdAt).toBe(firstSavedDrink.createdAt)
+  })
+
+  it('deletes only the requested saved drink and persists the remaining list', () => {
+    const repository = new LocalStorageSavedDrinkRepository()
+    repository.add(firstSavedDrink)
+    repository.add(secondSavedDrink)
+
+    expect(repository.delete(firstSavedDrink.id)).toEqual([secondSavedDrink])
+    expect(new LocalStorageSavedDrinkRepository().list()).toEqual([
+      secondSavedDrink,
+    ])
+  })
+
+  it('creates an updated value with unchanged identity and creation time', () => {
+    const updatedSavedDrink = createUpdatedSavedDrink(firstSavedDrink, {
+      drinkType: 'other',
+      drinkName: 'Carlton Draught Large',
+      servingVolumeMl: 500,
+      abvPercent: 4.8,
+    })
+
+    expect(updatedSavedDrink).toMatchObject({
+      id: firstSavedDrink.id,
+      createdAt: firstSavedDrink.createdAt,
+      drinkType: 'other',
+      drinkName: 'Carlton Draught Large',
+      servingVolumeMl: 500,
+      abvPercent: 4.8,
+    })
+    expect(new Date(updatedSavedDrink.updatedAt).getTime()).toBeGreaterThan(
+      new Date(firstSavedDrink.updatedAt).getTime(),
+    )
+  })
+
+  it('rejects an update that changes createdAt without writing it', () => {
+    const repository = new LocalStorageSavedDrinkRepository()
+    repository.add(firstSavedDrink)
+    const invalidUpdate: SavedDrink = {
+      ...firstSavedDrink,
+      createdAt: '2026-08-27T09:30:00.000Z',
+      updatedAt: '2026-08-27T10:30:00.000Z',
+    }
+
+    expect(() => repository.update(invalidUpdate)).toThrow(
+      'A saved drink creation time cannot be changed.',
+    )
+    expect(repository.list()).toEqual([firstSavedDrink])
   })
 
   it.each([
@@ -100,6 +174,12 @@ describe('LocalStorageSavedDrinkRepository', () => {
 
     expect(repository.list()).toEqual([])
     expect(() => repository.add(firstSavedDrink)).toThrow('Storage read failed')
+    expect(() => repository.update(firstSavedDrink)).toThrow(
+      'Storage read failed',
+    )
+    expect(() => repository.delete(firstSavedDrink.id)).toThrow(
+      'Storage read failed',
+    )
     expect(setItem).not.toHaveBeenCalled()
   })
 
