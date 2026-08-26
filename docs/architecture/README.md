@@ -15,6 +15,8 @@ Personal drinking data is local-only and must remain on the user's device. Epic 
 
 US1.3 extends the SavedDrink repository with local update and delete operations. Updates preserve the SavedDrink ID and creation timestamp, and deletions require explicit user confirmation. Neither operation reads from or writes to the drinking-record repository, so there is no update or delete cascade into history.
 
+US1.4 extends the DrinkingRecord repository with local update and delete operations for displayed recent history. Corrections preserve the DrinkingRecord ID and creation timestamp, rebuild corrected date/time values with the established wall-clock offset design, and require the same validation as manual capture. DrinkingRecord management never reads from or writes to the SavedDrink repository, so saved reusable definitions remain independent.
+
 For the current data model, `amountConsumed` is the number of servings consumed. It is stored alongside the per-serving volume in millilitres. No standard-drink, guideline, or health value is calculated.
 
 Amazon RDS for PostgreSQL is intended only for approved official or public reference data.

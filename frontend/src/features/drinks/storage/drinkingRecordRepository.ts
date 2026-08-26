@@ -6,6 +6,8 @@ export const DRINKING_RECORDS_STORAGE_KEY = 'sipaware.drinkingRecords.v1'
 export interface DrinkingRecordRepository {
   list(): DrinkingRecord[]
   add(record: DrinkingRecord): DrinkingRecord[]
+  update(record: DrinkingRecord): DrinkingRecord[]
+  delete(recordId: string): DrinkingRecord[]
 }
 
 function isNonEmptyString(value: unknown): value is string {
@@ -97,5 +99,49 @@ export class LocalStorageDrinkingRecordRepository
     const records = [...this.readFrom(storage), record]
     storage.setItem(this.storageKey, JSON.stringify(records))
     return records
+  }
+
+  update(record: DrinkingRecord): DrinkingRecord[] {
+    if (!isDrinkingRecord(record)) {
+      throw new Error('Cannot update an invalid drinking record.')
+    }
+
+    const storage = this.resolveStorage()
+    const records = this.readFrom(storage)
+    const existingRecord = records.find(
+      (candidate) => candidate.id === record.id,
+    )
+
+    if (!existingRecord) {
+      throw new Error('The drinking record no longer exists.')
+    }
+
+    if (record.createdAt !== existingRecord.createdAt) {
+      throw new Error('A drinking record creation time cannot be changed.')
+    }
+
+    const updatedRecords = records.map((candidate) =>
+      candidate.id === record.id ? record : candidate,
+    )
+    storage.setItem(this.storageKey, JSON.stringify(updatedRecords))
+    return updatedRecords
+  }
+
+  delete(recordId: string): DrinkingRecord[] {
+    if (!isNonEmptyString(recordId)) {
+      throw new Error('A drinking record ID is required for deletion.')
+    }
+
+    const storage = this.resolveStorage()
+    const records = this.readFrom(storage)
+    if (!records.some((record) => record.id === recordId)) {
+      throw new Error('The drinking record no longer exists.')
+    }
+
+    const remainingRecords = records.filter(
+      (record) => record.id !== recordId,
+    )
+    storage.setItem(this.storageKey, JSON.stringify(remainingRecords))
+    return remainingRecords
   }
 }

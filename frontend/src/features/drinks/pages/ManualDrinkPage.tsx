@@ -28,6 +28,14 @@ export function ManualDrinkPage() {
     setRecords(drinkingRecordRepository.add(record))
   }
 
+  function updateRecord(record: DrinkingRecord) {
+    setRecords(drinkingRecordRepository.update(record))
+  }
+
+  function deleteRecord(recordId: string) {
+    setRecords(drinkingRecordRepository.delete(recordId))
+  }
+
   function saveDrinkForFutureUse(savedDrink: SavedDrink) {
     setSavedDrinks(savedDrinkRepository.add(savedDrink))
   }
@@ -60,7 +68,11 @@ export function ManualDrinkPage() {
             onUpdateSavedDrink={updateSavedDrink}
             onDeleteSavedDrink={deleteSavedDrink}
           />
-          <RecentDrinkingRecords records={records} />
+          <RecentDrinkingRecords
+            records={records}
+            onUpdate={updateRecord}
+            onDelete={deleteRecord}
+          />
         </div>
       </div>
     </main>

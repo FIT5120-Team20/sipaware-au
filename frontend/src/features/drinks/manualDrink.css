@@ -167,6 +167,7 @@
 }
 
 .saved-drink-editor,
+.drinking-record-editor,
 .delete-confirmation {
   padding: 1rem;
   border: 2px solid #829ab1;
@@ -174,10 +175,21 @@
   background: #f8fafb;
 }
 
-.saved-drink-editor h4 {
+.saved-drink-editor h4,
+.drinking-record-editor h4 {
   margin: 0;
   color: #102a43;
   font-size: 1.125rem;
+}
+
+.drinking-record-editor {
+  display: grid;
+  gap: 1rem;
+}
+
+.drinking-record-editor > div:first-child {
+  display: grid;
+  gap: 0.45rem;
 }
 
 .delete-confirmation {
@@ -330,6 +342,14 @@
   gap: 1rem;
 }
 
+.drinking-record-editor .date-time-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.drinking-record-editor .date-time-grid > .form-field {
+  min-width: 0;
+}
+
 .primary-button {
   min-height: 3.125rem;
   padding: 0.75rem 1.25rem;
@@ -423,6 +443,8 @@
 }
 
 .recent-record {
+  display: grid;
+  gap: 1rem;
   padding: 1rem;
   border: 1px solid #d8dee3;
   border-radius: 0.55rem;
@@ -456,6 +478,18 @@
   display: grid;
   gap: 0.7rem;
   margin: 0.875rem 0 0;
+}
+
+.recent-record-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.recent-record-actions .secondary-button,
+.recent-record-actions .danger-button {
+  min-height: 2.75rem;
+  padding: 0.5rem 0.875rem;
 }
 
 .recent-record dl > div {
@@ -495,6 +529,7 @@
   }
 
   .saved-drink-actions,
+  .recent-record-actions,
   .management-actions {
     display: grid;
     grid-template-columns: 1fr;

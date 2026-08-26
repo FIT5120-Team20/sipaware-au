@@ -17,7 +17,13 @@ describe('RecentDrinkingRecords', () => {
       consumedTimezoneOffsetMinutes: -600,
       createdAt: '2026-08-26T09:31:00.000Z',
     }
-    render(<RecentDrinkingRecords records={[record]} />)
+    render(
+      <RecentDrinkingRecords
+        records={[record]}
+        onUpdate={() => undefined}
+        onDelete={() => undefined}
+      />,
+    )
 
     expect(screen.getByText('0.0001 mL')).toBeInTheDocument()
     expect(screen.getByText('0.0001%')).toBeInTheDocument()

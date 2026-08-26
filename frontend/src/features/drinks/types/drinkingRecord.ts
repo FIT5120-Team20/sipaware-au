@@ -34,3 +34,15 @@ export function createDrinkingRecord(
     createdAt: new Date().toISOString(),
   }
 }
+
+export function createUpdatedDrinkingRecord(
+  record: DrinkingRecord,
+  values: NewDrinkingRecord,
+): DrinkingRecord {
+  return {
+    ...record,
+    ...values,
+    id: record.id,
+    createdAt: record.createdAt,
+  }
+}
