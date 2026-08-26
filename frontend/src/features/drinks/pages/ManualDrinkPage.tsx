@@ -3,20 +3,33 @@ import { useMemo, useState } from 'react'
 import { ManualDrinkForm } from '../components/ManualDrinkForm'
 import { RecentDrinkingRecords } from '../components/RecentDrinkingRecords'
 import { LocalStorageDrinkingRecordRepository } from '../storage/drinkingRecordRepository'
+import { LocalStorageSavedDrinkRepository } from '../storage/savedDrinkRepository'
 import type { DrinkingRecord } from '../types/drinkingRecord'
+import type { SavedDrink } from '../types/savedDrink'
 import '../manualDrink.css'
 
 export function ManualDrinkPage() {
-  const repository = useMemo(
+  const drinkingRecordRepository = useMemo(
     () => new LocalStorageDrinkingRecordRepository(),
     [],
   )
+  const savedDrinkRepository = useMemo(
+    () => new LocalStorageSavedDrinkRepository(),
+    [],
+  )
   const [records, setRecords] = useState<DrinkingRecord[]>(() =>
-    repository.list(),
+    drinkingRecordRepository.list(),
+  )
+  const [savedDrinks, setSavedDrinks] = useState<SavedDrink[]>(() =>
+    savedDrinkRepository.list(),
   )
 
   function saveRecord(record: DrinkingRecord) {
-    setRecords(repository.add(record))
+    setRecords(drinkingRecordRepository.add(record))
+  }
+
+  function saveDrinkForFutureUse(savedDrink: SavedDrink) {
+    setSavedDrinks(savedDrinkRepository.add(savedDrink))
   }
 
   return (
@@ -32,7 +45,11 @@ export function ManualDrinkPage() {
         </header>
 
         <div className="manual-drink-layout">
-          <ManualDrinkForm onSave={saveRecord} />
+          <ManualDrinkForm
+            savedDrinks={savedDrinks}
+            onSave={saveRecord}
+            onSaveSavedDrink={saveDrinkForFutureUse}
+          />
           <RecentDrinkingRecords records={records} />
         </div>
       </div>

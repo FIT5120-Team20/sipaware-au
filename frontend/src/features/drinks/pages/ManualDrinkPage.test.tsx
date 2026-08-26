@@ -249,9 +249,11 @@ describe('ManualDrinkForm save failures', () => {
   it('keeps entered values and does not claim success when persistence fails', async () => {
     render(
       <ManualDrinkForm
+        savedDrinks={[]}
         onSave={() => {
           throw new Error('Storage is unavailable')
         }}
+        onSaveSavedDrink={() => undefined}
       />,
     )
     const user = await completeValidForm()

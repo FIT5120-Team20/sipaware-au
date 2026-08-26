@@ -83,6 +83,93 @@
   gap: 1.25rem;
 }
 
+.my-drinks-panel {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  border: 1px solid #bcccdc;
+  border-radius: 0.55rem;
+  background: #f8fafb;
+}
+
+.my-drinks-heading {
+  margin-bottom: 1rem;
+}
+
+.my-drinks-heading h3 {
+  margin: 0.3rem 0 0;
+  color: #102a43;
+  font-size: 1.25rem;
+}
+
+.my-drinks-heading > p:last-child {
+  margin: 0.5rem 0 0;
+  color: #52616b;
+  line-height: 1.55;
+}
+
+.saved-drinks-list {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.saved-drink-button {
+  display: grid;
+  width: 100%;
+  min-height: 3.5rem;
+  gap: 0.25rem;
+  padding: 0.75rem 1rem;
+  border: 2px solid #829ab1;
+  border-radius: 0.5rem;
+  color: #243b53;
+  background: #ffffff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.saved-drink-button strong {
+  color: #102a43;
+  font-size: 1rem;
+}
+
+.saved-drink-button span {
+  line-height: 1.45;
+}
+
+.saved-drink-button:hover,
+.saved-drink-button[aria-pressed='true'] {
+  border-color: #0b4f6c;
+  background: #eaf6fb;
+}
+
+.selected-drink-notice {
+  margin-top: 1rem;
+  padding: 0.875rem;
+  border-left: 4px solid #0b4f6c;
+  border-radius: 0.35rem;
+  color: #243b53;
+  background: #eaf6fb;
+}
+
+.selected-drink-notice p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.text-button {
+  min-height: 2.75rem;
+  margin-top: 0.5rem;
+  padding: 0.45rem 0;
+  border: 0;
+  color: #0b4f6c;
+  background: transparent;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 .form-field {
   display: grid;
   gap: 0.45rem;
@@ -113,9 +200,16 @@
   cursor: not-allowed;
 }
 
+.form-field input:read-only {
+  background: #f0f4f8;
+}
+
 .form-field input:focus-visible,
 .form-field select:focus-visible,
-.primary-button:focus-visible {
+.primary-button:focus-visible,
+.secondary-button:focus-visible,
+.saved-drink-button:focus-visible,
+.text-button:focus-visible {
   outline: 3px solid #8a4b08;
   outline-offset: 2px;
 }
@@ -173,6 +267,28 @@
 .primary-button:hover {
   border-color: #083b51;
   background: #083b51;
+}
+
+.form-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.875rem;
+}
+
+.secondary-button {
+  min-height: 3.125rem;
+  padding: 0.75rem 1.25rem;
+  border: 2px solid #0b4f6c;
+  border-radius: 0.5rem;
+  color: #0b4f6c;
+  background: #ffffff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.secondary-button:hover {
+  color: #ffffff;
+  background: #0b4f6c;
 }
 
 .form-notice {
@@ -278,6 +394,10 @@
   }
 
   .date-time-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .form-actions {
     grid-template-columns: 1fr;
   }
 

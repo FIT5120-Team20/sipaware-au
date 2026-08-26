@@ -6,7 +6,7 @@ FIT5120 Team20
 
 ## Project Overview
 
-SipAware AU is a web application focused on alcohol-consumption awareness and preventive health. The repository contains a React frontend, a FastAPI health-check backend, lightweight architecture documentation, and the Epic 1 US1.1 manual drink-capture feature.
+SipAware AU is a web application focused on alcohol-consumption awareness and preventive health. The repository contains a React frontend, a FastAPI health-check backend, lightweight architecture documentation, and the Epic 1 US1.1 manual drink-capture and US1.2 quick-record features.
 
 ## Technology Stack
 
@@ -94,9 +94,9 @@ npm test
 
 ## Current Scope
 
-The current product scope is limited to Epic 1 US1.1: manually recording a drink in browser-local drinking history. The form captures drink type, drink name, serving volume, ABV, number of servings consumed, date, and time. A small read-only recent-records section verifies local saves.
+The current product scope covers Epic 1 US1.1 and US1.2. Users can manually record a drink in browser-local drinking history, explicitly save reusable drink definitions to My Drinks, and select a saved drink to create a new history snapshot with current consumption details. A small read-only recent-records section verifies local history saves.
 
-My Drinks, reusable saved drinks, editing, deletion, full history management, authentication, health calculations, guideline logic, safety guidance, and Epic 2 functionality are not implemented.
+Editing or deleting My Drinks, full saved-drink management, editing or deleting drinking history, authentication, health calculations, guideline logic, safety guidance, and Epic 2 functionality are not implemented.
 
 ## Data / Database Status
 
@@ -106,7 +106,9 @@ See [data/README.md](data/README.md) and [docs/data-contracts/README.md](docs/da
 
 ## Privacy Architecture
 
-Personal drinking records remain on the user's device and are stored in browser LocalStorage under the versioned key `sipaware.drinkingRecords.v1`. They are not sent to FastAPI or stored in Amazon RDS, this repository's `data/` directory, or another server-side store.
+Personal drinking records remain on the user's device and are stored in browser LocalStorage under the versioned key `sipaware.drinkingRecords.v1`. Reusable saved drinks are stored separately under `sipaware.savedDrinks.v1`. Neither is sent to FastAPI or stored in Amazon RDS, this repository's `data/` directory, or another server-side store.
+
+A `SavedDrink` contains only reusable drink type, name, serving volume and ABV data plus local identifiers and timestamps. It excludes servings consumed and consumption date/time. When it is used, its reusable values are copied into a new independent `DrinkingRecord` historical snapshot.
 
 For US1.1, `amountConsumed` means the number of servings consumed. For example, a serving volume of 375 mL and an amount of 1.5 represents 1.5 servings of 375 mL each. No standard-drink or health calculation is performed.
 

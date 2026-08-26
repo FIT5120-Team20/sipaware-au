@@ -4,8 +4,21 @@ import {
   CUSTOM_SERVING_SIZE,
   type ManualDrinkFormErrors,
   type ManualDrinkFormValues,
+  type ReusableDrinkFormErrors,
+  type ReusableDrinkFormValues,
   type ValidatedManualDrinkInput,
+  type ValidatedReusableDrinkInput,
 } from '../types/manualDrinkForm'
+
+export type ReusableDrinkValidationResult =
+  | {
+      success: true
+      data: ValidatedReusableDrinkInput
+    }
+  | {
+      success: false
+      errors: ReusableDrinkFormErrors
+    }
 
 export type ManualDrinkValidationResult =
   | {
@@ -89,10 +102,10 @@ export function buildConsumedAtIso(date: string, time: string): string | null {
   return consumedAt.toISOString()
 }
 
-export function validateManualDrinkInput(
-  values: ManualDrinkFormValues,
-): ManualDrinkValidationResult {
-  const errors: ManualDrinkFormErrors = {}
+export function validateReusableDrinkInput(
+  values: ReusableDrinkFormValues,
+): ReusableDrinkValidationResult {
+  const errors: ReusableDrinkFormErrors = {}
   let drinkType: DrinkType | undefined
 
   if (!isDrinkType(values.drinkType)) {
@@ -139,6 +152,34 @@ export function validateManualDrinkInput(
     errors.abvPercent = 'ABV cannot be greater than 100%.'
   }
 
+  if (
+    Object.keys(errors).length > 0 ||
+    !drinkType ||
+    servingVolumeMl === undefined ||
+    abvPercent === undefined
+  ) {
+    return { success: false, errors }
+  }
+
+  return {
+    success: true,
+    data: {
+      drinkType,
+      drinkName,
+      servingVolumeMl,
+      abvPercent,
+    },
+  }
+}
+
+export function validateManualDrinkInput(
+  values: ManualDrinkFormValues,
+): ManualDrinkValidationResult {
+  const reusableDrinkResult = validateReusableDrinkInput(values)
+  const errors: ManualDrinkFormErrors = reusableDrinkResult.success
+    ? {}
+    : { ...reusableDrinkResult.errors }
+
   const amountConsumed = parseFiniteNumber(values.amountConsumed)
   if (amountConsumed === undefined || amountConsumed <= 0) {
     errors.amountConsumed = 'Enter an amount greater than 0 servings.'
@@ -167,10 +208,8 @@ export function validateManualDrinkInput(
   }
 
   if (
+    !reusableDrinkResult.success ||
     Object.keys(errors).length > 0 ||
-    !drinkType ||
-    servingVolumeMl === undefined ||
-    abvPercent === undefined ||
     amountConsumed === undefined ||
     consumedTimezoneOffsetMinutes === undefined ||
     !consumedAt
@@ -181,10 +220,7 @@ export function validateManualDrinkInput(
   return {
     success: true,
     data: {
-      drinkType,
-      drinkName,
-      servingVolumeMl,
-      abvPercent,
+      ...reusableDrinkResult.data,
       amountConsumed,
       consumedAt,
       consumedTimezoneOffsetMinutes,

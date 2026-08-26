@@ -4,8 +4,12 @@ import {
   CUSTOM_SERVING_SIZE,
   type ManualDrinkField,
   type ManualDrinkFormValues,
+  type ReusableDrinkField,
 } from '../types/manualDrinkForm'
-import { validateManualDrinkInput } from './drinkingRecordValidation'
+import {
+  validateManualDrinkInput,
+  validateReusableDrinkInput,
+} from './drinkingRecordValidation'
 
 function validValues(): ManualDrinkFormValues {
   return {
@@ -111,6 +115,64 @@ describe('validateManualDrinkInput', () => {
     expect(result.success).toBe(false)
     if (result.success) {
       throw new Error('Expected invalid manual drink values.')
+    }
+
+    expect(result.errors[errorField]).toBeDefined()
+  })
+})
+
+describe('validateReusableDrinkInput', () => {
+  it('normalises only the reusable drink information', () => {
+    const result = validateReusableDrinkInput(validValues())
+
+    expect(result).toEqual({
+      success: true,
+      data: {
+        drinkType: 'beer',
+        drinkName: 'Pale Ale',
+        servingVolumeMl: 375,
+        abvPercent: 4.5,
+      },
+    })
+  })
+
+  it.each<{
+    name: string
+    changes: Partial<ManualDrinkFormValues>
+    errorField: ReusableDrinkField
+  }>([
+    {
+      name: 'an unsupported drink type',
+      changes: { drinkType: '' },
+      errorField: 'drinkType',
+    },
+    {
+      name: 'an empty drink name',
+      changes: { drinkName: '   ' },
+      errorField: 'drinkName',
+    },
+    {
+      name: 'an invalid custom volume',
+      changes: {
+        servingSizeSelection: CUSTOM_SERVING_SIZE,
+        customVolumeMl: '0',
+      },
+      errorField: 'customVolumeMl',
+    },
+    {
+      name: 'an invalid ABV',
+      changes: { abvPercent: '101' },
+      errorField: 'abvPercent',
+    },
+  ])('rejects $name', ({ changes, errorField }) => {
+    const result = validateReusableDrinkInput({
+      ...validValues(),
+      ...changes,
+    })
+
+    expect(result.success).toBe(false)
+    if (result.success) {
+      throw new Error('Expected invalid reusable drink values.')
     }
 
     expect(result.errors[errorField]).toBeDefined()

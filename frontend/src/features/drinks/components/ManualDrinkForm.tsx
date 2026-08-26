@@ -11,16 +11,24 @@ import {
   type DrinkingRecord,
   type DrinkType,
 } from '../types/drinkingRecord'
+import { createSavedDrink, type SavedDrink } from '../types/savedDrink'
 import {
   CUSTOM_SERVING_SIZE,
   type ManualDrinkField,
   type ManualDrinkFormErrors,
   type ManualDrinkFormValues,
+  type ReusableDrinkField,
 } from '../types/manualDrinkForm'
-import { validateManualDrinkInput } from '../validation/drinkingRecordValidation'
+import {
+  validateManualDrinkInput,
+  validateReusableDrinkInput,
+} from '../validation/drinkingRecordValidation'
+import { SavedDrinkPicker } from './SavedDrinkPicker'
 
 interface ManualDrinkFormProps {
+  savedDrinks: readonly SavedDrink[]
   onSave: (record: DrinkingRecord) => void
+  onSaveSavedDrink: (savedDrink: SavedDrink) => void
 }
 
 interface FieldErrorProps {
@@ -49,6 +57,13 @@ const FIELD_FOCUS_ORDER: readonly ManualDrinkField[] = [
   'amountConsumed',
   'date',
   'time',
+]
+const REUSABLE_DRINK_FIELDS: readonly ReusableDrinkField[] = [
+  'drinkType',
+  'drinkName',
+  'servingSizeSelection',
+  'customVolumeMl',
+  'abvPercent',
 ]
 
 function padDatePart(value: number): string {
@@ -94,12 +109,22 @@ function describedBy(helpId: string, errorId: string, hasError: boolean) {
   return hasError ? `${helpId} ${errorId}` : helpId
 }
 
-export function ManualDrinkForm({ onSave }: ManualDrinkFormProps) {
+export function ManualDrinkForm({
+  savedDrinks,
+  onSave,
+  onSaveSavedDrink,
+}: ManualDrinkFormProps) {
   const formRef = useRef<HTMLFormElement>(null)
   const [values, setValues] = useState(createInitialManualDrinkFormValues)
   const [errors, setErrors] = useState<ManualDrinkFormErrors>({})
   const [saveStatus, setSaveStatus] = useState<SaveStatus>(null)
+  const [selectedSavedDrinkId, setSelectedSavedDrinkId] = useState<
+    string | null
+  >(null)
   const selectedDrinkType = getDrinkTypeConfig(values.drinkType)
+  const selectedSavedDrink = savedDrinks.find(
+    (savedDrink) => savedDrink.id === selectedSavedDrinkId,
+  )
   const isCustomVolume =
     values.servingSizeSelection === CUSTOM_SERVING_SIZE
 
@@ -150,6 +175,43 @@ export function ManualDrinkForm({ onSave }: ManualDrinkFormProps) {
     setSaveStatus(null)
   }
 
+  function handleSavedDrinkSelect(savedDrink: SavedDrink) {
+    const drinkTypeConfig = getDrinkTypeConfig(savedDrink.drinkType)
+    const usesCommonServingSize = Boolean(
+      drinkTypeConfig?.servingSizesMl.includes(savedDrink.servingVolumeMl),
+    )
+
+    setValues((currentValues) => ({
+      ...currentValues,
+      drinkType: savedDrink.drinkType,
+      drinkName: savedDrink.drinkName,
+      servingSizeSelection: usesCommonServingSize
+        ? String(savedDrink.servingVolumeMl)
+        : CUSTOM_SERVING_SIZE,
+      customVolumeMl: usesCommonServingSize
+        ? ''
+        : String(savedDrink.servingVolumeMl),
+      abvPercent: String(savedDrink.abvPercent),
+    }))
+    clearErrors(...REUSABLE_DRINK_FIELDS)
+    setSelectedSavedDrinkId(savedDrink.id)
+    setSaveStatus(null)
+  }
+
+  function clearSavedDrinkSelection() {
+    setValues((currentValues) => ({
+      ...currentValues,
+      drinkType: '',
+      drinkName: '',
+      servingSizeSelection: '',
+      customVolumeMl: '',
+      abvPercent: '',
+    }))
+    clearErrors(...REUSABLE_DRINK_FIELDS)
+    setSelectedSavedDrinkId(null)
+    setSaveStatus(null)
+  }
+
   function focusFirstInvalidField(validationErrors: ManualDrinkFormErrors) {
     const firstInvalidField = FIELD_FOCUS_ORDER.find(
       (field) => validationErrors[field],
@@ -196,9 +258,45 @@ export function ManualDrinkForm({ onSave }: ManualDrinkFormProps) {
 
     setErrors({})
     setValues(createInitialManualDrinkFormValues())
+    setSelectedSavedDrinkId(null)
     setSaveStatus({
       kind: 'success',
       message: 'Drinking record saved on this device.',
+    })
+  }
+
+  function handleSaveForFutureUse() {
+    setSaveStatus(null)
+
+    const validationResult = validateReusableDrinkInput(values)
+    if (!validationResult.success) {
+      setErrors(validationResult.errors)
+      setSaveStatus({
+        kind: 'error',
+        message:
+          'Check the highlighted drink details before saving to My Drinks.',
+      })
+      focusFirstInvalidField(validationResult.errors)
+      return
+    }
+
+    try {
+      const savedDrink = createSavedDrink(validationResult.data)
+      onSaveSavedDrink(savedDrink)
+      setSelectedSavedDrinkId(savedDrink.id)
+    } catch {
+      setSaveStatus({
+        kind: 'error',
+        message:
+          'This drink could not be saved to My Drinks on this device. Your entries have been kept so you can try again.',
+      })
+      return
+    }
+
+    setErrors({})
+    setSaveStatus({
+      kind: 'success',
+      message: 'Drink saved to My Drinks on this device.',
     })
   }
 
@@ -223,6 +321,13 @@ export function ManualDrinkForm({ onSave }: ManualDrinkFormProps) {
         </div>
       )}
 
+      <SavedDrinkPicker
+        savedDrinks={savedDrinks}
+        selectedSavedDrinkId={selectedSavedDrinkId}
+        onSelect={handleSavedDrinkSelect}
+        onClear={clearSavedDrinkSelection}
+      />
+
       <form ref={formRef} onSubmit={handleSubmit} noValidate>
         <div className="form-field">
           <label htmlFor="drink-type">Drink type</label>
@@ -235,6 +340,7 @@ export function ManualDrinkForm({ onSave }: ManualDrinkFormProps) {
             }
             aria-invalid={Boolean(errors.drinkType)}
             aria-describedby={errors.drinkType ? 'drink-type-error' : undefined}
+            disabled={Boolean(selectedSavedDrink)}
             required
           >
             <option value="">Select a drink type</option>
@@ -258,6 +364,7 @@ export function ManualDrinkForm({ onSave }: ManualDrinkFormProps) {
             aria-invalid={Boolean(errors.drinkName)}
             aria-describedby={errors.drinkName ? 'drink-name-error' : undefined}
             autoComplete="off"
+            readOnly={Boolean(selectedSavedDrink)}
             required
           />
           <FieldError id="drink-name-error" message={errors.drinkName} />
@@ -276,7 +383,7 @@ export function ManualDrinkForm({ onSave }: ManualDrinkFormProps) {
               'serving-size-error',
               Boolean(errors.servingSizeSelection),
             )}
-            disabled={!selectedDrinkType}
+            disabled={!selectedDrinkType || Boolean(selectedSavedDrink)}
             required
           >
             <option value="">Select a serving size</option>
@@ -307,6 +414,7 @@ export function ManualDrinkForm({ onSave }: ManualDrinkFormProps) {
               type="number"
               inputMode="decimal"
               step="any"
+              readOnly={Boolean(selectedSavedDrink)}
               value={values.customVolumeMl}
               onChange={(event) =>
                 updateValue('customVolumeMl', event.target.value)
@@ -333,6 +441,7 @@ export function ManualDrinkForm({ onSave }: ManualDrinkFormProps) {
             inputMode="decimal"
             step="any"
             max="100"
+            readOnly={Boolean(selectedSavedDrink)}
             value={values.abvPercent}
             onChange={(event) => updateValue('abvPercent', event.target.value)}
             aria-invalid={Boolean(errors.abvPercent)}
@@ -415,9 +524,20 @@ export function ManualDrinkForm({ onSave }: ManualDrinkFormProps) {
           </div>
         </fieldset>
 
-        <button className="primary-button" type="submit">
-          Save drinking record
-        </button>
+        <div className="form-actions">
+          <button className="primary-button" type="submit">
+            Save drinking record
+          </button>
+          {!selectedSavedDrink && (
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={handleSaveForFutureUse}
+            >
+              Save this drink to My Drinks
+            </button>
+          )}
+        </div>
       </form>
     </section>
   )
