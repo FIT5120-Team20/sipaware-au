@@ -6,9 +6,7 @@ FIT5120 Team20
 
 ## Project Overview
 
-SipAware AU is a web application focused on alcohol-consumption awareness and preventive health. This repository currently contains the project bootstrap only: a React frontend, a FastAPI backend, and lightweight documentation for the agreed architecture.
-
-No Epic 1 or Epic 2 product functionality is included in this bootstrap.
+SipAware AU is a web application focused on alcohol-consumption awareness and preventive health. The repository contains a React frontend, a FastAPI health-check backend, lightweight architecture documentation, and the Epic 1 US1.1 manual drink-capture feature.
 
 ## Technology Stack
 
@@ -58,7 +56,7 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:5173`. The bootstrap page reports whether it can reach the backend health endpoint.
+Open `http://localhost:5173` to use the manual drink-entry page. The existing backend health endpoint remains available independently at `GET /api/health`.
 
 Create a production build with:
 
@@ -91,11 +89,14 @@ Frontend static checks can be run from `frontend/`:
 ```powershell
 npm run lint
 npm run build
+npm test
 ```
 
 ## Current Scope
 
-This initial foundation verifies that the frontend starts, the backend starts, and the two applications can communicate through a health endpoint. Authentication, accounts, product workflows, health calculations, safety guidance, and other Epic 1 or Epic 2 functionality are not part of this bootstrap.
+The current product scope is limited to Epic 1 US1.1: manually recording a drink in browser-local drinking history. The form captures drink type, drink name, serving volume, ABV, number of servings consumed, date, and time. A small read-only recent-records section verifies local saves.
+
+My Drinks, reusable saved drinks, editing, deletion, full history management, authentication, health calculations, guideline logic, safety guidance, and Epic 2 functionality are not implemented.
 
 ## Data / Database Status
 
@@ -105,7 +106,9 @@ See [data/README.md](data/README.md) and [docs/data-contracts/README.md](docs/da
 
 ## Privacy Architecture
 
-Personal drinking records must remain on the user's device. They must not be sent to or stored in Amazon RDS, this repository's `data/` directory, or another server-side store. A future approved implementation may use browser-side storage such as LocalStorage or IndexedDB.
+Personal drinking records remain on the user's device and are stored in browser LocalStorage under the versioned key `sipaware.drinkingRecords.v1`. They are not sent to FastAPI or stored in Amazon RDS, this repository's `data/` directory, or another server-side store.
+
+For US1.1, `amountConsumed` means the number of servings consumed. For example, a serving volume of 375 mL and an amount of 1.5 represents 1.5 servings of 375 mL each. No standard-drink or health calculation is performed.
 
 ## Branching Convention
 

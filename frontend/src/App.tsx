@@ -1,7 +1,7 @@
-import { BootstrapPage } from './pages/BootstrapPage'
+import { ManualDrinkPage } from './features/drinks/pages/ManualDrinkPage'
 
 function App() {
-  return <BootstrapPage />
+  return <ManualDrinkPage />
 }
 
 export default App

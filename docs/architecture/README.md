@@ -9,7 +9,9 @@
 
 ## Privacy Boundary
 
-Personal drinking data is local-only and must remain on the user's device. It must not be stored in Amazon RDS or another backend data store. A future approved implementation may use LocalStorage or IndexedDB, but no browser persistence is implemented in this bootstrap.
+Personal drinking data is local-only and must remain on the user's device. Epic 1 US1.1 stores drinking-record snapshots in browser LocalStorage using the versioned key `sipaware.drinkingRecords.v1`. Records are accessed through a frontend repository abstraction and are never sent to FastAPI or another backend data store. Each snapshot stores the offset at the entered date and time so the original local wall-clock time remains stable if the device timezone later changes.
+
+For the current data model, `amountConsumed` is the number of servings consumed. It is stored alongside the per-serving volume in millilitres. No standard-drink, guideline, or health value is calculated.
 
 Amazon RDS for PostgreSQL is intended only for approved official or public reference data.
 
