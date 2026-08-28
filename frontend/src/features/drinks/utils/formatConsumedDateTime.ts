@@ -10,16 +10,47 @@ const australianEnglishDateTimeFormatter = new Intl.DateTimeFormat('en-AU', {
   timeZone: 'UTC',
 })
 
+function getEnteredWallClockDate(
+  record: Pick<
+    DrinkingRecord,
+    'consumedAt' | 'consumedTimezoneOffsetMinutes'
+  >,
+): Date {
+  const consumedAtMilliseconds = new Date(record.consumedAt).getTime()
+  return new Date(
+    consumedAtMilliseconds - record.consumedTimezoneOffsetMinutes * 60_000,
+  )
+}
+
+function padDateTimePart(value: number): string {
+  return String(value).padStart(2, '0')
+}
+
+export function getConsumedDateTimeInputValues(
+  record: Pick<
+    DrinkingRecord,
+    'consumedAt' | 'consumedTimezoneOffsetMinutes'
+  >,
+): { date: string; time: string } {
+  const enteredWallClockDate = getEnteredWallClockDate(record)
+
+  return {
+    date: `${enteredWallClockDate.getUTCFullYear()}-${padDateTimePart(
+      enteredWallClockDate.getUTCMonth() + 1,
+    )}-${padDateTimePart(enteredWallClockDate.getUTCDate())}`,
+    time: `${padDateTimePart(
+      enteredWallClockDate.getUTCHours(),
+    )}:${padDateTimePart(enteredWallClockDate.getUTCMinutes())}`,
+  }
+}
+
 export function formatConsumedDateTime(
   record: Pick<
     DrinkingRecord,
     'consumedAt' | 'consumedTimezoneOffsetMinutes'
   >,
 ): string {
-  const consumedAtMilliseconds = new Date(record.consumedAt).getTime()
-  const enteredLocalDate = new Date(
-    consumedAtMilliseconds - record.consumedTimezoneOffsetMinutes * 60_000,
+  return australianEnglishDateTimeFormatter.format(
+    getEnteredWallClockDate(record),
   )
-
-  return australianEnglishDateTimeFormatter.format(enteredLocalDate)
 }

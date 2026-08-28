@@ -6,7 +6,7 @@ FIT5120 Team20
 
 ## Project Overview
 
-SipAware AU is a web application focused on alcohol-consumption awareness and preventive health. The repository contains a React frontend, a FastAPI health-check backend, lightweight architecture documentation, and the Epic 1 US1.1 manual drink-capture, US1.2 quick-record, and US1.3 saved-drink management features.
+SipAware AU is a web application focused on alcohol-consumption awareness and preventive health. The repository contains a React frontend, a FastAPI health-check backend, lightweight architecture documentation, and the Epic 1 US1.1 through US1.4 manual drink-capture features.
 
 ## Technology Stack
 
@@ -94,9 +94,9 @@ npm test
 
 ## Current Scope
 
-The current product scope covers Epic 1 US1.1 through US1.3. Users can manually record a drink in browser-local drinking history, explicitly save reusable drink definitions to My Drinks, select a saved drink to create a new history snapshot, and view, edit or delete saved definitions. A small read-only recent-records section verifies local history saves.
+The current product scope covers Epic 1 US1.1 through US1.4. Users can manually record a drink in browser-local drinking history, explicitly save reusable drink definitions to My Drinks, select a saved drink to create a new history snapshot, manage saved definitions, and correct or delete displayed recent drinking records.
 
-Editing or deleting drinking history, authentication, health calculations, guideline logic, safety guidance, and Epic 2 functionality are not implemented.
+Authentication, health calculations, guideline logic, safety guidance, and Epic 2 functionality are not implemented.
 
 ## Data / Database Status
 
@@ -111,6 +111,8 @@ Personal drinking records remain on the user's device and are stored in browser 
 A `SavedDrink` contains only reusable drink type, name, serving volume and ABV data plus local identifiers and timestamps. It excludes servings consumed and consumption date/time. When it is used, its reusable values are copied into a new independent `DrinkingRecord` historical snapshot.
 
 Editing or deleting a `SavedDrink` changes only the reusable definition under `sipaware.savedDrinks.v1`. It never updates or removes an existing `DrinkingRecord` snapshot.
+
+Editing or deleting a `DrinkingRecord` changes only drinking history under `sipaware.drinkingRecords.v1`. A correction preserves that record's ID and creation time, and neither correction nor deletion changes a reusable definition in My Drinks.
 
 For US1.1, `amountConsumed` means the number of servings consumed. For example, a serving volume of 375 mL and an amount of 1.5 represents 1.5 servings of 375 mL each. No standard-drink or health calculation is performed.
 

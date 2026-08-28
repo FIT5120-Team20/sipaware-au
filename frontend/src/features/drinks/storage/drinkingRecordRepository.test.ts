@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import type { DrinkingRecord } from '../types/drinkingRecord'
+import {
+  createUpdatedDrinkingRecord,
+  type DrinkingRecord,
+} from '../types/drinkingRecord'
 import {
   DRINKING_RECORDS_STORAGE_KEY,
   LocalStorageDrinkingRecordRepository,
@@ -48,6 +51,76 @@ describe('LocalStorageDrinkingRecordRepository', () => {
     expect(firstRepository.list()).toEqual([firstRecord, secondRecord])
   })
 
+  it('updates one record, preserves identity and unrelated records, and reloads it', () => {
+    const repository = new LocalStorageDrinkingRecordRepository()
+    repository.add(firstRecord)
+    repository.add(secondRecord)
+    const updatedFirstRecord: DrinkingRecord = {
+      ...firstRecord,
+      drinkName: 'Corrected Pale Ale',
+      servingVolumeMl: 500,
+      amountConsumed: 1,
+    }
+
+    expect(repository.update(updatedFirstRecord)).toEqual([
+      updatedFirstRecord,
+      secondRecord,
+    ])
+    expect(new LocalStorageDrinkingRecordRepository().list()).toEqual([
+      updatedFirstRecord,
+      secondRecord,
+    ])
+  })
+
+  it('deletes only the requested record and persists the remaining list', () => {
+    const repository = new LocalStorageDrinkingRecordRepository()
+    repository.add(firstRecord)
+    repository.add(secondRecord)
+
+    expect(repository.delete(firstRecord.id)).toEqual([secondRecord])
+    expect(new LocalStorageDrinkingRecordRepository().list()).toEqual([
+      secondRecord,
+    ])
+  })
+
+  it('creates a corrected record with unchanged identity and creation time', () => {
+    const correctedRecord = createUpdatedDrinkingRecord(firstRecord, {
+      drinkType: 'other',
+      drinkName: 'Corrected record',
+      servingVolumeMl: 500,
+      abvPercent: 4.8,
+      amountConsumed: 1,
+      consumedAt: '2026-08-25T12:00:00.000Z',
+      consumedTimezoneOffsetMinutes: -600,
+    })
+
+    expect(correctedRecord).toMatchObject({
+      id: firstRecord.id,
+      createdAt: firstRecord.createdAt,
+      drinkType: 'other',
+      drinkName: 'Corrected record',
+      servingVolumeMl: 500,
+      abvPercent: 4.8,
+      amountConsumed: 1,
+      consumedAt: '2026-08-25T12:00:00.000Z',
+      consumedTimezoneOffsetMinutes: -600,
+    })
+  })
+
+  it('rejects an update that changes createdAt without writing it', () => {
+    const repository = new LocalStorageDrinkingRecordRepository()
+    repository.add(firstRecord)
+    const invalidUpdate = {
+      ...firstRecord,
+      createdAt: '2026-08-27T12:00:00.000Z',
+    }
+
+    expect(() => repository.update(invalidUpdate)).toThrow(
+      'A drinking record creation time cannot be changed.',
+    )
+    expect(repository.list()).toEqual([firstRecord])
+  })
+
   it.each([
     ['malformed JSON', '{not-json'],
     ['a non-array value', JSON.stringify({ records: [] })],
@@ -89,6 +162,37 @@ describe('LocalStorageDrinkingRecordRepository', () => {
 
     expect(repository.list()).toEqual([])
     expect(() => repository.add(firstRecord)).toThrow('Storage read failed')
+    expect(() => repository.update(firstRecord)).toThrow('Storage read failed')
+    expect(() => repository.delete(firstRecord.id)).toThrow(
+      'Storage read failed',
+    )
     expect(setItem).not.toHaveBeenCalled()
+  })
+
+  it('surfaces write failures for updates and deletions', () => {
+    const throwingStorage: Storage = {
+      length: 1,
+      clear: () => undefined,
+      getItem: () => JSON.stringify([firstRecord, secondRecord]),
+      key: () => DRINKING_RECORDS_STORAGE_KEY,
+      removeItem: () => undefined,
+      setItem: () => {
+        throw new Error('Storage write failed')
+      },
+    }
+    const repository = new LocalStorageDrinkingRecordRepository(
+      throwingStorage,
+    )
+    const updatedFirstRecord = {
+      ...firstRecord,
+      drinkName: 'Corrected Pale Ale',
+    }
+
+    expect(() => repository.update(updatedFirstRecord)).toThrow(
+      'Storage write failed',
+    )
+    expect(() => repository.delete(firstRecord.id)).toThrow(
+      'Storage write failed',
+    )
   })
 })
