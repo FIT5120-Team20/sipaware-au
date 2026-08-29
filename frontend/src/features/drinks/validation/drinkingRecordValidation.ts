@@ -5,7 +5,7 @@
  * templates, and corrections all cross the same validation boundary before
  * they can reach a repository.
  */
-import { getDrinkTypeConfig, isDrinkType } from '../config/drinkTypes'
+import { isDrinkType } from '../config/drinkTypes'
 import type { DrinkType } from '../types/drinkingRecord'
 import {
   CUSTOM_SERVING_SIZE,
@@ -138,8 +138,6 @@ export function validateReusableDrinkInput(
 
   let servingVolumeMl: number | undefined
   if (drinkType) {
-    const drinkTypeConfig = getDrinkTypeConfig(drinkType)
-
     if (values.servingSizeSelection === CUSTOM_SERVING_SIZE) {
       const customVolumeMl = parseFiniteNumber(values.customVolumeMl)
       if (customVolumeMl === undefined || customVolumeMl <= 0) {
@@ -151,10 +149,10 @@ export function validateReusableDrinkInput(
       errors.servingSizeSelection = 'Select a serving size.'
     } else {
       const selectedVolumeMl = parseFiniteNumber(values.servingSizeSelection)
-      if (
-        selectedVolumeMl === undefined ||
-        !drinkTypeConfig?.servingSizesMl.includes(selectedVolumeMl)
-      ) {
+      // Reference rows are current suggestions, not a persistence whitelist.
+      // Accepting any positive selected volume keeps historical and SavedDrink
+      // values valid when the public catalogue changes independently.
+      if (selectedVolumeMl === undefined || selectedVolumeMl <= 0) {
         errors.servingSizeSelection = 'Select a valid serving size.'
       } else {
         servingVolumeMl = selectedVolumeMl

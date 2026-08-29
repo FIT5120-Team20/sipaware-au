@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 
+import { DRINK_REFERENCE_CATEGORIES } from '../../../test/drinkReferenceFixture'
 import { ManualDrinkForm } from '../components/ManualDrinkForm'
 import {
   IndexedDbDrinkingRecordRepository,
@@ -144,8 +145,12 @@ describe('ManualDrinkPage saved drinks', () => {
     expect(screen.getByLabelText('Drink type')).toBeDisabled()
     expect(screen.getByLabelText('Drink name')).toHaveValue('Carlton Draught')
     expect(screen.getByLabelText('Drink name')).toHaveAttribute('readonly')
-    expect(screen.getByLabelText('Serving size / volume')).toHaveValue('375')
+    expect(screen.getByLabelText('Serving size / volume')).toHaveValue('custom')
     expect(screen.getByLabelText('Serving size / volume')).toBeDisabled()
+    expect(screen.getByLabelText('Custom volume (mL)')).toHaveValue(375)
+    expect(screen.getByLabelText('Custom volume (mL)')).toHaveAttribute(
+      'readonly',
+    )
     expect(screen.getByLabelText('ABV (%)')).toHaveValue(4.6)
     expect(screen.getByLabelText('ABV (%)')).toHaveAttribute('readonly')
 
@@ -289,6 +294,9 @@ describe('ManualDrinkForm saved-drink failures', () => {
   it('keeps drink details and shows an error when saved-drink storage fails', async () => {
     render(
       <ManualDrinkForm
+        referenceCategories={DRINK_REFERENCE_CATEGORIES}
+        referenceStatus="loaded"
+        onRetryReferenceData={() => undefined}
         savedDrinks={[]}
         onSave={() => undefined}
         onSaveSavedDrink={async () => {

@@ -1,9 +1,8 @@
 import type { HealthResponse } from '../types/health'
-
-const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
+import { buildApiUrl } from './apiBaseUrl'
 
 export async function getHealth(signal?: AbortSignal): Promise<HealthResponse> {
-  const response = await fetch(`${apiBaseUrl}/api/health`, {
+  const response = await fetch(buildApiUrl('/api/health'), {
     headers: {
       Accept: 'application/json',
     },

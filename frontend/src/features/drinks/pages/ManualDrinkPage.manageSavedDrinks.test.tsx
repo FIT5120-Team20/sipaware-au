@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 
+import { DRINK_REFERENCE_CATEGORIES } from '../../../test/drinkReferenceFixture'
 import { SavedDrinkEditor } from '../components/SavedDrinkEditor'
 import { SavedDrinkPicker } from '../components/SavedDrinkPicker'
 import {
@@ -291,6 +292,7 @@ describe('SavedDrinkEditor failures', () => {
     const user = userEvent.setup()
     render(
       <SavedDrinkEditor
+        referenceCategories={DRINK_REFERENCE_CATEGORIES}
         savedDrink={savedSky}
         onSave={async () => {
           throw new Error('Storage unavailable')
@@ -316,6 +318,7 @@ describe('SavedDrinkPicker deletion failures', () => {
     const user = userEvent.setup()
     render(
       <SavedDrinkPicker
+        referenceCategories={DRINK_REFERENCE_CATEGORIES}
         savedDrinks={[savedSky]}
         selectedSavedDrinkId={null}
         onSelect={() => undefined}

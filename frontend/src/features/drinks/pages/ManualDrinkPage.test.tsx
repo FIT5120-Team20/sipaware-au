@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 
+import { DRINK_REFERENCE_CATEGORIES } from '../../../test/drinkReferenceFixture'
 import { ManualDrinkForm } from '../components/ManualDrinkForm'
 import { IndexedDbDrinkingRecordRepository } from '../storage/drinkingRecordRepository'
 import type { DrinkingRecord } from '../types/drinkingRecord'
@@ -80,27 +81,41 @@ describe('ManualDrinkPage', () => {
     await user.selectOptions(screen.getByLabelText('Drink type'), 'beer')
     const servingSize = screen.getByLabelText('Serving size / volume')
     expect(
-      within(servingSize).getByRole('option', { name: '285 mL' }),
+      within(servingSize).getByRole('option', {
+        name: 'Small glass — 285 mL',
+      }),
     ).toBeInTheDocument()
     expect(
-      within(servingSize).getByRole('option', { name: '375 mL' }),
+      within(servingSize).getByRole('option', {
+        name: 'Bottle / can — 375 mL',
+      }),
     ).toBeInTheDocument()
     expect(
-      within(servingSize).getByRole('option', { name: '425 mL' }),
+      within(servingSize).getByRole('option', {
+        name: 'Large glass — 425 mL',
+      }),
     ).toBeInTheDocument()
     expect(
       within(servingSize).getByRole('option', { name: 'Custom volume' }),
     ).toBeInTheDocument()
 
     await user.selectOptions(screen.getByLabelText('Drink type'), 'wine')
+    await user.selectOptions(
+      screen.getByLabelText('Drink subtype (optional)'),
+      '4',
+    )
     expect(
-      within(servingSize).getByRole('option', { name: '100 mL' }),
+      within(servingSize).getByRole('option', {
+        name: /Standard serve.*100 mL/,
+      }),
     ).toBeInTheDocument()
     expect(
-      within(servingSize).getByRole('option', { name: '150 mL' }),
+      within(servingSize).getByRole('option', {
+        name: /Average restaurant serving.*150 mL/,
+      }),
     ).toBeInTheDocument()
     expect(
-      within(servingSize).queryByRole('option', { name: '375 mL' }),
+      within(servingSize).queryByRole('option', { name: /375 mL/ }),
     ).not.toBeInTheDocument()
   })
 
@@ -232,6 +247,9 @@ describe('ManualDrinkForm save failures', () => {
   it('keeps entered values and does not claim success when persistence fails', async () => {
     render(
       <ManualDrinkForm
+        referenceCategories={DRINK_REFERENCE_CATEGORIES}
+        referenceStatus="loaded"
+        onRetryReferenceData={() => undefined}
         savedDrinks={[]}
         onSave={async () => {
           throw new Error('Storage is unavailable')

@@ -6,8 +6,13 @@
  */
 import { type FormEvent, useId, useRef, useState } from 'react'
 
-import { DRINK_TYPE_CONFIG, getDrinkTypeConfig } from '../config/drinkTypes'
+import {
+  getApplicableServingSizes,
+  getDrinkReferenceCategory,
+  includePersistedDrinkType,
+} from '../config/drinkTypes'
 import type { DrinkType } from '../types/drinkingRecord'
+import type { DrinkReferenceCategory } from '../types/drinkReference'
 import {
   CUSTOM_SERVING_SIZE,
   type ReusableDrinkField,
@@ -21,6 +26,7 @@ import {
 import { validateReusableDrinkInput } from '../validation/drinkingRecordValidation'
 
 interface SavedDrinkEditorProps {
+  referenceCategories: readonly DrinkReferenceCategory[]
   savedDrink: SavedDrink
   onSave: (savedDrink: SavedDrink) => void | Promise<void>
   onCancel: () => void
@@ -37,20 +43,14 @@ const EDIT_FIELD_FOCUS_ORDER: readonly ReusableDrinkField[] = [
 function createEditorValues(savedDrink: SavedDrink): ReusableDrinkFormValues {
   // Domain numbers become strings only for HTML controls; validation converts
   // them back before an updated template is allowed to reach persistence.
-  const drinkTypeConfig = getDrinkTypeConfig(savedDrink.drinkType)
-  const usesCommonServingSize = Boolean(
-    drinkTypeConfig?.servingSizesMl.includes(savedDrink.servingVolumeMl),
-  )
+  // Existing volumes are personal values, not candidates for revalidation
+  // against a reference catalogue that may have changed since they were saved.
 
   return {
     drinkType: savedDrink.drinkType,
     drinkName: savedDrink.drinkName,
-    servingSizeSelection: usesCommonServingSize
-      ? String(savedDrink.servingVolumeMl)
-      : CUSTOM_SERVING_SIZE,
-    customVolumeMl: usesCommonServingSize
-      ? ''
-      : String(savedDrink.servingVolumeMl),
+    servingSizeSelection: CUSTOM_SERVING_SIZE,
+    customVolumeMl: String(savedDrink.servingVolumeMl),
     abvPercent: String(savedDrink.abvPercent),
   }
 }
@@ -68,6 +68,7 @@ function FieldError({ id, message }: { id: string; message?: string }) {
 }
 
 export function SavedDrinkEditor({
+  referenceCategories,
   savedDrink,
   onSave,
   onCancel,
@@ -80,7 +81,21 @@ export function SavedDrinkEditor({
   const [errors, setErrors] = useState<ReusableDrinkFormErrors>({})
   const [saveError, setSaveError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
-  const selectedDrinkType = getDrinkTypeConfig(values.drinkType)
+  const [selectedVariantId, setSelectedVariantId] = useState<number | null>(
+    null,
+  )
+  const availableCategories = includePersistedDrinkType(
+    referenceCategories,
+    values.drinkType,
+  )
+  const selectedCategory = getDrinkReferenceCategory(
+    availableCategories,
+    values.drinkType,
+  )
+  const applicableServingSizes = getApplicableServingSizes(
+    selectedCategory,
+    selectedVariantId,
+  )
   const isCustomVolume =
     values.servingSizeSelection === CUSTOM_SERVING_SIZE
 
@@ -104,12 +119,14 @@ export function SavedDrinkEditor({
   }
 
   function handleDrinkTypeChange(drinkType: DrinkType | '') {
-    const drinkTypeConfig = getDrinkTypeConfig(drinkType)
+    const category = getDrinkReferenceCategory(referenceCategories, drinkType)
+    const servingSizes = getApplicableServingSizes(category, null)
     const servingSizeSelection =
-      drinkTypeConfig && drinkTypeConfig.servingSizesMl.length === 0
+      category && category.variants.length === 0 && servingSizes.length === 0
         ? CUSTOM_SERVING_SIZE
         : ''
 
+    setSelectedVariantId(null)
     setValues((currentValues) => ({
       ...currentValues,
       drinkType,
@@ -117,6 +134,26 @@ export function SavedDrinkEditor({
       customVolumeMl: '',
     }))
     clearErrors('drinkType', 'servingSizeSelection', 'customVolumeMl')
+    setSaveError(null)
+  }
+
+  function handleVariantChange(value: string) {
+    const variantId = value ? Number(value) : null
+    const servingSizes = getApplicableServingSizes(
+      selectedCategory,
+      variantId,
+    )
+
+    setSelectedVariantId(variantId)
+    setValues((currentValues) => ({
+      ...currentValues,
+      servingSizeSelection:
+        selectedCategory && servingSizes.length === 0
+          ? CUSTOM_SERVING_SIZE
+          : '',
+      customVolumeMl: '',
+    }))
+    clearErrors('servingSizeSelection', 'customVolumeMl')
     setSaveError(null)
   }
 
@@ -214,9 +251,9 @@ export function SavedDrinkEditor({
           required
         >
           <option value="">Select a drink type</option>
-          {DRINK_TYPE_CONFIG.map((drinkType) => (
-            <option key={drinkType.value} value={drinkType.value}>
-              {drinkType.label}
+          {availableCategories.map((category) => (
+            <option key={category.id} value={category.drinkType}>
+              {category.name}
             </option>
           ))}
         </select>
@@ -225,6 +262,27 @@ export function SavedDrinkEditor({
           message={errors.drinkType}
         />
       </div>
+
+      {selectedCategory && selectedCategory.variants.length > 0 && (
+        <div className="form-field">
+          <label htmlFor={fieldId('drink-variant')}>
+            Edit drink subtype (optional)
+          </label>
+          <select
+            id={fieldId('drink-variant')}
+            name="drinkVariant"
+            value={selectedVariantId ?? ''}
+            onChange={(event) => handleVariantChange(event.target.value)}
+          >
+            <option value="">No subtype selected</option>
+            {selectedCategory.variants.map((variant) => (
+              <option key={variant.id} value={variant.id}>
+                {variant.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <div className="form-field">
         <label htmlFor={fieldId('drink-name')}>Edit drink name</label>
@@ -262,16 +320,16 @@ export function SavedDrinkEditor({
               ? fieldId('serving-size-error')
               : undefined
           }
-          disabled={!selectedDrinkType}
+          disabled={!selectedCategory}
           required
         >
           <option value="">Select a serving size</option>
-          {selectedDrinkType?.servingSizesMl.map((volumeMl) => (
-            <option key={volumeMl} value={String(volumeMl)}>
-              {volumeMl} mL
+          {applicableServingSizes.map((servingSize) => (
+            <option key={servingSize.id} value={String(servingSize.volumeMl)}>
+              {servingSize.name} — {servingSize.volumeMl} mL
             </option>
           ))}
-          {selectedDrinkType && (
+          {selectedCategory && (
             <option value={CUSTOM_SERVING_SIZE}>Custom volume</option>
           )}
         </select>

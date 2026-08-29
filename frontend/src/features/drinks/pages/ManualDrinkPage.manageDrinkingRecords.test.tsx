@@ -8,6 +8,7 @@ import {
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
+import { DRINK_REFERENCE_CATEGORIES } from '../../../test/drinkReferenceFixture'
 import { DrinkingRecordEditor } from '../components/DrinkingRecordEditor'
 import { RecentDrinkingRecords } from '../components/RecentDrinkingRecords'
 import {
@@ -387,6 +388,7 @@ describe('DrinkingRecordEditor validation and failures', () => {
       const user = userEvent.setup()
       render(
         <DrinkingRecordEditor
+          referenceCategories={DRINK_REFERENCE_CATEGORIES}
           record={skyRecord}
           onSave={onSave}
           onCancel={() => undefined}
@@ -408,6 +410,7 @@ describe('DrinkingRecordEditor validation and failures', () => {
     const user = userEvent.setup()
     render(
       <DrinkingRecordEditor
+        referenceCategories={DRINK_REFERENCE_CATEGORIES}
         record={skyRecord}
         onSave={async () => {
           throw new Error('Storage unavailable')
@@ -433,6 +436,7 @@ describe('RecentDrinkingRecords deletion failures', () => {
     const user = userEvent.setup()
     render(
       <RecentDrinkingRecords
+        referenceCategories={DRINK_REFERENCE_CATEGORIES}
         records={[skyRecord]}
         onUpdate={() => undefined}
         onDelete={async () => {

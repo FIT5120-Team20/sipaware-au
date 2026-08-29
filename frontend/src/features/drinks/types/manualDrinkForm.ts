@@ -5,6 +5,8 @@
  */
 import type { DrinkType } from './drinkingRecord'
 
+// Custom volume is a local UX choice for every category. It is intentionally
+// independent of Neon because reference rows cannot cover every personal serve.
 export const CUSTOM_SERVING_SIZE = 'custom'
 
 export interface ReusableDrinkFormValues {

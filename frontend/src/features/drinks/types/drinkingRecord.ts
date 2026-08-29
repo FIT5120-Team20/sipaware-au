@@ -1,4 +1,17 @@
-export type DrinkType = 'beer' | 'wine' | 'cider' | 'spirits' | 'other'
+/**
+ * Stable browser-persistence identifiers, deliberately separate from Neon
+ * display labels. In particular, legacy `spirits` records remain valid even
+ * though the current reference label is "Straight Spirits".
+ */
+export type DrinkType =
+  | 'beer'
+  | 'wine'
+  | 'cider'
+  | 'spirits'
+  | 'rtd-premixed'
+  | 'cocktail'
+  | 'liqueur'
+  | 'other'
 
 /**
  * Self-contained historical snapshot of one recorded drinking occasion.

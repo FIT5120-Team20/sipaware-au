@@ -12,7 +12,11 @@ import {
   useState,
 } from 'react'
 
-import { DRINK_TYPE_CONFIG, getDrinkTypeConfig } from '../config/drinkTypes'
+import {
+  getApplicableServingSizes,
+  getDrinkReferenceCategory,
+  includePersistedDrinkType,
+} from '../config/drinkTypes'
 import {
   createDrinkingRecord,
   type DrinkingRecord,
@@ -26,6 +30,10 @@ import {
   type ManualDrinkFormValues,
   type ReusableDrinkField,
 } from '../types/manualDrinkForm'
+import type {
+  DrinkReferenceCategory,
+  ReferenceLoadStatus,
+} from '../types/drinkReference'
 import {
   validateManualDrinkInput,
   validateReusableDrinkInput,
@@ -33,6 +41,9 @@ import {
 import { SavedDrinkPicker } from './SavedDrinkPicker'
 
 interface ManualDrinkFormProps {
+  referenceCategories: readonly DrinkReferenceCategory[]
+  referenceStatus: ReferenceLoadStatus
+  onRetryReferenceData: () => void
   savedDrinks: readonly SavedDrink[]
   onSave: (record: DrinkingRecord) => void | Promise<void>
   onSaveSavedDrink: (savedDrink: SavedDrink) => void | Promise<void>
@@ -121,6 +132,9 @@ function describedBy(helpId: string, errorId: string, hasError: boolean) {
 }
 
 export function ManualDrinkForm({
+  referenceCategories,
+  referenceStatus,
+  onRetryReferenceData,
   savedDrinks,
   onSave,
   onSaveSavedDrink,
@@ -135,9 +149,23 @@ export function ManualDrinkForm({
   const [selectedSavedDrinkId, setSelectedSavedDrinkId] = useState<
     string | null
   >(null)
-  const selectedDrinkType = getDrinkTypeConfig(values.drinkType)
+  const [selectedVariantId, setSelectedVariantId] = useState<number | null>(
+    null,
+  )
   const selectedSavedDrink = savedDrinks.find(
     (savedDrink) => savedDrink.id === selectedSavedDrinkId,
+  )
+  const availableCategories = includePersistedDrinkType(
+    referenceCategories,
+    selectedSavedDrink?.drinkType ?? values.drinkType,
+  )
+  const selectedCategory = getDrinkReferenceCategory(
+    availableCategories,
+    values.drinkType,
+  )
+  const applicableServingSizes = getApplicableServingSizes(
+    selectedCategory,
+    selectedVariantId,
   )
   // A selected SavedDrink supplies reusable attributes and therefore locks the
   // corresponding controls below. Occasion-specific servings, date, and time
@@ -165,12 +193,16 @@ export function ManualDrinkForm({
   }
 
   function handleDrinkTypeChange(value: DrinkType | '') {
-    const drinkTypeConfig = getDrinkTypeConfig(value)
+    const category = getDrinkReferenceCategory(referenceCategories, value)
+    const categoryServingSizes = getApplicableServingSizes(category, null)
     const servingSizeSelection =
-      drinkTypeConfig && drinkTypeConfig.servingSizesMl.length === 0
+      category &&
+      category.variants.length === 0 &&
+      categoryServingSizes.length === 0
         ? CUSTOM_SERVING_SIZE
         : ''
 
+    setSelectedVariantId(null)
     setValues((currentValues) => ({
       ...currentValues,
       drinkType: value,
@@ -178,6 +210,26 @@ export function ManualDrinkForm({
       customVolumeMl: '',
     }))
     clearErrors('drinkType', 'servingSizeSelection', 'customVolumeMl')
+    setSaveStatus(null)
+  }
+
+  function handleVariantChange(value: string) {
+    const variantId = value ? Number(value) : null
+    const servingSizes = getApplicableServingSizes(
+      selectedCategory,
+      variantId,
+    )
+
+    setSelectedVariantId(variantId)
+    setValues((currentValues) => ({
+      ...currentValues,
+      servingSizeSelection:
+        selectedCategory && servingSizes.length === 0
+          ? CUSTOM_SERVING_SIZE
+          : '',
+      customVolumeMl: '',
+    }))
+    clearErrors('servingSizeSelection', 'customVolumeMl')
     setSaveStatus(null)
   }
 
@@ -195,21 +247,16 @@ export function ManualDrinkForm({
   function handleSavedDrinkSelect(savedDrink: SavedDrink) {
     // Copy values from the reusable template into this occasion's form. The new
     // history record will contain its own values, not a live SavedDrink link.
-    const drinkTypeConfig = getDrinkTypeConfig(savedDrink.drinkType)
-    const usesCommonServingSize = Boolean(
-      drinkTypeConfig?.servingSizesMl.includes(savedDrink.servingVolumeMl),
-    )
+    // Stored volume remains personal truth even if current Neon options differ,
+    // so quick record represents it as Custom rather than reclassifying it.
+    setSelectedVariantId(null)
 
     setValues((currentValues) => ({
       ...currentValues,
       drinkType: savedDrink.drinkType,
       drinkName: savedDrink.drinkName,
-      servingSizeSelection: usesCommonServingSize
-        ? String(savedDrink.servingVolumeMl)
-        : CUSTOM_SERVING_SIZE,
-      customVolumeMl: usesCommonServingSize
-        ? ''
-        : String(savedDrink.servingVolumeMl),
+      servingSizeSelection: CUSTOM_SERVING_SIZE,
+      customVolumeMl: String(savedDrink.servingVolumeMl),
       abvPercent: String(savedDrink.abvPercent),
     }))
     clearErrors(...REUSABLE_DRINK_FIELDS)
@@ -220,6 +267,7 @@ export function ManualDrinkForm({
   function clearSavedDrinkSelection() {
     // Returning to manual entry releases the template selection and its field
     // locks so reusable attributes can be entered independently again.
+    setSelectedVariantId(null)
     setValues((currentValues) => ({
       ...currentValues,
       drinkType: '',
@@ -371,7 +419,31 @@ export function ManualDrinkForm({
         </div>
       )}
 
+      {referenceStatus === 'loading' && (
+        <div className="form-notice" role="status">
+          Loading current drink reference options...
+        </div>
+      )}
+
+      {referenceStatus === 'failed' && (
+        <div className="form-notice form-notice--error" role="alert">
+          <p>
+            Drink reference options are temporarily unavailable. Drinks already
+            in My Drinks and your drinking history are still stored on this
+            device and have not been changed.
+          </p>
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={onRetryReferenceData}
+          >
+            Retry drink options
+          </button>
+        </div>
+      )}
+
       <SavedDrinkPicker
+        referenceCategories={referenceCategories}
         savedDrinks={savedDrinks}
         selectedSavedDrinkId={selectedSavedDrinkId}
         onSelect={handleSavedDrinkSelect}
@@ -392,18 +464,46 @@ export function ManualDrinkForm({
             }
             aria-invalid={Boolean(errors.drinkType)}
             aria-describedby={errors.drinkType ? 'drink-type-error' : undefined}
-            disabled={Boolean(selectedSavedDrink)}
+            disabled={
+              Boolean(selectedSavedDrink) || availableCategories.length === 0
+            }
             required
           >
             <option value="">Select a drink type</option>
-            {DRINK_TYPE_CONFIG.map((drinkType) => (
-              <option key={drinkType.value} value={drinkType.value}>
-                {drinkType.label}
+            {availableCategories.map((category) => (
+              <option key={category.id} value={category.drinkType}>
+                {category.name}
               </option>
             ))}
           </select>
           <FieldError id="drink-type-error" message={errors.drinkType} />
         </div>
+
+        {selectedCategory &&
+          selectedCategory.variants.length > 0 &&
+          !selectedSavedDrink && (
+            <div className="form-field">
+              <label htmlFor="drink-variant">Drink subtype (optional)</label>
+              <select
+                id="drink-variant"
+                name="drinkVariant"
+                value={selectedVariantId ?? ''}
+                onChange={(event) => handleVariantChange(event.target.value)}
+                aria-describedby="drink-variant-help"
+              >
+                <option value="">No subtype selected</option>
+                {selectedCategory.variants.map((variant) => (
+                  <option key={variant.id} value={variant.id}>
+                    {variant.name}
+                  </option>
+                ))}
+              </select>
+              <FieldDescription id="drink-variant-help">
+                Choose a subtype to see its reference serving sizes, or leave
+                this optional field blank.
+              </FieldDescription>
+            </div>
+          )}
 
         <div className="form-field">
           <label htmlFor="drink-name">Drink name</label>
@@ -435,16 +535,16 @@ export function ManualDrinkForm({
               'serving-size-error',
               Boolean(errors.servingSizeSelection),
             )}
-            disabled={!selectedDrinkType || Boolean(selectedSavedDrink)}
+            disabled={!selectedCategory || Boolean(selectedSavedDrink)}
             required
           >
             <option value="">Select a serving size</option>
-            {selectedDrinkType?.servingSizesMl.map((volumeMl) => (
-              <option key={volumeMl} value={String(volumeMl)}>
-                {volumeMl} mL
+            {applicableServingSizes.map((servingSize) => (
+              <option key={servingSize.id} value={String(servingSize.volumeMl)}>
+                {servingSize.name} — {servingSize.volumeMl} mL
               </option>
             ))}
-            {selectedDrinkType && (
+            {selectedCategory && (
               <option value={CUSTOM_SERVING_SIZE}>Custom volume</option>
             )}
           </select>

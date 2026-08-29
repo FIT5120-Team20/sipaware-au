@@ -7,11 +7,17 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 
+import { getDrinkOptions } from '../../../services/drinkReferenceApi'
 import { ManualDrinkForm } from '../components/ManualDrinkForm'
 import { RecentDrinkingRecords } from '../components/RecentDrinkingRecords'
+import { mapDrinkReferenceCategories } from '../config/drinkTypes'
 import { IndexedDbDrinkingRecordRepository } from '../storage/drinkingRecordRepository'
 import { IndexedDbSavedDrinkRepository } from '../storage/savedDrinkRepository'
 import type { DrinkingRecord } from '../types/drinkingRecord'
+import type {
+  DrinkReferenceCategory,
+  ReferenceLoadStatus,
+} from '../types/drinkReference'
 import type { SavedDrink } from '../types/savedDrink'
 import '../manualDrink.css'
 
@@ -31,6 +37,12 @@ export function ManualDrinkPage() {
   const [savedDrinks, setSavedDrinks] = useState<SavedDrink[]>([])
   const [hydrationStatus, setHydrationStatus] =
     useState<HydrationStatus>('loading')
+  const [referenceCategories, setReferenceCategories] = useState<
+    DrinkReferenceCategory[]
+  >([])
+  const [referenceStatus, setReferenceStatus] =
+    useState<ReferenceLoadStatus>('loading')
+  const [referenceLoadAttempt, setReferenceLoadAttempt] = useState(0)
 
   // IndexedDB reads are asynchronous. The feature stays in a loading state
   // until both independent stores have hydrated, avoiding an empty-state flash
@@ -67,6 +79,48 @@ export function ManualDrinkPage() {
       isMounted.current = false
     }
   }, [drinkingRecordRepository, savedDrinkRepository])
+
+  // Public reference loading is independent from IndexedDB hydration. A Neon
+  // outage therefore cannot erase, rewrite or block reading personal history.
+  useEffect(() => {
+    const abortController = new AbortController()
+    let isActive = true
+
+    async function loadReferenceData() {
+      try {
+        const response = await getDrinkOptions(abortController.signal)
+        const categories = mapDrinkReferenceCategories(response)
+        if (isActive) {
+          setReferenceCategories(categories)
+          setReferenceStatus('loaded')
+        }
+      } catch (error) {
+        if (
+          error instanceof DOMException &&
+          error.name === 'AbortError'
+        ) {
+          return
+        }
+
+        if (isActive) {
+          setReferenceCategories([])
+          setReferenceStatus('failed')
+        }
+      }
+    }
+
+    void loadReferenceData()
+    return () => {
+      isActive = false
+      abortController.abort()
+    }
+  }, [referenceLoadAttempt])
+
+  function retryReferenceData() {
+    setReferenceCategories([])
+    setReferenceStatus('loading')
+    setReferenceLoadAttempt((currentAttempt) => currentAttempt + 1)
+  }
 
   // Every write returns the repository's complete committed collection. React
   // replaces its state from that result so the screen mirrors IndexedDB after
@@ -147,6 +201,9 @@ export function ManualDrinkPage() {
         {hydrationStatus === 'ready' && (
           <div className="manual-drink-layout">
             <ManualDrinkForm
+              referenceCategories={referenceCategories}
+              referenceStatus={referenceStatus}
+              onRetryReferenceData={retryReferenceData}
               savedDrinks={savedDrinks}
               onSave={saveRecord}
               onSaveSavedDrink={saveDrinkForFutureUse}
@@ -154,6 +211,7 @@ export function ManualDrinkPage() {
               onDeleteSavedDrink={deleteSavedDrink}
             />
             <RecentDrinkingRecords
+              referenceCategories={referenceCategories}
               records={records}
               onUpdate={updateRecord}
               onDelete={deleteRecord}

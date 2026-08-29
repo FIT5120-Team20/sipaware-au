@@ -8,10 +8,12 @@ import { useState } from 'react'
 
 import { getDrinkTypeLabel } from '../config/drinkTypes'
 import type { DrinkingRecord } from '../types/drinkingRecord'
+import type { DrinkReferenceCategory } from '../types/drinkReference'
 import { formatConsumedDateTime } from '../utils/formatConsumedDateTime'
 import { DrinkingRecordEditor } from './DrinkingRecordEditor'
 
 interface RecentDrinkingRecordsProps {
+  referenceCategories: readonly DrinkReferenceCategory[]
   records: readonly DrinkingRecord[]
   onUpdate: (record: DrinkingRecord) => void | Promise<void>
   onDelete: (recordId: string) => void | Promise<void>
@@ -28,6 +30,7 @@ function formatRecordedNumber(value: number): string {
 }
 
 export function RecentDrinkingRecords({
+  referenceCategories,
   records,
   onUpdate,
   onDelete,
@@ -119,7 +122,9 @@ export function RecentDrinkingRecords({
               <article className="recent-record">
                 <div className="recent-record__heading">
                   <h3>{record.drinkName}</h3>
-                  <span>{getDrinkTypeLabel(record.drinkType)}</span>
+                  <span>
+                    {getDrinkTypeLabel(record.drinkType, referenceCategories)}
+                  </span>
                 </div>
 
                 <dl>
@@ -166,6 +171,7 @@ export function RecentDrinkingRecords({
 
                 {editingRecordId === record.id && (
                   <DrinkingRecordEditor
+                    referenceCategories={referenceCategories}
                     record={record}
                     onSave={saveEditedRecord}
                     onCancel={() => setEditingRecordId(null)}

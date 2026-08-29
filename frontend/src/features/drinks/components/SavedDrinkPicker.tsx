@@ -8,10 +8,12 @@
 import { useState } from 'react'
 
 import { getDrinkTypeLabel } from '../config/drinkTypes'
+import type { DrinkReferenceCategory } from '../types/drinkReference'
 import type { SavedDrink } from '../types/savedDrink'
 import { SavedDrinkEditor } from './SavedDrinkEditor'
 
 interface SavedDrinkPickerProps {
+  referenceCategories: readonly DrinkReferenceCategory[]
   savedDrinks: readonly SavedDrink[]
   selectedSavedDrinkId: string | null
   onSelect: (savedDrink: SavedDrink) => void
@@ -25,6 +27,7 @@ type ManagementStatus =
   | null
 
 export function SavedDrinkPicker({
+  referenceCategories,
   savedDrinks,
   selectedSavedDrinkId,
   onSelect,
@@ -133,7 +136,11 @@ export function SavedDrinkPicker({
                 >
                   <strong>{savedDrink.drinkName}</strong>
                   <span>
-                    {getDrinkTypeLabel(savedDrink.drinkType)} -{' '}
+                    {getDrinkTypeLabel(
+                      savedDrink.drinkType,
+                      referenceCategories,
+                    )}{' '}
+                    -{' '}
                     {savedDrink.servingVolumeMl} mL - {savedDrink.abvPercent}%
                     {' '}ABV
                   </span>
@@ -160,6 +167,7 @@ export function SavedDrinkPicker({
 
                 {editingSavedDrinkId === savedDrink.id && (
                   <SavedDrinkEditor
+                    referenceCategories={referenceCategories}
                     savedDrink={savedDrink}
                     onSave={saveEditedDrink}
                     onCancel={() => setEditingSavedDrinkId(null)}

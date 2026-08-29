@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 
+import { DRINK_REFERENCE_CATEGORIES } from '../../../test/drinkReferenceFixture'
 import type { DrinkingRecord } from '../types/drinkingRecord'
 import { RecentDrinkingRecords } from './RecentDrinkingRecords'
 
@@ -19,6 +20,7 @@ describe('RecentDrinkingRecords', () => {
     }
     render(
       <RecentDrinkingRecords
+        referenceCategories={DRINK_REFERENCE_CATEGORIES}
         records={[record]}
         onUpdate={() => undefined}
         onDelete={() => undefined}
