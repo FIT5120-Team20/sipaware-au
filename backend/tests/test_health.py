@@ -1,4 +1,4 @@
-"""Tests for the bootstrap health endpoint."""
+"""Tests for the database-independent process-health endpoint."""
 
 import asyncio
 

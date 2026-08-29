@@ -1,4 +1,10 @@
-/** Typed client for the public Epic 1 drink-reference endpoint. */
+/**
+ * Typed HTTP boundary for the public Epic 1 drink-reference endpoint.
+ *
+ * This client owns request and runtime-response validation only. It accepts no
+ * SavedDrink or DrinkingRecord input, so browser-local personal data cannot be
+ * forwarded through this integration by construction.
+ */
 
 import type {
   AbvOptionDto,
@@ -122,6 +128,9 @@ export async function getDrinkOptions(
     )
   }
 
+  // TypeScript types cannot establish trust across an HTTP boundary. Keep the
+  // payload unknown until every nested public-reference field is validated so
+  // malformed server data cannot silently become form or persistence input.
   const payload: unknown = await response.json()
   if (!isDrinkOptionsResponse(payload)) {
     throw new Error('Drink reference response did not match the API contract')

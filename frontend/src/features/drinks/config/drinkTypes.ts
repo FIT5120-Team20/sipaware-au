@@ -1,3 +1,9 @@
+/**
+ * Compatibility policy between current Neon categories and browser data.
+ *
+ * This module maps public reference choices into stable UI/persistence values;
+ * it neither fetches the API nor changes historical IndexedDB objects.
+ */
 import type { DrinkType } from '../types/drinkingRecord'
 import type {
   DrinkOptionsResponseDto,
@@ -44,6 +50,9 @@ export function getDrinkTypeForCategoryId(
 export function mapDrinkReferenceCategories(
   response: DrinkOptionsResponseDto,
 ): DrinkReferenceCategory[] {
+  // Enforce a one-to-one complete mapping before the UI uses server labels.
+  // This prevents schema drift or duplicate IDs from relabelling an existing
+  // browser-persisted DrinkType with the wrong reference category.
   const seenDrinkTypes = new Set<DrinkType>()
   const categories = response.categories.map((category) => {
     const drinkType = getDrinkTypeForCategoryId(category.id)

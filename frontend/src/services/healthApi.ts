@@ -1,3 +1,7 @@
+/**
+ * Small client for process-health checks; it owns no reference or personal data.
+ * The shared URL helper keeps local overrides and same-origin Vercel calls aligned.
+ */
 import type { HealthResponse } from '../types/health'
 import { buildApiUrl } from './apiBaseUrl'
 

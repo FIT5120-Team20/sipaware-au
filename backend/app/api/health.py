@@ -1,4 +1,9 @@
-"""Bootstrap health route."""
+"""Process-health HTTP boundary for the SipAware AU API.
+
+This route proves that FastAPI is reachable without loading database settings
+or querying Neon. It reports service availability only and owns no reference or
+personal-data behavior.
+"""
 
 from fastapi import APIRouter
 

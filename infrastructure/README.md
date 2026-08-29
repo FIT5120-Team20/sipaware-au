@@ -1,12 +1,19 @@
-# Infrastructure Placeholder
+# Deployment Direction
 
-The currently intended future hosting direction is:
+The current hosted architecture is prepared as one Vercel Services project:
 
-- Frontend: AWS Amplify
-- Backend: AWS Elastic Beanstalk
-- Official/public reference database: Amazon RDS for PostgreSQL
-- Transport security: AWS-managed HTTPS infrastructure, as appropriate to the final design
+- frontend service: React + Vite from `frontend/`;
+- backend service: FastAPI from `backend/`;
+- public routing: `/api/*` to FastAPI and all other paths to Vite;
+- reference database: Neon PostgreSQL through a pooled read-only connection;
+- transport security: Vercel-managed HTTPS; and
+- personal data: browser IndexedDB only.
 
-Cloud deployment is not implemented in this bootstrap. This directory intentionally contains no infrastructure-as-code, AWS credentials, resource configuration, or deployment scripts.
+Root `vercel.json` contains the service and routing configuration. This directory
+contains no infrastructure-as-code, provider credentials, database secrets, or
+deployment scripts. Deployment and environment-variable setup remain manual
+review steps.
 
-Personal drinking records must not be stored in the reference database.
+`DATABASE_URL` must be configured privately in Vercel for the backend runtime
+and must use the Neon `app_reader` role. It must never be placed in frontend
+configuration or committed files.

@@ -6,28 +6,33 @@ FIT5120 Team20
 
 ## Project Overview
 
-SipAware AU is a web application focused on alcohol-consumption awareness and preventive health. The repository contains a React frontend, a FastAPI health-check backend, lightweight architecture documentation, and the Epic 1 US1.1 through US1.4 manual drink-capture features.
+SipAware AU is a web application focused on alcohol-consumption awareness and
+preventive health. The repository contains a React frontend, a FastAPI backend
+for public drink-reference data, architecture documentation, and the Epic 1
+US1.1 through US1.4 manual drink-capture features.
 
 ## Technology Stack
 
 - Frontend: React, TypeScript, and Vite
 - Backend: Python 3.12+ and FastAPI
-- Planned frontend hosting: AWS Amplify
-- Planned backend hosting: AWS Elastic Beanstalk
-- Planned reference database: Amazon RDS for PostgreSQL
-- Application communication: REST over HTTPS in hosted environments
+- Hosting target: one Vercel project using Vercel Services
+- Reference database: Neon PostgreSQL
+- Hosted application communication: same-origin REST over HTTPS
+- Personal-data persistence: browser-native IndexedDB
 
-Cloud deployment and database integration have not been implemented.
+The repository is deployment-ready configuration only; no Vercel deployment is
+performed by source changes.
 
 ## Repository Structure
 
 ```text
 .
-|-- frontend/           React + TypeScript + Vite application
-|-- backend/            FastAPI application and backend tests
-|-- data/               Data Science integration placeholder
+|-- frontend/           React + TypeScript + Vite service
+|-- backend/            FastAPI service and backend tests
+|-- data/               Data boundary documentation
 |-- docs/               Architecture, requirements, and data-contract notes
-|-- infrastructure/     Future hosting-direction placeholder
+|-- infrastructure/     Hosting-direction documentation
+|-- vercel.json         Vercel Services and public routing configuration
 `-- .github/            Pull request template
 ```
 
@@ -38,17 +43,22 @@ Prerequisites:
 - Node.js `^20.19.0`, `^22.13.0`, or `>=24.0.0`, with npm
 - Python 3.12 or later
 
-The frontend and backend run as separate local processes. The default example configuration expects the frontend at `http://localhost:5173` and the backend at `http://localhost:8000`.
+The frontend and backend run as separate local processes. The default example
+configuration expects the frontend at `http://localhost:5173` and FastAPI at
+`http://localhost:8000`.
 
-The frontend environment example contains only browser-visible, non-secret configuration. Copy it before running the frontend:
+The frontend environment example contains only browser-visible, non-secret
+configuration. Copy it before using the separate local backend:
 
 ```powershell
 Copy-Item frontend\.env.example frontend\.env
 ```
 
-The local `.env` is ignored by Git. Values prefixed with `VITE_` are included in client-side code and must never contain secrets.
+Local `.env` files are ignored by Git. Values prefixed with `VITE_` are included
+in client code and must never contain secrets. In particular, never rename or
+copy `DATABASE_URL` to a `VITE_` variable.
 
-## Frontend Setup
+### Frontend
 
 ```powershell
 Set-Location frontend
@@ -56,15 +66,16 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:5173` to use the manual drink-entry page. The existing backend health endpoint remains available independently at `GET /api/health`.
+Open `http://localhost:5173`. The configured local API base URL sends public
+reference requests to the standalone FastAPI process.
 
-Create a production build with:
+Create the normal Vite `dist/` production output with:
 
 ```powershell
 npm run build
 ```
 
-## Backend Setup
+### Backend
 
 ```powershell
 Set-Location backend
@@ -74,7 +85,40 @@ python -m pip install -r requirements.txt
 python -m uvicorn app.main:app --reload
 ```
 
-The API runs at `http://localhost:8000`. Its bootstrap endpoint is `GET /api/health`.
+The API runs at `http://localhost:8000` and exposes:
+
+- `GET /api/health`
+- `GET /api/reference/drink-options`
+
+The health route does not require database configuration. The reference route
+requires `DATABASE_URL` in the process environment or untracked `backend/.env`.
+Use only the private pooled Neon connection for the read-only `app_reader` role.
+
+## Vercel Deployment Preparation
+
+Import the repository root as one Vercel project and select the **Services**
+framework preset in the project's Build and Deployment settings. Root
+`vercel.json` defines:
+
+- a Vite service rooted at `frontend/`, including SPA history fallback;
+- a FastAPI service rooted at `backend/`, using `app.main:app`;
+- API-first routing from `/api/*` to FastAPI; and
+- all remaining public paths to the frontend.
+
+Vercel detects the existing frontend build and backend dependency manifests, so
+no duplicate build system, Python requirements file, wrapper entrypoint, Docker
+configuration, or host name is required.
+
+Configure `DATABASE_URL` as a private Vercel Environment Variable for each
+deployment environment that needs the reference endpoint. Its value must be the
+pooled Neon connection URL for `app_reader`; never commit or paste the value into
+`vercel.json`, documentation, frontend environment files, tests, or source code.
+Only backend code reads this unprefixed variable, and Vite does not expose it to
+browser code.
+
+`VITE_API_BASE_URL` should normally remain unset on Vercel. The frontend then
+uses relative `/api/...` URLs on the shared deployment domain, so production
+does not require cross-origin CORS permissions.
 
 ## Running Tests
 
@@ -84,41 +128,55 @@ From `backend/` with the virtual environment activated:
 python -m pytest
 ```
 
-Frontend static checks can be run from `frontend/`:
+Frontend checks can be run from `frontend/`:
 
 ```powershell
 npm run lint
-npm run build
 npm test
+npm run build
 ```
 
 ## Current Scope
 
-The current product scope covers Epic 1 US1.1 through US1.4. Users can manually record a drink in browser-local drinking history, explicitly save reusable drink definitions to My Drinks, select a saved drink to create a new history snapshot, manage saved definitions, and correct or delete displayed recent drinking records.
+Epic 1 US1.1 through US1.4 let users manually record a drink in browser-local
+history, explicitly save reusable drink definitions to My Drinks, select a saved
+drink to create a new history snapshot, manage saved definitions, and correct or
+delete recent drinking records. Current categories, variants, serving sizes, and
+reference attribution are loaded from the public FastAPI endpoint.
 
-Authentication, health calculations, guideline logic, safety guidance, and Epic 2 functionality are not implemented.
+Authentication, health calculations, guideline logic, automatic ABV estimates,
+safety guidance, and Epic 2 functionality are not implemented.
 
-## Data / Database Status
+## Data and Privacy Architecture
 
-The Data Science browser-persistence contract is implemented for Epic 1 personal data using IndexedDB. Server-side datasets, PostgreSQL schemas, ingestion logic, and real reference-data mappings remain pending team agreement. Amazon RDS for PostgreSQL is reserved only for approved project-managed reference/content data.
+Neon stores project-managed public reference data only. FastAPI uses short-lived
+read-only connections and SELECT-only repository queries to return that data.
 
-See [data/README.md](data/README.md) and [docs/data-contracts/README.md](docs/data-contracts/README.md).
+Personal DrinkingRecords and reusable SavedDrinks remain on the user's device in
+browser-native IndexedDB. The database is `alcohol_user_data` version 1, with
+separate `drinking_records` and `saved_drinks` object stores. Neither collection
+is sent to FastAPI, Neon, analytics, or another external API.
 
-## Privacy Architecture
+A SavedDrink contains reusable drink type, name, serving volume and ABV data plus
+local identifiers and timestamps. It excludes servings consumed and consumption
+date/time. Using it copies those reusable values into a new independent
+DrinkingRecord snapshot.
 
-Personal drinking records and reusable saved drinks remain on the user's device in browser-native IndexedDB. The database is `alcohol_user_data` version 1, with separate `drinking_records` and `saved_drinks` object stores. The lightweight `idb` package provides typed Promise APIs over IndexedDB; it is not a separate data service. Neither collection is sent to FastAPI, analytics, external APIs, or Amazon RDS.
+Editing or deleting either collection never cascades into the other. Existing
+browser records retain stable drink-type values even when current public labels
+or serving suggestions change. Optional reference subtypes are selection aids
+and are not added to the version 1 personal-data schema.
 
-A `SavedDrink` contains only reusable drink type, name, serving volume and ABV data plus local identifiers and timestamps. It excludes servings consumed and consumption date/time. When it is used, its reusable values are copied into a new independent `DrinkingRecord` historical snapshot.
+An early undeployed prototype used LocalStorage for development test data. No
+legacy migration is required: Iteration 1 uses IndexedDB as its persistence
+baseline and does not read or fall back to the old keys.
 
-Editing or deleting a `SavedDrink` changes only its reusable definition in `saved_drinks`. It never updates or removes an existing `DrinkingRecord` snapshot.
+For US1.1, `amountConsumed` means the number of servings consumed. For example,
+a serving volume of 375 mL and an amount of 1.5 represents 1.5 servings of 375
+mL each. No standard-drink or health calculation is performed.
 
-Editing or deleting a `DrinkingRecord` changes only drinking history in `drinking_records`. A correction preserves that record's ID and creation time, and neither correction nor deletion changes a reusable definition in My Drinks.
-
-An early, undeployed prototype used LocalStorage for development test data. No legacy migration is required: Iteration 1 starts with IndexedDB as the production persistence baseline, and the application does not read the old prototype keys or fall back to LocalStorage.
-
-For US1.1, `amountConsumed` means the number of servings consumed. For example, a serving volume of 375 mL and an amount of 1.5 represents 1.5 servings of 375 mL each. No standard-drink or health calculation is performed.
-
-This phase does not guess future Data Science reference fields such as category, variant, or ABV reference IDs. Those fields are deferred until a later RDS reference-integration task has approved real values. Standard-drink calculation remains Epic 2 scope.
+See [data/README.md](data/README.md) and
+[docs/data-contracts/README.md](docs/data-contracts/README.md).
 
 ## Branching Convention
 
@@ -133,4 +191,4 @@ Examples:
 - `Team20/Epic1/feature-manual-record-drink`
 - `Team20/Epic2/feature-driving-safety-guidance`
 
-Feature work should be completed on its corresponding feature branch and merged through a Pull Request. The bootstrap itself was prepared on `main` for review as requested.
+Feature work should be merged through a pull request after review.

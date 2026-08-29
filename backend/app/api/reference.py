@@ -1,4 +1,9 @@
-"""HTTP boundary for Epic 1 public drink-reference options."""
+"""HTTP boundary for Epic 1 public drink-reference options.
+
+The route translates repository DTOs and sanitized infrastructure failures into
+one stable frontend contract. SQL, credentials, and personal browser records
+remain outside this module.
+"""
 
 from typing import Annotated
 
