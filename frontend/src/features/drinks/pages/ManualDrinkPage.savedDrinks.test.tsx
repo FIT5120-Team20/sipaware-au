@@ -3,8 +3,12 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 
 import { ManualDrinkForm } from '../components/ManualDrinkForm'
-import { DRINKING_RECORDS_STORAGE_KEY } from '../storage/drinkingRecordRepository'
-import { SAVED_DRINKS_STORAGE_KEY } from '../storage/savedDrinkRepository'
+import {
+  IndexedDbDrinkingRecordRepository,
+} from '../storage/drinkingRecordRepository'
+import {
+  IndexedDbSavedDrinkRepository,
+} from '../storage/savedDrinkRepository'
 import type { DrinkingRecord } from '../types/drinkingRecord'
 import type { SavedDrink } from '../types/savedDrink'
 import { ManualDrinkPage } from './ManualDrinkPage'
@@ -59,21 +63,24 @@ async function enterReusableDrinkDetails() {
   return user
 }
 
-function storeSavedDrinks(savedDrinks: readonly SavedDrink[]) {
-  window.localStorage.setItem(
-    SAVED_DRINKS_STORAGE_KEY,
-    JSON.stringify(savedDrinks),
-  )
+async function storeSavedDrinks(savedDrinks: readonly SavedDrink[]) {
+  const repository = new IndexedDbSavedDrinkRepository()
+  for (const savedDrink of savedDrinks) {
+    await repository.add(savedDrink)
+  }
+}
+
+async function renderHydratedPage() {
+  const view = render(<ManualDrinkPage />)
+  await screen.findByLabelText('Drink type')
+  return view
 }
 
 describe('ManualDrinkPage saved drinks', () => {
   it('saves only reusable drink data, preserves existing data, and reloads it', async () => {
-    storeSavedDrinks([existingSavedDrink])
-    window.localStorage.setItem(
-      DRINKING_RECORDS_STORAGE_KEY,
-      JSON.stringify([existingRecord]),
-    )
-    const view = render(<ManualDrinkPage />)
+    await storeSavedDrinks([existingSavedDrink])
+    await new IndexedDbDrinkingRecordRepository().add(existingRecord)
+    const view = await renderHydratedPage()
     const user = await enterReusableDrinkDetails()
 
     await user.click(
@@ -85,9 +92,7 @@ describe('ManualDrinkPage saved drinks', () => {
     expect(
       await screen.findByText('Drink saved to My Drinks on this device.'),
     ).toBeInTheDocument()
-    const savedDrinks = JSON.parse(
-      window.localStorage.getItem(SAVED_DRINKS_STORAGE_KEY) ?? '[]',
-    ) as SavedDrink[]
+    const savedDrinks = await new IndexedDbSavedDrinkRepository().list()
 
     expect(savedDrinks).toHaveLength(2)
     expect(savedDrinks[0]).toEqual(existingSavedDrink)
@@ -103,14 +108,12 @@ describe('ManualDrinkPage saved drinks', () => {
     expect(savedDrinks[1]).not.toHaveProperty('consumedAt')
     expect(savedDrinks[1]).not.toHaveProperty('date')
     expect(savedDrinks[1]).not.toHaveProperty('time')
-    expect(
-      JSON.parse(
-        window.localStorage.getItem(DRINKING_RECORDS_STORAGE_KEY) ?? '[]',
-      ),
-    ).toEqual([existingRecord])
+    await expect(
+      new IndexedDbDrinkingRecordRepository().list(),
+    ).resolves.toEqual([existingRecord])
 
     view.unmount()
-    render(<ManualDrinkPage />)
+    await renderHydratedPage()
     expect(
       screen.getByRole('button', {
         name: /Pale Ale.*Beer.*375 mL.*4.5% ABV/,
@@ -124,9 +127,9 @@ describe('ManualDrinkPage saved drinks', () => {
   })
 
   it('loads a saved drink and leaves only current occasion details to enter', async () => {
-    storeSavedDrinks([savedCarltonDraught])
+    await storeSavedDrinks([savedCarltonDraught])
     const user = userEvent.setup()
-    render(<ManualDrinkPage />)
+    await renderHydratedPage()
 
     await user.click(
       screen.getByRole('button', {
@@ -171,13 +174,10 @@ describe('ManualDrinkPage saved drinks', () => {
   })
 
   it('creates an independent history snapshot without changing the saved drink', async () => {
-    storeSavedDrinks([savedCarltonDraught])
-    window.localStorage.setItem(
-      DRINKING_RECORDS_STORAGE_KEY,
-      JSON.stringify([existingRecord]),
-    )
+    await storeSavedDrinks([savedCarltonDraught])
+    await new IndexedDbDrinkingRecordRepository().add(existingRecord)
     const user = userEvent.setup()
-    render(<ManualDrinkPage />)
+    await renderHydratedPage()
 
     await user.click(
       screen.getByRole('button', {
@@ -200,9 +200,7 @@ describe('ManualDrinkPage saved drinks', () => {
     expect(
       await screen.findByText('Drinking record saved on this device.'),
     ).toBeInTheDocument()
-    const records = JSON.parse(
-      window.localStorage.getItem(DRINKING_RECORDS_STORAGE_KEY) ?? '[]',
-    ) as DrinkingRecord[]
+    const records = await new IndexedDbDrinkingRecordRepository().list()
     expect(records).toHaveLength(2)
     expect(records[0]).toEqual(existingRecord)
     expect(records[1]).toMatchObject({
@@ -220,11 +218,9 @@ describe('ManualDrinkPage saved drinks', () => {
         17,
       ).getTimezoneOffset(),
     })
-    expect(
-      JSON.parse(
-        window.localStorage.getItem(SAVED_DRINKS_STORAGE_KEY) ?? '[]',
-      ),
-    ).toEqual([savedCarltonDraught])
+    await expect(new IndexedDbSavedDrinkRepository().list()).resolves.toEqual([
+      savedCarltonDraught,
+    ])
 
     const recentRecordsHeading = screen.getByRole('heading', {
       name: 'Recent records',
@@ -239,13 +235,10 @@ describe('ManualDrinkPage saved drinks', () => {
   })
 
   it('does not create history when saved-drink consumption details are invalid', async () => {
-    storeSavedDrinks([savedCarltonDraught])
-    window.localStorage.setItem(
-      DRINKING_RECORDS_STORAGE_KEY,
-      JSON.stringify([existingRecord]),
-    )
+    await storeSavedDrinks([savedCarltonDraught])
+    await new IndexedDbDrinkingRecordRepository().add(existingRecord)
     const user = userEvent.setup()
-    render(<ManualDrinkPage />)
+    await renderHydratedPage()
 
     await user.click(
       screen.getByRole('button', {
@@ -260,21 +253,17 @@ describe('ManualDrinkPage saved drinks', () => {
       await screen.findByText('Enter an amount greater than 0 servings.'),
     ).toBeInTheDocument()
     expect(screen.getByLabelText('Number of servings consumed')).toHaveFocus()
-    expect(
-      JSON.parse(
-        window.localStorage.getItem(DRINKING_RECORDS_STORAGE_KEY) ?? '[]',
-      ),
-    ).toEqual([existingRecord])
-    expect(
-      JSON.parse(
-        window.localStorage.getItem(SAVED_DRINKS_STORAGE_KEY) ?? '[]',
-      ),
-    ).toEqual([savedCarltonDraught])
+    await expect(
+      new IndexedDbDrinkingRecordRepository().list(),
+    ).resolves.toEqual([existingRecord])
+    await expect(new IndexedDbSavedDrinkRepository().list()).resolves.toEqual([
+      savedCarltonDraught,
+    ])
   })
 
   it('does not save invalid reusable drink information', async () => {
     const user = userEvent.setup()
-    render(<ManualDrinkPage />)
+    await renderHydratedPage()
 
     await user.click(
       screen.getByRole('button', {
@@ -287,8 +276,12 @@ describe('ManualDrinkPage saved drinks', () => {
     ).toBeInTheDocument()
     expect(screen.getByText('Select a drink type.')).toBeInTheDocument()
     expect(screen.getByLabelText('Drink type')).toHaveFocus()
-    expect(window.localStorage.getItem(SAVED_DRINKS_STORAGE_KEY)).toBeNull()
-    expect(window.localStorage.getItem(DRINKING_RECORDS_STORAGE_KEY)).toBeNull()
+    await expect(new IndexedDbSavedDrinkRepository().list()).resolves.toEqual(
+      [],
+    )
+    await expect(
+      new IndexedDbDrinkingRecordRepository().list(),
+    ).resolves.toEqual([])
   })
 })
 
@@ -298,7 +291,7 @@ describe('ManualDrinkForm saved-drink failures', () => {
       <ManualDrinkForm
         savedDrinks={[]}
         onSave={() => undefined}
-        onSaveSavedDrink={() => {
+        onSaveSavedDrink={async () => {
           throw new Error('Saved-drink storage is unavailable')
         }}
         onUpdateSavedDrink={() => undefined}

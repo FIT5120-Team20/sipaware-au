@@ -10,8 +10,12 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { DrinkingRecordEditor } from '../components/DrinkingRecordEditor'
 import { RecentDrinkingRecords } from '../components/RecentDrinkingRecords'
-import { DRINKING_RECORDS_STORAGE_KEY } from '../storage/drinkingRecordRepository'
-import { SAVED_DRINKS_STORAGE_KEY } from '../storage/savedDrinkRepository'
+import {
+  IndexedDbDrinkingRecordRepository,
+} from '../storage/drinkingRecordRepository'
+import {
+  IndexedDbSavedDrinkRepository,
+} from '../storage/savedDrinkRepository'
 import type { DrinkingRecord } from '../types/drinkingRecord'
 import type { SavedDrink } from '../types/savedDrink'
 import { ManualDrinkPage } from './ManualDrinkPage'
@@ -50,30 +54,32 @@ const shirazRecord: DrinkingRecord = {
   createdAt: '2026-08-25T09:31:00.000Z',
 }
 
-function storeRecords(records: readonly DrinkingRecord[]) {
-  window.localStorage.setItem(
-    DRINKING_RECORDS_STORAGE_KEY,
-    JSON.stringify(records),
-  )
+async function storeRecords(records: readonly DrinkingRecord[]) {
+  const repository = new IndexedDbDrinkingRecordRepository()
+  for (const record of records) {
+    await repository.add(record)
+  }
 }
 
-function storeSavedDrinks(savedDrinks: readonly SavedDrink[]) {
-  window.localStorage.setItem(
-    SAVED_DRINKS_STORAGE_KEY,
-    JSON.stringify(savedDrinks),
-  )
+async function storeSavedDrinks(savedDrinks: readonly SavedDrink[]) {
+  const repository = new IndexedDbSavedDrinkRepository()
+  for (const savedDrink of savedDrinks) {
+    await repository.add(savedDrink)
+  }
 }
 
-function readRecords(): DrinkingRecord[] {
-  return JSON.parse(
-    window.localStorage.getItem(DRINKING_RECORDS_STORAGE_KEY) ?? '[]',
-  ) as DrinkingRecord[]
+function readRecords(): Promise<DrinkingRecord[]> {
+  return new IndexedDbDrinkingRecordRepository().list()
 }
 
-function readSavedDrinks(): SavedDrink[] {
-  return JSON.parse(
-    window.localStorage.getItem(SAVED_DRINKS_STORAGE_KEY) ?? '[]',
-  ) as SavedDrink[]
+function readSavedDrinks(): Promise<SavedDrink[]> {
+  return new IndexedDbSavedDrinkRepository().list()
+}
+
+async function renderHydratedPage() {
+  const view = render(<ManualDrinkPage />)
+  await screen.findByLabelText('Drink type')
+  return view
 }
 
 function getRecentRecordsSection(): HTMLElement {
@@ -98,9 +104,9 @@ function getRecordEditor(): HTMLFormElement {
 
 describe('ManualDrinkPage drinking-record management', () => {
   it('shows complete record information and loads the original wall-clock values', async () => {
-    storeRecords([skyRecord])
+    await storeRecords([skyRecord])
     const user = userEvent.setup()
-    render(<ManualDrinkPage />)
+    await renderHydratedPage()
     const recentRecords = getRecentRecordsSection()
 
     expect(within(recentRecords).getByText('Sky')).toBeInTheDocument()
@@ -141,10 +147,10 @@ describe('ManualDrinkPage drinking-record management', () => {
   })
 
   it('corrects a record created from My Drinks without changing its saved drink', async () => {
-    storeRecords([shirazRecord])
-    storeSavedDrinks([savedSky])
+    await storeRecords([shirazRecord])
+    await storeSavedDrinks([savedSky])
     const user = userEvent.setup()
-    const view = render(<ManualDrinkPage />)
+    const view = await renderHydratedPage()
 
     await user.click(
       screen.getByRole('button', {
@@ -163,7 +169,10 @@ describe('ManualDrinkPage drinking-record management', () => {
     await user.click(
       screen.getByRole('button', { name: 'Save drinking record' }),
     )
-    const createdSkyRecord = readRecords()[1]
+    expect(
+      await screen.findByText('Drinking record saved on this device.'),
+    ).toBeInTheDocument()
+    const createdSkyRecord = (await readRecords())[1]
     expect(createdSkyRecord).toMatchObject({
       drinkType: 'beer',
       drinkName: 'Sky',
@@ -206,7 +215,7 @@ describe('ManualDrinkPage drinking-record management', () => {
         'The drinking record for Sky Test was updated.',
       ),
     ).toBeInTheDocument()
-    const records = readRecords()
+    const records = await readRecords()
     expect(records).toHaveLength(2)
     expect(records[0]).toEqual(shirazRecord)
     expect(records[1]).toEqual({
@@ -226,7 +235,7 @@ describe('ManualDrinkPage drinking-record management', () => {
     })
     expect(records[1].id).toBe(createdSkyRecord.id)
     expect(records[1].createdAt).toBe(createdSkyRecord.createdAt)
-    expect(readSavedDrinks()).toEqual([savedSky])
+    await expect(readSavedDrinks()).resolves.toEqual([savedSky])
 
     const recentRecords = getRecentRecordsSection()
     expect(within(recentRecords).getByText('Sky Test')).toBeInTheDocument()
@@ -235,18 +244,18 @@ describe('ManualDrinkPage drinking-record management', () => {
     ).toBeInTheDocument()
 
     view.unmount()
-    render(<ManualDrinkPage />)
+    await renderHydratedPage()
     expect(
       within(getRecentRecordsSection()).getByText('Sky Test'),
     ).toBeInTheDocument()
-    expect(readSavedDrinks()).toEqual([savedSky])
+    await expect(readSavedDrinks()).resolves.toEqual([savedSky])
   })
 
   it('rejects an invalid correction without changing stored history or My Drinks', async () => {
-    storeRecords([skyRecord])
-    storeSavedDrinks([savedSky])
+    await storeRecords([skyRecord])
+    await storeSavedDrinks([savedSky])
     const user = userEvent.setup()
-    render(<ManualDrinkPage />)
+    await renderHydratedPage()
 
     await user.click(
       screen.getByRole('button', {
@@ -268,15 +277,15 @@ describe('ManualDrinkPage drinking-record management', () => {
     ).toBeInTheDocument()
     expect(within(editor).getByText('Enter a drink name.')).toBeInTheDocument()
     expect(within(editor).getByLabelText('Drink name')).toHaveFocus()
-    expect(readRecords()).toEqual([skyRecord])
-    expect(readSavedDrinks()).toEqual([savedSky])
+    await expect(readRecords()).resolves.toEqual([skyRecord])
+    await expect(readSavedDrinks()).resolves.toEqual([savedSky])
   })
 
   it('requires confirmation, supports cancel, and deletes only one history record', async () => {
-    storeRecords([shirazRecord, skyRecord])
-    storeSavedDrinks([savedSky])
+    await storeRecords([shirazRecord, skyRecord])
+    await storeSavedDrinks([savedSky])
     const user = userEvent.setup()
-    render(<ManualDrinkPage />)
+    await renderHydratedPage()
 
     await user.click(
       screen.getByRole('button', {
@@ -288,13 +297,13 @@ describe('ManualDrinkPage drinking-record management', () => {
       screen.getByText(/removes this record from your drinking history/i),
     ).toBeInTheDocument()
     expect(screen.getByText(/My Drinks will not be changed/i)).toBeInTheDocument()
-    expect(readRecords()).toEqual([shirazRecord, skyRecord])
+    await expect(readRecords()).resolves.toEqual([shirazRecord, skyRecord])
 
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
     expect(
       screen.queryByText('Delete this drinking record?'),
     ).not.toBeInTheDocument()
-    expect(readRecords()).toEqual([shirazRecord, skyRecord])
+    await expect(readRecords()).resolves.toEqual([shirazRecord, skyRecord])
 
     await user.click(
       screen.getByRole('button', {
@@ -305,8 +314,8 @@ describe('ManualDrinkPage drinking-record management', () => {
       screen.getByRole('button', { name: 'Yes, delete record' }),
     )
 
-    expect(readRecords()).toEqual([shirazRecord])
-    expect(readSavedDrinks()).toEqual([savedSky])
+    await expect(readRecords()).resolves.toEqual([shirazRecord])
+    await expect(readSavedDrinks()).resolves.toEqual([savedSky])
     const recentRecords = getRecentRecordsSection()
     expect(within(recentRecords).queryByText('Sky')).not.toBeInTheDocument()
     expect(within(recentRecords).getByText('Shiraz')).toBeInTheDocument()
@@ -400,7 +409,7 @@ describe('DrinkingRecordEditor validation and failures', () => {
     render(
       <DrinkingRecordEditor
         record={skyRecord}
-        onSave={() => {
+        onSave={async () => {
           throw new Error('Storage unavailable')
         }}
         onCancel={() => undefined}
@@ -426,7 +435,7 @@ describe('RecentDrinkingRecords deletion failures', () => {
       <RecentDrinkingRecords
         records={[skyRecord]}
         onUpdate={() => undefined}
-        onDelete={() => {
+        onDelete={async () => {
           throw new Error('Storage unavailable')
         }}
       />,

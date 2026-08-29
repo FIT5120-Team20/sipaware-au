@@ -17,7 +17,7 @@ import { validateManualDrinkInput } from '../validation/drinkingRecordValidation
 
 interface DrinkingRecordEditorProps {
   record: DrinkingRecord
-  onSave: (record: DrinkingRecord) => void
+  onSave: (record: DrinkingRecord) => void | Promise<void>
   onCancel: () => void
 }
 
@@ -78,6 +78,7 @@ export function DrinkingRecordEditor({
   )
   const [errors, setErrors] = useState<ManualDrinkFormErrors>({})
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
   const selectedDrinkType = getDrinkTypeConfig(values.drinkType)
   const isCustomVolume =
     values.servingSizeSelection === CUSTOM_SERVING_SIZE
@@ -148,7 +149,7 @@ export function DrinkingRecordEditor({
     })
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setSaveError(null)
 
@@ -160,13 +161,18 @@ export function DrinkingRecordEditor({
       return
     }
 
+    setIsSaving(true)
     try {
-      onSave(createUpdatedDrinkingRecord(record, validationResult.data))
+      await onSave(createUpdatedDrinkingRecord(record, validationResult.data))
     } catch {
+      setIsSaving(false)
       setSaveError(
         'Changes to this drinking record could not be saved on this device. Your entries have been kept so you can try again.',
       )
+      return
     }
+
+    setIsSaving(false)
   }
 
   const fieldId = (field: string) => `${formId}-${field}`
@@ -389,7 +395,7 @@ export function DrinkingRecordEditor({
       </fieldset>
 
       <div className="management-actions">
-        <button className="primary-button" type="submit">
+        <button className="primary-button" type="submit" disabled={isSaving}>
           Save changes
         </button>
         <button className="secondary-button" type="button" onClick={onCancel}>

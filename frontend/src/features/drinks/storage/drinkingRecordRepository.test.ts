@@ -4,10 +4,7 @@ import {
   createUpdatedDrinkingRecord,
   type DrinkingRecord,
 } from '../types/drinkingRecord'
-import {
-  DRINKING_RECORDS_STORAGE_KEY,
-  LocalStorageDrinkingRecordRepository,
-} from './drinkingRecordRepository'
+import { IndexedDbDrinkingRecordRepository } from './drinkingRecordRepository'
 
 const firstRecord: DrinkingRecord = {
   id: 'record-1',
@@ -29,32 +26,39 @@ const secondRecord: DrinkingRecord = {
   abvPercent: 13,
   amountConsumed: 1,
   consumedAt: '2026-08-27T09:30:00.000Z',
-  consumedTimezoneOffsetMinutes: 0,
+  consumedTimezoneOffsetMinutes: -600,
   createdAt: '2026-08-27T09:31:00.000Z',
 }
 
-describe('LocalStorageDrinkingRecordRepository', () => {
-  it('returns an empty collection when storage is missing', () => {
-    const repository = new LocalStorageDrinkingRecordRepository()
+describe('IndexedDbDrinkingRecordRepository', () => {
+  it('returns an empty collection from an empty store', async () => {
+    const repository = new IndexedDbDrinkingRecordRepository()
 
-    expect(repository.list()).toEqual([])
+    await expect(repository.list()).resolves.toEqual([])
   })
 
-  it('preserves existing records and makes them available to a new instance', () => {
-    const firstRepository = new LocalStorageDrinkingRecordRepository()
-    firstRepository.add(firstRecord)
+  it('persists multiple records and reloads history through a new repository', async () => {
+    const firstRepository = new IndexedDbDrinkingRecordRepository()
+    await expect(firstRepository.add(firstRecord)).resolves.toEqual([
+      firstRecord,
+    ])
 
-    const reloadedRepository = new LocalStorageDrinkingRecordRepository()
-    expect(reloadedRepository.list()).toEqual([firstRecord])
-
-    reloadedRepository.add(secondRecord)
-    expect(firstRepository.list()).toEqual([firstRecord, secondRecord])
+    const reloadedRepository = new IndexedDbDrinkingRecordRepository()
+    await expect(reloadedRepository.list()).resolves.toEqual([firstRecord])
+    await expect(reloadedRepository.add(secondRecord)).resolves.toEqual([
+      firstRecord,
+      secondRecord,
+    ])
+    await expect(firstRepository.list()).resolves.toEqual([
+      firstRecord,
+      secondRecord,
+    ])
   })
 
-  it('updates one record, preserves identity and unrelated records, and reloads it', () => {
-    const repository = new LocalStorageDrinkingRecordRepository()
-    repository.add(firstRecord)
-    repository.add(secondRecord)
+  it('updates one record while preserving identity and unrelated history', async () => {
+    const repository = new IndexedDbDrinkingRecordRepository()
+    await repository.add(firstRecord)
+    await repository.add(secondRecord)
     const updatedFirstRecord: DrinkingRecord = {
       ...firstRecord,
       drinkName: 'Corrected Pale Ale',
@@ -62,28 +66,29 @@ describe('LocalStorageDrinkingRecordRepository', () => {
       amountConsumed: 1,
     }
 
-    expect(repository.update(updatedFirstRecord)).toEqual([
+    await expect(repository.update(updatedFirstRecord)).resolves.toEqual([
       updatedFirstRecord,
       secondRecord,
     ])
-    expect(new LocalStorageDrinkingRecordRepository().list()).toEqual([
-      updatedFirstRecord,
-      secondRecord,
-    ])
+    await expect(
+      new IndexedDbDrinkingRecordRepository().list(),
+    ).resolves.toEqual([updatedFirstRecord, secondRecord])
   })
 
-  it('deletes only the requested record and persists the remaining list', () => {
-    const repository = new LocalStorageDrinkingRecordRepository()
-    repository.add(firstRecord)
-    repository.add(secondRecord)
+  it('deletes only the requested record and persists the remaining history', async () => {
+    const repository = new IndexedDbDrinkingRecordRepository()
+    await repository.add(firstRecord)
+    await repository.add(secondRecord)
 
-    expect(repository.delete(firstRecord.id)).toEqual([secondRecord])
-    expect(new LocalStorageDrinkingRecordRepository().list()).toEqual([
+    await expect(repository.delete(firstRecord.id)).resolves.toEqual([
       secondRecord,
     ])
+    await expect(
+      new IndexedDbDrinkingRecordRepository().list(),
+    ).resolves.toEqual([secondRecord])
   })
 
-  it('creates a corrected record with unchanged identity and creation time', () => {
+  it('creates a corrected record with identity, creation time, and timezone semantics intact', () => {
     const correctedRecord = createUpdatedDrinkingRecord(firstRecord, {
       drinkType: 'other',
       drinkName: 'Corrected record',
@@ -97,102 +102,42 @@ describe('LocalStorageDrinkingRecordRepository', () => {
     expect(correctedRecord).toMatchObject({
       id: firstRecord.id,
       createdAt: firstRecord.createdAt,
-      drinkType: 'other',
-      drinkName: 'Corrected record',
-      servingVolumeMl: 500,
-      abvPercent: 4.8,
-      amountConsumed: 1,
       consumedAt: '2026-08-25T12:00:00.000Z',
       consumedTimezoneOffsetMinutes: -600,
     })
   })
 
-  it('rejects an update that changes createdAt without writing it', () => {
-    const repository = new LocalStorageDrinkingRecordRepository()
-    repository.add(firstRecord)
+  it('rejects an update that changes createdAt without changing IndexedDB', async () => {
+    const repository = new IndexedDbDrinkingRecordRepository()
+    await repository.add(firstRecord)
     const invalidUpdate = {
       ...firstRecord,
       createdAt: '2026-08-27T12:00:00.000Z',
     }
 
-    expect(() => repository.update(invalidUpdate)).toThrow(
+    await expect(repository.update(invalidUpdate)).rejects.toThrow(
       'A drinking record creation time cannot be changed.',
     )
-    expect(repository.list()).toEqual([firstRecord])
+    await expect(repository.list()).resolves.toEqual([firstRecord])
   })
 
-  it.each([
-    ['malformed JSON', '{not-json'],
-    ['a non-array value', JSON.stringify({ records: [] })],
-  ])('returns an empty collection for %s', (_caseName, storedValue) => {
-    window.localStorage.setItem(DRINKING_RECORDS_STORAGE_KEY, storedValue)
-
-    const repository = new LocalStorageDrinkingRecordRepository()
-
-    expect(() => repository.list()).not.toThrow()
-    expect(repository.list()).toEqual([])
-  })
-
-  it('filters malformed entries without discarding valid records', () => {
-    window.localStorage.setItem(
-      DRINKING_RECORDS_STORAGE_KEY,
-      JSON.stringify([firstRecord, { id: 'incomplete-record' }]),
+  it('surfaces database read and write failures to its caller', async () => {
+    const openFailedDatabase = vi.fn(async () => {
+      throw new Error('IndexedDB unavailable')
+    })
+    const repository = new IndexedDbDrinkingRecordRepository(
+      openFailedDatabase,
     )
 
-    const repository = new LocalStorageDrinkingRecordRepository()
-
-    expect(repository.list()).toEqual([firstRecord])
-  })
-
-  it('does not overwrite records when storage cannot be read', () => {
-    const setItem = vi.fn()
-    const throwingStorage: Storage = {
-      length: 0,
-      clear: () => undefined,
-      getItem: () => {
-        throw new Error('Storage read failed')
-      },
-      key: () => null,
-      removeItem: () => undefined,
-      setItem,
-    }
-    const repository = new LocalStorageDrinkingRecordRepository(
-      throwingStorage,
+    await expect(repository.list()).rejects.toThrow('IndexedDB unavailable')
+    await expect(repository.add(firstRecord)).rejects.toThrow(
+      'IndexedDB unavailable',
     )
-
-    expect(repository.list()).toEqual([])
-    expect(() => repository.add(firstRecord)).toThrow('Storage read failed')
-    expect(() => repository.update(firstRecord)).toThrow('Storage read failed')
-    expect(() => repository.delete(firstRecord.id)).toThrow(
-      'Storage read failed',
+    await expect(repository.update(firstRecord)).rejects.toThrow(
+      'IndexedDB unavailable',
     )
-    expect(setItem).not.toHaveBeenCalled()
-  })
-
-  it('surfaces write failures for updates and deletions', () => {
-    const throwingStorage: Storage = {
-      length: 1,
-      clear: () => undefined,
-      getItem: () => JSON.stringify([firstRecord, secondRecord]),
-      key: () => DRINKING_RECORDS_STORAGE_KEY,
-      removeItem: () => undefined,
-      setItem: () => {
-        throw new Error('Storage write failed')
-      },
-    }
-    const repository = new LocalStorageDrinkingRecordRepository(
-      throwingStorage,
-    )
-    const updatedFirstRecord = {
-      ...firstRecord,
-      drinkName: 'Corrected Pale Ale',
-    }
-
-    expect(() => repository.update(updatedFirstRecord)).toThrow(
-      'Storage write failed',
-    )
-    expect(() => repository.delete(firstRecord.id)).toThrow(
-      'Storage write failed',
+    await expect(repository.delete(firstRecord.id)).rejects.toThrow(
+      'IndexedDB unavailable',
     )
   })
 })

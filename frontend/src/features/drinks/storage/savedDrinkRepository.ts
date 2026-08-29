@@ -1,13 +1,27 @@
+import type { IDBPTransaction } from 'idb'
+
 import { isDrinkType } from '../config/drinkTypes'
 import type { SavedDrink } from '../types/savedDrink'
+import {
+  openSipAwareDatabase,
+  SAVED_DRINKS_STORE_NAME,
+  type SipAwareDatabaseProvider,
+  type SipAwareDatabaseSchema,
+} from './indexedDb'
 
-export const SAVED_DRINKS_STORAGE_KEY = 'sipaware.savedDrinks.v1'
-
+/**
+ * Keeps UI code independent of the browser database technology while exposing
+ * the asynchronous operations required by IndexedDB.
+ */
 export interface SavedDrinkRepository {
-  list(): SavedDrink[]
-  add(savedDrink: SavedDrink): SavedDrink[]
-  update(savedDrink: SavedDrink): SavedDrink[]
-  delete(savedDrinkId: string): SavedDrink[]
+  /** Returns every reusable drink stored on this browser/device. */
+  list(): Promise<SavedDrink[]>
+  /** Persists a new reusable drink before returning the complete collection. */
+  add(savedDrink: SavedDrink): Promise<SavedDrink[]>
+  /** Replaces an existing reusable drink while preserving its identity. */
+  update(savedDrink: SavedDrink): Promise<SavedDrink[]>
+  /** Deletes one reusable drink without changing drinking-record history. */
+  delete(savedDrinkId: string): Promise<SavedDrink[]>
 }
 
 function isNonEmptyString(value: unknown): value is string {
@@ -45,72 +59,78 @@ export function isSavedDrink(value: unknown): value is SavedDrink {
   )
 }
 
-function parseStoredSavedDrinks(storedValue: string | null): SavedDrink[] {
-  if (storedValue === null) {
-    return []
-  }
-
-  try {
-    const parsedValue: unknown = JSON.parse(storedValue)
-    return Array.isArray(parsedValue)
-      ? parsedValue.filter(isSavedDrink)
-      : []
-  } catch {
-    return []
-  }
+function sortSavedDrinks(savedDrinks: SavedDrink[]): SavedDrink[] {
+  return savedDrinks.sort(
+    (left, right) =>
+      left.createdAt.localeCompare(right.createdAt) ||
+      left.id.localeCompare(right.id),
+  )
 }
 
-export class LocalStorageSavedDrinkRepository
-  implements SavedDrinkRepository
-{
+type SavedDrinkWriteTransaction = IDBPTransaction<
+  SipAwareDatabaseSchema,
+  ['saved_drinks'],
+  'readwrite'
+>
+
+async function listFromTransaction(
+  transaction: SavedDrinkWriteTransaction,
+): Promise<SavedDrink[]> {
+  return sortSavedDrinks(await transaction.store.getAll())
+}
+
+/** IndexedDB implementation used by the active Epic 1 application runtime. */
+export class IndexedDbSavedDrinkRepository implements SavedDrinkRepository {
   constructor(
-    private readonly storage: Storage | undefined = undefined,
-    private readonly storageKey: string = SAVED_DRINKS_STORAGE_KEY,
+    private readonly openDatabase: SipAwareDatabaseProvider =
+      openSipAwareDatabase,
   ) {}
 
-  private resolveStorage(): Storage {
-    return this.storage ?? window.localStorage
+  async list(): Promise<SavedDrink[]> {
+    const database = await this.openDatabase()
+    return sortSavedDrinks(await database.getAll(SAVED_DRINKS_STORE_NAME))
   }
 
-  private readFrom(storage: Storage): SavedDrink[] {
-    return parseStoredSavedDrinks(storage.getItem(this.storageKey))
-  }
-
-  list(): SavedDrink[] {
-    try {
-      return this.readFrom(this.resolveStorage())
-    } catch {
-      return []
-    }
-  }
-
-  add(savedDrink: SavedDrink): SavedDrink[] {
+  async add(savedDrink: SavedDrink): Promise<SavedDrink[]> {
     if (!isSavedDrink(savedDrink)) {
       throw new Error('Cannot save an invalid saved drink.')
     }
 
-    const storage = this.resolveStorage()
-    const savedDrinks = [...this.readFrom(storage), savedDrink]
-    storage.setItem(this.storageKey, JSON.stringify(savedDrinks))
+    const database = await this.openDatabase()
+    const transaction = database.transaction(
+      SAVED_DRINKS_STORE_NAME,
+      'readwrite',
+    )
+
+    // The mutation and returned snapshot share one transaction, so the UI is
+    // never told about a value that failed to commit.
+    await transaction.store.add(savedDrink)
+    const savedDrinks = await listFromTransaction(transaction)
+    await transaction.done
     return savedDrinks
   }
 
-  update(savedDrink: SavedDrink): SavedDrink[] {
+  async update(savedDrink: SavedDrink): Promise<SavedDrink[]> {
     if (!isSavedDrink(savedDrink)) {
       throw new Error('Cannot update an invalid saved drink.')
     }
 
-    const storage = this.resolveStorage()
-    const savedDrinks = this.readFrom(storage)
-    const existingSavedDrink = savedDrinks.find(
-      (candidate) => candidate.id === savedDrink.id,
+    const database = await this.openDatabase()
+    const transaction = database.transaction(
+      SAVED_DRINKS_STORE_NAME,
+      'readwrite',
     )
+    const existingSavedDrink = await transaction.store.get(savedDrink.id)
 
     if (!existingSavedDrink) {
+      transaction.abort()
+      await transaction.done.catch(() => undefined)
       throw new Error('The saved drink no longer exists.')
     }
 
     if (savedDrink.createdAt !== existingSavedDrink.createdAt) {
+      transaction.abort()
+      await transaction.done.catch(() => undefined)
       throw new Error('A saved drink creation time cannot be changed.')
     }
 
@@ -118,31 +138,37 @@ export class LocalStorageSavedDrinkRepository
       new Date(savedDrink.updatedAt).getTime() <=
       new Date(existingSavedDrink.updatedAt).getTime()
     ) {
+      transaction.abort()
+      await transaction.done.catch(() => undefined)
       throw new Error('A saved drink update time must move forward.')
     }
 
-    const updatedSavedDrinks = savedDrinks.map((candidate) =>
-      candidate.id === savedDrink.id ? savedDrink : candidate,
-    )
-    storage.setItem(this.storageKey, JSON.stringify(updatedSavedDrinks))
-    return updatedSavedDrinks
+    await transaction.store.put(savedDrink)
+    const savedDrinks = await listFromTransaction(transaction)
+    await transaction.done
+    return savedDrinks
   }
 
-  delete(savedDrinkId: string): SavedDrink[] {
+  async delete(savedDrinkId: string): Promise<SavedDrink[]> {
     if (!isNonEmptyString(savedDrinkId)) {
       throw new Error('A saved drink ID is required for deletion.')
     }
 
-    const storage = this.resolveStorage()
-    const savedDrinks = this.readFrom(storage)
-    if (!savedDrinks.some((savedDrink) => savedDrink.id === savedDrinkId)) {
+    const database = await this.openDatabase()
+    const transaction = database.transaction(
+      SAVED_DRINKS_STORE_NAME,
+      'readwrite',
+    )
+
+    if (!(await transaction.store.get(savedDrinkId))) {
+      transaction.abort()
+      await transaction.done.catch(() => undefined)
       throw new Error('The saved drink no longer exists.')
     }
 
-    const remainingSavedDrinks = savedDrinks.filter(
-      (savedDrink) => savedDrink.id !== savedDrinkId,
-    )
-    storage.setItem(this.storageKey, JSON.stringify(remainingSavedDrinks))
-    return remainingSavedDrinks
+    await transaction.store.delete(savedDrinkId)
+    const savedDrinks = await listFromTransaction(transaction)
+    await transaction.done
+    return savedDrinks
   }
 }

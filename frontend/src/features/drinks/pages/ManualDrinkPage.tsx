@@ -1,51 +1,105 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { ManualDrinkForm } from '../components/ManualDrinkForm'
 import { RecentDrinkingRecords } from '../components/RecentDrinkingRecords'
-import { LocalStorageDrinkingRecordRepository } from '../storage/drinkingRecordRepository'
-import { LocalStorageSavedDrinkRepository } from '../storage/savedDrinkRepository'
+import { IndexedDbDrinkingRecordRepository } from '../storage/drinkingRecordRepository'
+import { IndexedDbSavedDrinkRepository } from '../storage/savedDrinkRepository'
 import type { DrinkingRecord } from '../types/drinkingRecord'
 import type { SavedDrink } from '../types/savedDrink'
 import '../manualDrink.css'
 
+type HydrationStatus = 'loading' | 'ready' | 'error'
+
 export function ManualDrinkPage() {
   const drinkingRecordRepository = useMemo(
-    () => new LocalStorageDrinkingRecordRepository(),
+    () => new IndexedDbDrinkingRecordRepository(),
     [],
   )
   const savedDrinkRepository = useMemo(
-    () => new LocalStorageSavedDrinkRepository(),
+    () => new IndexedDbSavedDrinkRepository(),
     [],
   )
-  const [records, setRecords] = useState<DrinkingRecord[]>(() =>
-    drinkingRecordRepository.list(),
-  )
-  const [savedDrinks, setSavedDrinks] = useState<SavedDrink[]>(() =>
-    savedDrinkRepository.list(),
-  )
+  const isMounted = useRef(false)
+  const [records, setRecords] = useState<DrinkingRecord[]>([])
+  const [savedDrinks, setSavedDrinks] = useState<SavedDrink[]>([])
+  const [hydrationStatus, setHydrationStatus] =
+    useState<HydrationStatus>('loading')
 
-  function saveRecord(record: DrinkingRecord) {
-    setRecords(drinkingRecordRepository.add(record))
+  useEffect(() => {
+    isMounted.current = true
+
+    async function hydrateBrowserData() {
+      try {
+        // Read both personal-data stores before showing the feature so the UI
+        // starts from one consistent browser-local persistence snapshot.
+        const [storedRecords, storedSavedDrinks] = await Promise.all([
+          drinkingRecordRepository.list(),
+          savedDrinkRepository.list(),
+        ])
+
+        if (isMounted.current) {
+          setRecords(storedRecords)
+          setSavedDrinks(storedSavedDrinks)
+          setHydrationStatus('ready')
+        }
+      } catch {
+        if (isMounted.current) {
+          setHydrationStatus('error')
+        }
+      }
+    }
+
+    void hydrateBrowserData()
+
+    return () => {
+      // IndexedDB can resolve after navigation; committed data remains intact,
+      // but React state must not be updated after this page unmounts.
+      isMounted.current = false
+    }
+  }, [drinkingRecordRepository, savedDrinkRepository])
+
+  async function saveRecord(record: DrinkingRecord): Promise<void> {
+    const persistedRecords = await drinkingRecordRepository.add(record)
+    if (isMounted.current) {
+      setRecords(persistedRecords)
+    }
   }
 
-  function updateRecord(record: DrinkingRecord) {
-    setRecords(drinkingRecordRepository.update(record))
+  async function updateRecord(record: DrinkingRecord): Promise<void> {
+    const persistedRecords = await drinkingRecordRepository.update(record)
+    if (isMounted.current) {
+      setRecords(persistedRecords)
+    }
   }
 
-  function deleteRecord(recordId: string) {
-    setRecords(drinkingRecordRepository.delete(recordId))
+  async function deleteRecord(recordId: string): Promise<void> {
+    const persistedRecords = await drinkingRecordRepository.delete(recordId)
+    if (isMounted.current) {
+      setRecords(persistedRecords)
+    }
   }
 
-  function saveDrinkForFutureUse(savedDrink: SavedDrink) {
-    setSavedDrinks(savedDrinkRepository.add(savedDrink))
+  async function saveDrinkForFutureUse(
+    savedDrink: SavedDrink,
+  ): Promise<void> {
+    const persistedSavedDrinks = await savedDrinkRepository.add(savedDrink)
+    if (isMounted.current) {
+      setSavedDrinks(persistedSavedDrinks)
+    }
   }
 
-  function updateSavedDrink(savedDrink: SavedDrink) {
-    setSavedDrinks(savedDrinkRepository.update(savedDrink))
+  async function updateSavedDrink(savedDrink: SavedDrink): Promise<void> {
+    const persistedSavedDrinks = await savedDrinkRepository.update(savedDrink)
+    if (isMounted.current) {
+      setSavedDrinks(persistedSavedDrinks)
+    }
   }
 
-  function deleteSavedDrink(savedDrinkId: string) {
-    setSavedDrinks(savedDrinkRepository.delete(savedDrinkId))
+  async function deleteSavedDrink(savedDrinkId: string): Promise<void> {
+    const persistedSavedDrinks = await savedDrinkRepository.delete(savedDrinkId)
+    if (isMounted.current) {
+      setSavedDrinks(persistedSavedDrinks)
+    }
   }
 
   return (
@@ -60,20 +114,37 @@ export function ManualDrinkPage() {
           </p>
         </header>
 
-        <div className="manual-drink-layout">
-          <ManualDrinkForm
-            savedDrinks={savedDrinks}
-            onSave={saveRecord}
-            onSaveSavedDrink={saveDrinkForFutureUse}
-            onUpdateSavedDrink={updateSavedDrink}
-            onDeleteSavedDrink={deleteSavedDrink}
-          />
-          <RecentDrinkingRecords
-            records={records}
-            onUpdate={updateRecord}
-            onDelete={deleteRecord}
-          />
-        </div>
+        {hydrationStatus === 'loading' && (
+          <section className="manual-drink-card" role="status">
+            Loading drinks saved on this device...
+          </section>
+        )}
+
+        {hydrationStatus === 'error' && (
+          <section className="manual-drink-card">
+            <div className="form-notice form-notice--error" role="alert">
+              Drinks saved on this device could not be loaded. Reload the page
+              to try again. Nothing has been changed.
+            </div>
+          </section>
+        )}
+
+        {hydrationStatus === 'ready' && (
+          <div className="manual-drink-layout">
+            <ManualDrinkForm
+              savedDrinks={savedDrinks}
+              onSave={saveRecord}
+              onSaveSavedDrink={saveDrinkForFutureUse}
+              onUpdateSavedDrink={updateSavedDrink}
+              onDeleteSavedDrink={deleteSavedDrink}
+            />
+            <RecentDrinkingRecords
+              records={records}
+              onUpdate={updateRecord}
+              onDelete={deleteRecord}
+            />
+          </div>
+        )}
       </div>
     </main>
   )

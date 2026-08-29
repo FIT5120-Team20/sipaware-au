@@ -1,30 +1,81 @@
 # Architecture Overview
 
-## Agreed Bootstrap Architecture
+## Application Architecture
 
 - The frontend uses React, TypeScript, and Vite.
 - The backend uses Python 3.12+ and FastAPI.
-- The frontend communicates with the backend through a REST API. Hosted communication is intended to use HTTPS.
-- The only bootstrap API is `GET /api/health`, used to verify local connectivity.
+- `GET /api/health` is the only current API and contains no personal data.
+- The frontend repository interfaces isolate UI code from browser persistence.
 
-## Privacy Boundary
+Epic 1 personal-data flow is:
 
-Personal drinking data is local-only and must remain on the user's device. Epic 1 US1.1 stores drinking-record snapshots in browser LocalStorage using the versioned key `sipaware.drinkingRecords.v1`. Epic 1 US1.2 stores reusable `SavedDrink` definitions separately under `sipaware.savedDrinks.v1`. Both use frontend repository abstractions and are never sent to FastAPI or another backend data store. Each drinking-record snapshot stores the offset at the entered date and time so the original local wall-clock time remains stable if the device timezone later changes.
+```text
+React components
+  -> SavedDrinkRepository / DrinkingRecordRepository
+  -> idb Promise wrapper
+  -> browser-native IndexedDB
+```
 
-`SavedDrink` contains reusable drink type, name, serving volume and ABV data, but no servings-consumed or consumption date/time fields. Creating history from My Drinks copies those reusable values into an independent `DrinkingRecord` snapshot. Historical rendering therefore does not depend on the saved definition continuing to exist or remaining unchanged.
+The `idb` package is a lightweight typed wrapper, not a separate database. The
+browser's native IndexedDB implementation remains the persistence engine.
 
-US1.3 extends the SavedDrink repository with local update and delete operations. Updates preserve the SavedDrink ID and creation timestamp, and deletions require explicit user confirmation. Neither operation reads from or writes to the drinking-record repository, so there is no update or delete cascade into history.
+## Browser Personal-Data Database
 
-US1.4 extends the DrinkingRecord repository with local update and delete operations for displayed recent history. Corrections preserve the DrinkingRecord ID and creation timestamp, rebuild corrected date/time values with the established wall-clock offset design, and require the same validation as manual capture. DrinkingRecord management never reads from or writes to the SavedDrink repository, so saved reusable definitions remain independent.
+Saved Drinks and Drinking Records stay on the user's browser/device in:
 
-For the current data model, `amountConsumed` is the number of servings consumed. It is stored alongside the per-serving volume in millilitres. No standard-drink, guideline, or health value is calculated.
+- database: `alcohol_user_data`
+- version: `1`
+- object store: `saved_drinks`
+- object store: `drinking_records`
 
-Amazon RDS for PostgreSQL is intended only for approved official or public reference data.
+Both application repositories expose asynchronous `list`, `add`, `update`, and
+`delete` methods. React hydrates both collections before enabling the feature,
+waits for writes to commit before changing visible state, and shows an
+understandable device-storage error when persistence fails. A rejected write
+does not clear form values or falsely show success.
 
-## Pending Decisions
+`SavedDrink` remains a reusable definition containing drink type, name, serving
+volume, ABV, ID, and timestamps. `DrinkingRecord` remains an independent
+historical snapshot containing those drink values plus servings consumed,
+consumption time, the original wall-clock timezone offset, ID, and creation
+time. Editing or deleting either collection never cascades into the other.
 
-Data Science database integration is pending. No datasets, schemas, tables, ingestion processes, or reference-data contracts have been defined in this repository.
+## Prototype-to-Iteration-1 Decision
 
-No authentication is in scope for Iteration 1 unless later approved requirements state otherwise.
+An early development prototype used LocalStorage. SipAware AU had not been
+deployed to production users, and those values contained development test data
+only. The team therefore chose not to carry a legacy-data migration into the
+final architecture.
 
-Cloud deployment, production CORS, and hosted-environment configuration remain future design work.
+Iteration 1 starts with IndexedDB as its production persistence baseline. The
+application does not inspect the prototype LocalStorage keys, import their
+contents, or use LocalStorage as a persistence fallback. Old prototype values
+can be discarded during development.
+
+## Privacy and AWS Boundary
+
+Saved Drinks and Drinking Records are personal data. They are not sent to
+FastAPI, analytics, external APIs, or AWS RDS. Amazon RDS for PostgreSQL is
+reserved for project-managed reference/content data only.
+
+Keeping personal data local minimises disclosure and matches the Data Science
+browser-storage handover. IndexedDB replaced LocalStorage because it offers a
+structured transactional database and asynchronous operations while retaining
+the same device-local privacy boundary. The existing repository abstraction
+limited the persistence refactor's impact to storage implementations and
+promise-aware UI integration rather than requiring a feature redesign.
+
+## Data Science Contract Phase Boundary
+
+This phase aligns the persistence technology, database name, object-store
+names, and privacy architecture. It intentionally retains the existing
+camelCase Epic 1 application models.
+
+Future reference fields such as `category_id`, `variant_id`,
+`abv_source_type`, and `abv_reference_id` are deferred until real AWS RDS
+reference values and mappings are available. No IDs are invented or guessed.
+Full field-contract mapping belongs to the later RDS reference-integration
+task.
+
+Standard-drink calculations, guideline logic, and other health calculations
+remain Epic 2 scope and are not implemented here.

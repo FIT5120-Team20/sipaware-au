@@ -9,8 +9,8 @@ interface SavedDrinkPickerProps {
   selectedSavedDrinkId: string | null
   onSelect: (savedDrink: SavedDrink) => void
   onClear: () => void
-  onUpdate: (savedDrink: SavedDrink) => void
-  onDelete: (savedDrinkId: string) => void
+  onUpdate: (savedDrink: SavedDrink) => void | Promise<void>
+  onDelete: (savedDrinkId: string) => void | Promise<void>
 }
 
 type ManagementStatus =
@@ -29,6 +29,9 @@ export function SavedDrinkPicker({
     null,
   )
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
+  const [deletingSavedDrinkId, setDeletingSavedDrinkId] = useState<
+    string | null
+  >(null)
   const [managementStatus, setManagementStatus] =
     useState<ManagementStatus>(null)
   const selectedSavedDrink = savedDrinks.find(
@@ -41,8 +44,8 @@ export function SavedDrinkPicker({
     setManagementStatus(null)
   }
 
-  function saveEditedDrink(savedDrink: SavedDrink) {
-    onUpdate(savedDrink)
+  async function saveEditedDrink(savedDrink: SavedDrink) {
+    await onUpdate(savedDrink)
     setEditingSavedDrinkId(null)
     setManagementStatus({
       kind: 'success',
@@ -56,10 +59,12 @@ export function SavedDrinkPicker({
     setManagementStatus(null)
   }
 
-  function confirmDelete(savedDrink: SavedDrink) {
+  async function confirmDelete(savedDrink: SavedDrink) {
+    setDeletingSavedDrinkId(savedDrink.id)
     try {
-      onDelete(savedDrink.id)
+      await onDelete(savedDrink.id)
     } catch {
+      setDeletingSavedDrinkId(null)
       setManagementStatus({
         kind: 'error',
         message:
@@ -68,6 +73,7 @@ export function SavedDrinkPicker({
       return
     }
 
+    setDeletingSavedDrinkId(null)
     setPendingDeleteId(null)
     setManagementStatus({
       kind: 'success',
@@ -159,6 +165,7 @@ export function SavedDrinkPicker({
                         className="danger-button"
                         type="button"
                         onClick={() => confirmDelete(savedDrink)}
+                        disabled={deletingSavedDrinkId === savedDrink.id}
                       >
                         Yes, delete {savedDrink.drinkName} from My Drinks
                       </button>

@@ -3,9 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 
 import { ManualDrinkForm } from '../components/ManualDrinkForm'
-import {
-  DRINKING_RECORDS_STORAGE_KEY,
-} from '../storage/drinkingRecordRepository'
+import { IndexedDbDrinkingRecordRepository } from '../storage/drinkingRecordRepository'
 import type { DrinkingRecord } from '../types/drinkingRecord'
 import { ManualDrinkPage } from './ManualDrinkPage'
 
@@ -19,6 +17,12 @@ const existingRecord: DrinkingRecord = {
   consumedAt: '2026-08-25T09:30:00.000Z',
   consumedTimezoneOffsetMinutes: 0,
   createdAt: '2026-08-25T09:31:00.000Z',
+}
+
+async function renderHydratedPage() {
+  const view = render(<ManualDrinkPage />)
+  await screen.findByLabelText('Drink type')
+  return view
 }
 
 async function completeValidForm() {
@@ -49,8 +53,8 @@ async function completeValidForm() {
 }
 
 describe('ManualDrinkPage', () => {
-  it('provides every required drink and consumption input', () => {
-    render(<ManualDrinkPage />)
+  it('provides every required drink and consumption input', async () => {
+    await renderHydratedPage()
 
     expect(screen.getByLabelText('Drink type')).toBeInTheDocument()
     expect(screen.getByLabelText('Drink name')).toBeInTheDocument()
@@ -71,7 +75,7 @@ describe('ManualDrinkPage', () => {
 
   it('shows configured common serving sizes for the selected drink type', async () => {
     const user = userEvent.setup()
-    render(<ManualDrinkPage />)
+    await renderHydratedPage()
 
     await user.selectOptions(screen.getByLabelText('Drink type'), 'beer')
     const servingSize = screen.getByLabelText('Serving size / volume')
@@ -102,7 +106,7 @@ describe('ManualDrinkPage', () => {
 
   it('reveals a numeric millilitre input for a custom volume', async () => {
     const user = userEvent.setup()
-    render(<ManualDrinkPage />)
+    await renderHydratedPage()
 
     await user.selectOptions(screen.getByLabelText('Drink type'), 'beer')
     await user.selectOptions(
@@ -120,7 +124,7 @@ describe('ManualDrinkPage', () => {
   })
 
   it('saves a valid custom volume in millilitres', async () => {
-    render(<ManualDrinkPage />)
+    await renderHydratedPage()
     const user = await completeValidForm()
 
     await user.selectOptions(
@@ -134,10 +138,7 @@ describe('ManualDrinkPage', () => {
       screen.getByRole('button', { name: 'Save drinking record' }),
     )
 
-    const storedValue = window.localStorage.getItem(
-      DRINKING_RECORDS_STORAGE_KEY,
-    )
-    const storedRecords = JSON.parse(storedValue ?? '[]') as DrinkingRecord[]
+    const storedRecords = await new IndexedDbDrinkingRecordRepository().list()
 
     expect(storedRecords).toHaveLength(1)
     expect(storedRecords[0]).toMatchObject({
@@ -151,11 +152,8 @@ describe('ManualDrinkPage', () => {
   })
 
   it('saves a valid snapshot, preserves prior records, resets, and reloads it', async () => {
-    window.localStorage.setItem(
-      DRINKING_RECORDS_STORAGE_KEY,
-      JSON.stringify([existingRecord]),
-    )
-    const view = render(<ManualDrinkPage />)
+    await new IndexedDbDrinkingRecordRepository().add(existingRecord)
+    const view = await renderHydratedPage()
     const user = await completeValidForm()
 
     await user.click(
@@ -166,11 +164,7 @@ describe('ManualDrinkPage', () => {
       await screen.findByText('Drinking record saved on this device.'),
     ).toBeInTheDocument()
 
-    const storedValue = window.localStorage.getItem(
-      DRINKING_RECORDS_STORAGE_KEY,
-    )
-    expect(storedValue).not.toBeNull()
-    const storedRecords = JSON.parse(storedValue ?? '[]') as DrinkingRecord[]
+    const storedRecords = await new IndexedDbDrinkingRecordRepository().list()
 
     expect(storedRecords).toHaveLength(2)
     expect(storedRecords[0]).toEqual(existingRecord)
@@ -200,14 +194,14 @@ describe('ManualDrinkPage', () => {
     expect(screen.getByText('Existing Shiraz')).toBeInTheDocument()
 
     view.unmount()
-    render(<ManualDrinkPage />)
-    expect(screen.getByText('Pale Ale')).toBeInTheDocument()
+    await renderHydratedPage()
+    expect(await screen.findByText('Pale Ale')).toBeInTheDocument()
     expect(screen.getByText('Existing Shiraz')).toBeInTheDocument()
   })
 
   it('does not save an incomplete record and focuses the first invalid field', async () => {
     const user = userEvent.setup()
-    render(<ManualDrinkPage />)
+    await renderHydratedPage()
 
     await user.selectOptions(screen.getByLabelText('Drink type'), 'beer')
     await user.selectOptions(
@@ -227,22 +221,11 @@ describe('ManualDrinkPage', () => {
 
     expect(await screen.findByText(/Enter a drink name\./)).toBeInTheDocument()
     expect(screen.getByLabelText('Drink name')).toHaveFocus()
-    expect(
-      window.localStorage.getItem(DRINKING_RECORDS_STORAGE_KEY),
-    ).toBeNull()
+    await expect(
+      new IndexedDbDrinkingRecordRepository().list(),
+    ).resolves.toEqual([])
   })
 
-  it('remains usable when local storage contains malformed data', () => {
-    window.localStorage.setItem(DRINKING_RECORDS_STORAGE_KEY, '{not-json')
-
-    expect(() => render(<ManualDrinkPage />)).not.toThrow()
-    expect(
-      screen.getByText('No drinks recorded on this device yet.'),
-    ).toBeInTheDocument()
-    expect(
-      screen.getByRole('button', { name: 'Save drinking record' }),
-    ).toBeEnabled()
-  })
 })
 
 describe('ManualDrinkForm save failures', () => {
@@ -250,7 +233,7 @@ describe('ManualDrinkForm save failures', () => {
     render(
       <ManualDrinkForm
         savedDrinks={[]}
-        onSave={() => {
+        onSave={async () => {
           throw new Error('Storage is unavailable')
         }}
         onSaveSavedDrink={() => undefined}

@@ -1,10 +1,15 @@
-# Data Placeholder
+# Data Boundary
 
-Data Science integration is pending. Official or public datasets will be added only after the team supplies and agrees on the required data assets, provenance, contracts, and handling approach.
+This directory is reserved for future approved project-managed reference or
+content data. Do not add invented production datasets, placeholder CSV/JSON/SQL
+files, or personal drinking data.
 
-- Do not invent or add production/reference datasets here.
-- Do not add placeholder CSV, JSON, SQL, or mock data.
-- Do not store personal drinking records in this directory.
-- Personal drinking records are intended to remain on the user's device under the current architecture.
+Personal Saved Drinks and Drinking Records remain on the user's device in the
+browser-native IndexedDB database `alcohol_user_data`, in the `saved_drinks` and
+`drinking_records` object stores. They must not be placed in this directory,
+sent to FastAPI, or stored in AWS RDS.
 
-Database schemas, ingestion logic, and reference-data contracts will be documented only after they are agreed with the Data Science team.
+Future RDS schemas, ingestion logic, and reference-data mappings will be added
+only after the team supplies approved real reference IDs and contracts. Fields
+such as category, variant, and ABV reference IDs are deliberately not guessed
+in the current IndexedDB persistence phase.

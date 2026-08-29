@@ -100,21 +100,25 @@ Authentication, health calculations, guideline logic, safety guidance, and Epic 
 
 ## Data / Database Status
 
-Data Science datasets, schemas, ingestion logic, reference-data contracts, and PostgreSQL tables are pending team agreement. No database or sample dataset is included. Amazon RDS for PostgreSQL is intended only for approved official or public reference data.
+The Data Science browser-persistence contract is implemented for Epic 1 personal data using IndexedDB. Server-side datasets, PostgreSQL schemas, ingestion logic, and real reference-data mappings remain pending team agreement. Amazon RDS for PostgreSQL is reserved only for approved project-managed reference/content data.
 
 See [data/README.md](data/README.md) and [docs/data-contracts/README.md](docs/data-contracts/README.md).
 
 ## Privacy Architecture
 
-Personal drinking records remain on the user's device and are stored in browser LocalStorage under the versioned key `sipaware.drinkingRecords.v1`. Reusable saved drinks are stored separately under `sipaware.savedDrinks.v1`. Neither is sent to FastAPI or stored in Amazon RDS, this repository's `data/` directory, or another server-side store.
+Personal drinking records and reusable saved drinks remain on the user's device in browser-native IndexedDB. The database is `alcohol_user_data` version 1, with separate `drinking_records` and `saved_drinks` object stores. The lightweight `idb` package provides typed Promise APIs over IndexedDB; it is not a separate data service. Neither collection is sent to FastAPI, analytics, external APIs, or Amazon RDS.
 
 A `SavedDrink` contains only reusable drink type, name, serving volume and ABV data plus local identifiers and timestamps. It excludes servings consumed and consumption date/time. When it is used, its reusable values are copied into a new independent `DrinkingRecord` historical snapshot.
 
-Editing or deleting a `SavedDrink` changes only the reusable definition under `sipaware.savedDrinks.v1`. It never updates or removes an existing `DrinkingRecord` snapshot.
+Editing or deleting a `SavedDrink` changes only its reusable definition in `saved_drinks`. It never updates or removes an existing `DrinkingRecord` snapshot.
 
-Editing or deleting a `DrinkingRecord` changes only drinking history under `sipaware.drinkingRecords.v1`. A correction preserves that record's ID and creation time, and neither correction nor deletion changes a reusable definition in My Drinks.
+Editing or deleting a `DrinkingRecord` changes only drinking history in `drinking_records`. A correction preserves that record's ID and creation time, and neither correction nor deletion changes a reusable definition in My Drinks.
+
+An early, undeployed prototype used LocalStorage for development test data. No legacy migration is required: Iteration 1 starts with IndexedDB as the production persistence baseline, and the application does not read the old prototype keys or fall back to LocalStorage.
 
 For US1.1, `amountConsumed` means the number of servings consumed. For example, a serving volume of 375 mL and an amount of 1.5 represents 1.5 servings of 375 mL each. No standard-drink or health calculation is performed.
+
+This phase does not guess future Data Science reference fields such as category, variant, or ABV reference IDs. Those fields are deferred until a later RDS reference-integration task has approved real values. Standard-drink calculation remains Epic 2 scope.
 
 ## Branching Convention
 

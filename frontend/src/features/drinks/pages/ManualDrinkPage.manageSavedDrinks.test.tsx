@@ -4,8 +4,12 @@ import { describe, expect, it } from 'vitest'
 
 import { SavedDrinkEditor } from '../components/SavedDrinkEditor'
 import { SavedDrinkPicker } from '../components/SavedDrinkPicker'
-import { DRINKING_RECORDS_STORAGE_KEY } from '../storage/drinkingRecordRepository'
-import { SAVED_DRINKS_STORAGE_KEY } from '../storage/savedDrinkRepository'
+import {
+  IndexedDbDrinkingRecordRepository,
+} from '../storage/drinkingRecordRepository'
+import {
+  IndexedDbSavedDrinkRepository,
+} from '../storage/savedDrinkRepository'
 import type { DrinkingRecord } from '../types/drinkingRecord'
 import type { SavedDrink } from '../types/savedDrink'
 import { ManualDrinkPage } from './ManualDrinkPage'
@@ -42,23 +46,25 @@ const existingHistoricalRecord: DrinkingRecord = {
   createdAt: '2026-08-25T09:31:00.000Z',
 }
 
-function storeSavedDrinks(savedDrinks: readonly SavedDrink[]) {
-  window.localStorage.setItem(
-    SAVED_DRINKS_STORAGE_KEY,
-    JSON.stringify(savedDrinks),
-  )
+async function storeSavedDrinks(savedDrinks: readonly SavedDrink[]) {
+  const repository = new IndexedDbSavedDrinkRepository()
+  for (const savedDrink of savedDrinks) {
+    await repository.add(savedDrink)
+  }
 }
 
-function readSavedDrinks(): SavedDrink[] {
-  return JSON.parse(
-    window.localStorage.getItem(SAVED_DRINKS_STORAGE_KEY) ?? '[]',
-  ) as SavedDrink[]
+function readSavedDrinks(): Promise<SavedDrink[]> {
+  return new IndexedDbSavedDrinkRepository().list()
 }
 
-function readHistory(): DrinkingRecord[] {
-  return JSON.parse(
-    window.localStorage.getItem(DRINKING_RECORDS_STORAGE_KEY) ?? '[]',
-  ) as DrinkingRecord[]
+function readHistory(): Promise<DrinkingRecord[]> {
+  return new IndexedDbDrinkingRecordRepository().list()
+}
+
+async function renderHydratedPage() {
+  const view = render(<ManualDrinkPage />)
+  await screen.findByLabelText('Drink type')
+  return view
 }
 
 function getEditor(name: string): HTMLFormElement {
@@ -92,9 +98,9 @@ async function editSkyToLarge(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe('ManualDrinkPage My Drinks management', () => {
-  it('displays every saved drink with its stored reusable information', () => {
-    storeSavedDrinks([savedSky, savedShiraz])
-    render(<ManualDrinkPage />)
+  it('displays every saved drink with its stored reusable information', async () => {
+    await storeSavedDrinks([savedSky, savedShiraz])
+    await renderHydratedPage()
 
     expect(
       screen.getByRole('button', {
@@ -113,18 +119,18 @@ describe('ManualDrinkPage My Drinks management', () => {
   })
 
   it('updates only one saved drink and quick-select uses its new values', async () => {
-    storeSavedDrinks([savedSky, savedShiraz])
+    await storeSavedDrinks([savedSky, savedShiraz])
     const user = userEvent.setup()
-    const view = render(<ManualDrinkPage />)
+    const view = await renderHydratedPage()
 
     await editSkyToLarge(user)
 
     expect(
       await screen.findByText('Sky Large was updated in My Drinks.'),
     ).toBeInTheDocument()
-    const savedDrinks = readSavedDrinks()
+    const savedDrinks = await readSavedDrinks()
     expect(savedDrinks).toHaveLength(2)
-    expect(savedDrinks[0]).toMatchObject({
+    expect(savedDrinks.find((drink) => drink.id === savedSky.id)).toMatchObject({
       id: savedSky.id,
       createdAt: savedSky.createdAt,
       drinkType: 'other',
@@ -132,13 +138,15 @@ describe('ManualDrinkPage My Drinks management', () => {
       servingVolumeMl: 500,
       abvPercent: 4.2,
     })
-    expect(new Date(savedDrinks[0].updatedAt).getTime()).toBeGreaterThan(
+    const updatedSky = savedDrinks.find((drink) => drink.id === savedSky.id)
+    expect(updatedSky).toBeDefined()
+    expect(new Date(updatedSky?.updatedAt ?? '').getTime()).toBeGreaterThan(
       new Date(savedSky.updatedAt).getTime(),
     )
-    expect(savedDrinks[1]).toEqual(savedShiraz)
+    expect(savedDrinks).toContainEqual(savedShiraz)
 
     view.unmount()
-    render(<ManualDrinkPage />)
+    await renderHydratedPage()
     await user.click(
       screen.getByRole('button', {
         name: /Sky Large.*Other.*500 mL.*4.2% ABV/,
@@ -152,9 +160,9 @@ describe('ManualDrinkPage My Drinks management', () => {
   })
 
   it('rejects invalid edits without changing stored data', async () => {
-    storeSavedDrinks([savedSky, savedShiraz])
+    await storeSavedDrinks([savedSky, savedShiraz])
     const user = userEvent.setup()
-    render(<ManualDrinkPage />)
+    await renderHydratedPage()
 
     await user.click(screen.getByRole('button', { name: 'Edit Sky' }))
     const editor = getEditor('Sky')
@@ -172,17 +180,14 @@ describe('ManualDrinkPage My Drinks management', () => {
     ).toBeInTheDocument()
     expect(within(editor).getByText('Enter a drink name.')).toBeInTheDocument()
     expect(within(editor).getByLabelText('Edit drink name')).toHaveFocus()
-    expect(readSavedDrinks()).toEqual([savedSky, savedShiraz])
+    await expect(readSavedDrinks()).resolves.toEqual([savedShiraz, savedSky])
   })
 
   it('requires explicit confirmation, supports cancel, and deletes only one drink', async () => {
-    storeSavedDrinks([savedSky, savedShiraz])
-    window.localStorage.setItem(
-      DRINKING_RECORDS_STORAGE_KEY,
-      JSON.stringify([existingHistoricalRecord]),
-    )
+    await storeSavedDrinks([savedSky, savedShiraz])
+    await new IndexedDbDrinkingRecordRepository().add(existingHistoricalRecord)
     const user = userEvent.setup()
-    render(<ManualDrinkPage />)
+    await renderHydratedPage()
 
     await user.click(
       screen.getByRole('button', { name: 'Delete Sky from My Drinks' }),
@@ -191,13 +196,13 @@ describe('ManualDrinkPage My Drinks management', () => {
     expect(
       screen.getByText('This will not delete past drinking records.'),
     ).toBeInTheDocument()
-    expect(readSavedDrinks()).toEqual([savedSky, savedShiraz])
+    await expect(readSavedDrinks()).resolves.toEqual([savedShiraz, savedSky])
 
     await user.click(screen.getByRole('button', { name: 'Keep Sky' }))
     expect(
       screen.queryByText('Delete Sky from My Drinks?'),
     ).not.toBeInTheDocument()
-    expect(readSavedDrinks()).toEqual([savedSky, savedShiraz])
+    await expect(readSavedDrinks()).resolves.toEqual([savedShiraz, savedSky])
 
     await user.click(
       screen.getByRole('button', { name: 'Delete Sky from My Drinks' }),
@@ -208,7 +213,7 @@ describe('ManualDrinkPage My Drinks management', () => {
       }),
     )
 
-    expect(readSavedDrinks()).toEqual([savedShiraz])
+    await expect(readSavedDrinks()).resolves.toEqual([savedShiraz])
     expect(
       screen.queryByRole('button', {
         name: /Sky.*Beer.*300 mL.*4% ABV/,
@@ -219,13 +224,13 @@ describe('ManualDrinkPage My Drinks management', () => {
         name: /Shiraz.*Wine.*150 mL.*13.5% ABV/,
       }),
     ).toBeInTheDocument()
-    expect(readHistory()).toEqual([existingHistoricalRecord])
+    await expect(readHistory()).resolves.toEqual([existingHistoricalRecord])
   })
 
   it('keeps a history snapshot unchanged through saved-drink edit and deletion', async () => {
-    storeSavedDrinks([savedSky])
+    await storeSavedDrinks([savedSky])
     const user = userEvent.setup()
-    render(<ManualDrinkPage />)
+    await renderHydratedPage()
 
     await user.click(
       screen.getByRole('button', {
@@ -244,7 +249,7 @@ describe('ManualDrinkPage My Drinks management', () => {
     await user.click(
       screen.getByRole('button', { name: 'Save drinking record' }),
     )
-    const historySnapshot = readHistory()
+    const historySnapshot = await readHistory()
     expect(historySnapshot[0]).toMatchObject({
       drinkName: 'Sky',
       servingVolumeMl: 300,
@@ -252,7 +257,7 @@ describe('ManualDrinkPage My Drinks management', () => {
     })
 
     await editSkyToLarge(user)
-    expect(readHistory()).toEqual(historySnapshot)
+    await expect(readHistory()).resolves.toEqual(historySnapshot)
 
     await user.click(
       screen.getByRole('button', {
@@ -265,8 +270,8 @@ describe('ManualDrinkPage My Drinks management', () => {
       }),
     )
 
-    expect(readSavedDrinks()).toEqual([])
-    expect(readHistory()).toEqual(historySnapshot)
+    await expect(readSavedDrinks()).resolves.toEqual([])
+    await expect(readHistory()).resolves.toEqual(historySnapshot)
     const recentRecordsHeading = screen.getByRole('heading', {
       name: 'Recent records',
     })
@@ -287,7 +292,7 @@ describe('SavedDrinkEditor failures', () => {
     render(
       <SavedDrinkEditor
         savedDrink={savedSky}
-        onSave={() => {
+        onSave={async () => {
           throw new Error('Storage unavailable')
         }}
         onCancel={() => undefined}
@@ -316,7 +321,7 @@ describe('SavedDrinkPicker deletion failures', () => {
         onSelect={() => undefined}
         onClear={() => undefined}
         onUpdate={() => undefined}
-        onDelete={() => {
+        onDelete={async () => {
           throw new Error('Storage unavailable')
         }}
       />,

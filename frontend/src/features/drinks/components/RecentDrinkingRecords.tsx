@@ -7,8 +7,8 @@ import { DrinkingRecordEditor } from './DrinkingRecordEditor'
 
 interface RecentDrinkingRecordsProps {
   records: readonly DrinkingRecord[]
-  onUpdate: (record: DrinkingRecord) => void
-  onDelete: (recordId: string) => void
+  onUpdate: (record: DrinkingRecord) => void | Promise<void>
+  onDelete: (recordId: string) => void | Promise<void>
 }
 
 type ManagementStatus =
@@ -28,6 +28,7 @@ export function RecentDrinkingRecords({
 }: RecentDrinkingRecordsProps) {
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null)
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
+  const [deletingRecordId, setDeletingRecordId] = useState<string | null>(null)
   const [managementStatus, setManagementStatus] =
     useState<ManagementStatus>(null)
   const recentRecords = records.slice(-MAX_RECENT_RECORDS).reverse()
@@ -38,8 +39,8 @@ export function RecentDrinkingRecords({
     setManagementStatus(null)
   }
 
-  function saveEditedRecord(record: DrinkingRecord) {
-    onUpdate(record)
+  async function saveEditedRecord(record: DrinkingRecord) {
+    await onUpdate(record)
     setEditingRecordId(null)
     setManagementStatus({
       kind: 'success',
@@ -53,10 +54,12 @@ export function RecentDrinkingRecords({
     setManagementStatus(null)
   }
 
-  function confirmDelete(record: DrinkingRecord) {
+  async function confirmDelete(record: DrinkingRecord) {
+    setDeletingRecordId(record.id)
     try {
-      onDelete(record.id)
+      await onDelete(record.id)
     } catch {
+      setDeletingRecordId(null)
       setManagementStatus({
         kind: 'error',
         message:
@@ -65,6 +68,7 @@ export function RecentDrinkingRecords({
       return
     }
 
+    setDeletingRecordId(null)
     setPendingDeleteId(null)
     setManagementStatus({
       kind: 'success',
@@ -171,6 +175,7 @@ export function RecentDrinkingRecords({
                         className="danger-button"
                         type="button"
                         onClick={() => confirmDelete(record)}
+                        disabled={deletingRecordId === record.id}
                       >
                         Yes, delete record
                       </button>

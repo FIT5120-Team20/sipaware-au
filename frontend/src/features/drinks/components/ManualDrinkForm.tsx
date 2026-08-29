@@ -27,10 +27,10 @@ import { SavedDrinkPicker } from './SavedDrinkPicker'
 
 interface ManualDrinkFormProps {
   savedDrinks: readonly SavedDrink[]
-  onSave: (record: DrinkingRecord) => void
-  onSaveSavedDrink: (savedDrink: SavedDrink) => void
-  onUpdateSavedDrink: (savedDrink: SavedDrink) => void
-  onDeleteSavedDrink: (savedDrinkId: string) => void
+  onSave: (record: DrinkingRecord) => void | Promise<void>
+  onSaveSavedDrink: (savedDrink: SavedDrink) => void | Promise<void>
+  onUpdateSavedDrink: (savedDrink: SavedDrink) => void | Promise<void>
+  onDeleteSavedDrink: (savedDrinkId: string) => void | Promise<void>
 }
 
 interface FieldErrorProps {
@@ -122,6 +122,7 @@ export function ManualDrinkForm({
   const [values, setValues] = useState(createInitialManualDrinkFormValues)
   const [errors, setErrors] = useState<ManualDrinkFormErrors>({})
   const [saveStatus, setSaveStatus] = useState<SaveStatus>(null)
+  const [isPersisting, setIsPersisting] = useState(false)
   const [selectedSavedDrinkId, setSelectedSavedDrinkId] = useState<
     string | null
   >(null)
@@ -216,15 +217,15 @@ export function ManualDrinkForm({
     setSaveStatus(null)
   }
 
-  function handleSavedDrinkUpdate(savedDrink: SavedDrink) {
-    onUpdateSavedDrink(savedDrink)
+  async function handleSavedDrinkUpdate(savedDrink: SavedDrink) {
+    await onUpdateSavedDrink(savedDrink)
     if (savedDrink.id === selectedSavedDrinkId) {
       handleSavedDrinkSelect(savedDrink)
     }
   }
 
-  function handleSavedDrinkDelete(savedDrinkId: string) {
-    onDeleteSavedDrink(savedDrinkId)
+  async function handleSavedDrinkDelete(savedDrinkId: string) {
+    await onDeleteSavedDrink(savedDrinkId)
     if (savedDrinkId === selectedSavedDrinkId) {
       clearSavedDrinkSelection()
     }
@@ -248,7 +249,7 @@ export function ManualDrinkForm({
     })
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setSaveStatus(null)
 
@@ -263,9 +264,11 @@ export function ManualDrinkForm({
       return
     }
 
+    setIsPersisting(true)
     try {
-      onSave(createDrinkingRecord(validationResult.data))
+      await onSave(createDrinkingRecord(validationResult.data))
     } catch {
+      setIsPersisting(false)
       setSaveStatus({
         kind: 'error',
         message:
@@ -274,6 +277,7 @@ export function ManualDrinkForm({
       return
     }
 
+    setIsPersisting(false)
     setErrors({})
     setValues(createInitialManualDrinkFormValues())
     setSelectedSavedDrinkId(null)
@@ -283,7 +287,7 @@ export function ManualDrinkForm({
     })
   }
 
-  function handleSaveForFutureUse() {
+  async function handleSaveForFutureUse() {
     setSaveStatus(null)
 
     const validationResult = validateReusableDrinkInput(values)
@@ -298,11 +302,13 @@ export function ManualDrinkForm({
       return
     }
 
+    setIsPersisting(true)
     try {
       const savedDrink = createSavedDrink(validationResult.data)
-      onSaveSavedDrink(savedDrink)
+      await onSaveSavedDrink(savedDrink)
       setSelectedSavedDrinkId(savedDrink.id)
     } catch {
+      setIsPersisting(false)
       setSaveStatus({
         kind: 'error',
         message:
@@ -311,6 +317,7 @@ export function ManualDrinkForm({
       return
     }
 
+    setIsPersisting(false)
     setErrors({})
     setSaveStatus({
       kind: 'success',
@@ -545,7 +552,11 @@ export function ManualDrinkForm({
         </fieldset>
 
         <div className="form-actions">
-          <button className="primary-button" type="submit">
+          <button
+            className="primary-button"
+            type="submit"
+            disabled={isPersisting}
+          >
             Save drinking record
           </button>
           {!selectedSavedDrink && (
@@ -553,6 +564,7 @@ export function ManualDrinkForm({
               className="secondary-button"
               type="button"
               onClick={handleSaveForFutureUse}
+              disabled={isPersisting}
             >
               Save this drink to My Drinks
             </button>

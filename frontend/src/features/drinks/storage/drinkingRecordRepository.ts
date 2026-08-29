@@ -1,13 +1,27 @@
+import type { IDBPTransaction } from 'idb'
+
 import { isDrinkType } from '../config/drinkTypes'
 import type { DrinkingRecord } from '../types/drinkingRecord'
+import {
+  DRINKING_RECORDS_STORE_NAME,
+  openSipAwareDatabase,
+  type SipAwareDatabaseProvider,
+  type SipAwareDatabaseSchema,
+} from './indexedDb'
 
-export const DRINKING_RECORDS_STORAGE_KEY = 'sipaware.drinkingRecords.v1'
-
+/**
+ * Keeps UI code independent of the browser database technology while exposing
+ * the asynchronous operations required by IndexedDB.
+ */
 export interface DrinkingRecordRepository {
-  list(): DrinkingRecord[]
-  add(record: DrinkingRecord): DrinkingRecord[]
-  update(record: DrinkingRecord): DrinkingRecord[]
-  delete(recordId: string): DrinkingRecord[]
+  /** Returns every local drinking-history snapshot. */
+  list(): Promise<DrinkingRecord[]>
+  /** Persists a new independent history snapshot. */
+  add(record: DrinkingRecord): Promise<DrinkingRecord[]>
+  /** Replaces one corrected history snapshot without changing Saved Drinks. */
+  update(record: DrinkingRecord): Promise<DrinkingRecord[]>
+  /** Deletes one history snapshot without changing Saved Drinks. */
+  delete(recordId: string): Promise<DrinkingRecord[]>
 }
 
 function isNonEmptyString(value: unknown): value is string {
@@ -51,97 +65,109 @@ export function isDrinkingRecord(value: unknown): value is DrinkingRecord {
   )
 }
 
-function parseStoredRecords(storedValue: string | null): DrinkingRecord[] {
-  if (storedValue === null) {
-    return []
-  }
-
-  try {
-    const parsedValue: unknown = JSON.parse(storedValue)
-    return Array.isArray(parsedValue)
-      ? parsedValue.filter(isDrinkingRecord)
-      : []
-  } catch {
-    return []
-  }
+function sortRecords(records: DrinkingRecord[]): DrinkingRecord[] {
+  return records.sort(
+    (left, right) =>
+      left.createdAt.localeCompare(right.createdAt) ||
+      left.id.localeCompare(right.id),
+  )
 }
 
-export class LocalStorageDrinkingRecordRepository
+type DrinkingRecordWriteTransaction = IDBPTransaction<
+  SipAwareDatabaseSchema,
+  ['drinking_records'],
+  'readwrite'
+>
+
+async function listFromTransaction(
+  transaction: DrinkingRecordWriteTransaction,
+): Promise<DrinkingRecord[]> {
+  return sortRecords(await transaction.store.getAll())
+}
+
+/** IndexedDB implementation used by the active Epic 1 application runtime. */
+export class IndexedDbDrinkingRecordRepository
   implements DrinkingRecordRepository
 {
   constructor(
-    private readonly storage: Storage | undefined = undefined,
-    private readonly storageKey: string = DRINKING_RECORDS_STORAGE_KEY,
+    private readonly openDatabase: SipAwareDatabaseProvider =
+      openSipAwareDatabase,
   ) {}
 
-  private resolveStorage(): Storage {
-    return this.storage ?? window.localStorage
+  async list(): Promise<DrinkingRecord[]> {
+    const database = await this.openDatabase()
+    return sortRecords(await database.getAll(DRINKING_RECORDS_STORE_NAME))
   }
 
-  private readFrom(storage: Storage): DrinkingRecord[] {
-    return parseStoredRecords(storage.getItem(this.storageKey))
-  }
-
-  list(): DrinkingRecord[] {
-    try {
-      return this.readFrom(this.resolveStorage())
-    } catch {
-      return []
-    }
-  }
-
-  add(record: DrinkingRecord): DrinkingRecord[] {
+  async add(record: DrinkingRecord): Promise<DrinkingRecord[]> {
     if (!isDrinkingRecord(record)) {
       throw new Error('Cannot save an invalid drinking record.')
     }
 
-    const storage = this.resolveStorage()
-    const records = [...this.readFrom(storage), record]
-    storage.setItem(this.storageKey, JSON.stringify(records))
+    const database = await this.openDatabase()
+    const transaction = database.transaction(
+      DRINKING_RECORDS_STORE_NAME,
+      'readwrite',
+    )
+
+    // Keep the write and refreshed list in one transaction so UI state only
+    // changes after IndexedDB has accepted the complete record snapshot.
+    await transaction.store.add(record)
+    const records = await listFromTransaction(transaction)
+    await transaction.done
     return records
   }
 
-  update(record: DrinkingRecord): DrinkingRecord[] {
+  async update(record: DrinkingRecord): Promise<DrinkingRecord[]> {
     if (!isDrinkingRecord(record)) {
       throw new Error('Cannot update an invalid drinking record.')
     }
 
-    const storage = this.resolveStorage()
-    const records = this.readFrom(storage)
-    const existingRecord = records.find(
-      (candidate) => candidate.id === record.id,
+    const database = await this.openDatabase()
+    const transaction = database.transaction(
+      DRINKING_RECORDS_STORE_NAME,
+      'readwrite',
     )
+    const existingRecord = await transaction.store.get(record.id)
 
     if (!existingRecord) {
+      transaction.abort()
+      await transaction.done.catch(() => undefined)
       throw new Error('The drinking record no longer exists.')
     }
 
     if (record.createdAt !== existingRecord.createdAt) {
+      transaction.abort()
+      await transaction.done.catch(() => undefined)
       throw new Error('A drinking record creation time cannot be changed.')
     }
 
-    const updatedRecords = records.map((candidate) =>
-      candidate.id === record.id ? record : candidate,
-    )
-    storage.setItem(this.storageKey, JSON.stringify(updatedRecords))
-    return updatedRecords
+    await transaction.store.put(record)
+    const records = await listFromTransaction(transaction)
+    await transaction.done
+    return records
   }
 
-  delete(recordId: string): DrinkingRecord[] {
+  async delete(recordId: string): Promise<DrinkingRecord[]> {
     if (!isNonEmptyString(recordId)) {
       throw new Error('A drinking record ID is required for deletion.')
     }
 
-    const storage = this.resolveStorage()
-    const records = this.readFrom(storage)
-    if (!records.some((record) => record.id === recordId)) {
+    const database = await this.openDatabase()
+    const transaction = database.transaction(
+      DRINKING_RECORDS_STORE_NAME,
+      'readwrite',
+    )
+
+    if (!(await transaction.store.get(recordId))) {
+      transaction.abort()
+      await transaction.done.catch(() => undefined)
       throw new Error('The drinking record no longer exists.')
     }
 
-    const remainingRecords = records.filter(
-      (record) => record.id !== recordId,
-    )
-    storage.setItem(this.storageKey, JSON.stringify(remainingRecords))
-    return remainingRecords
+    await transaction.store.delete(recordId)
+    const records = await listFromTransaction(transaction)
+    await transaction.done
+    return records
   }
 }

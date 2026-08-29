@@ -4,11 +4,8 @@ import {
   createUpdatedSavedDrink,
   type SavedDrink,
 } from '../types/savedDrink'
-import { DRINKING_RECORDS_STORAGE_KEY } from './drinkingRecordRepository'
-import {
-  LocalStorageSavedDrinkRepository,
-  SAVED_DRINKS_STORAGE_KEY,
-} from './savedDrinkRepository'
+import { IndexedDbDrinkingRecordRepository } from './drinkingRecordRepository'
+import { IndexedDbSavedDrinkRepository } from './savedDrinkRepository'
 
 const firstSavedDrink: SavedDrink = {
   id: 'saved-drink-1',
@@ -30,31 +27,35 @@ const secondSavedDrink: SavedDrink = {
   updatedAt: '2026-08-27T09:30:00.000Z',
 }
 
-describe('LocalStorageSavedDrinkRepository', () => {
-  it('returns an empty collection when storage is missing', () => {
-    const repository = new LocalStorageSavedDrinkRepository()
+describe('IndexedDbSavedDrinkRepository', () => {
+  it('returns an empty collection from an empty store', async () => {
+    const repository = new IndexedDbSavedDrinkRepository()
 
-    expect(repository.list()).toEqual([])
+    await expect(repository.list()).resolves.toEqual([])
   })
 
-  it('preserves saved drinks across additions and repository reloads', () => {
-    const firstRepository = new LocalStorageSavedDrinkRepository()
-    firstRepository.add(firstSavedDrink)
+  it('persists multiple saved drinks and reloads them through a new repository', async () => {
+    const firstRepository = new IndexedDbSavedDrinkRepository()
+    await expect(firstRepository.add(firstSavedDrink)).resolves.toEqual([
+      firstSavedDrink,
+    ])
 
-    const reloadedRepository = new LocalStorageSavedDrinkRepository()
-    expect(reloadedRepository.list()).toEqual([firstSavedDrink])
-
-    reloadedRepository.add(secondSavedDrink)
-    expect(firstRepository.list()).toEqual([
+    const reloadedRepository = new IndexedDbSavedDrinkRepository()
+    await expect(reloadedRepository.list()).resolves.toEqual([firstSavedDrink])
+    await expect(reloadedRepository.add(secondSavedDrink)).resolves.toEqual([
+      firstSavedDrink,
+      secondSavedDrink,
+    ])
+    await expect(firstRepository.list()).resolves.toEqual([
       firstSavedDrink,
       secondSavedDrink,
     ])
   })
 
-  it('updates one saved drink, preserves identity and unrelated drinks, and reloads it', () => {
-    const repository = new LocalStorageSavedDrinkRepository()
-    repository.add(firstSavedDrink)
-    repository.add(secondSavedDrink)
+  it('updates one saved drink and preserves identity and unrelated values', async () => {
+    const repository = new IndexedDbSavedDrinkRepository()
+    await repository.add(firstSavedDrink)
+    await repository.add(secondSavedDrink)
     const updatedFirstSavedDrink: SavedDrink = {
       ...firstSavedDrink,
       drinkName: 'Carlton Draught Large',
@@ -63,25 +64,25 @@ describe('LocalStorageSavedDrinkRepository', () => {
       updatedAt: '2026-08-27T10:30:00.000Z',
     }
 
-    expect(repository.update(updatedFirstSavedDrink)).toEqual([
+    await expect(repository.update(updatedFirstSavedDrink)).resolves.toEqual([
       updatedFirstSavedDrink,
       secondSavedDrink,
     ])
-    expect(new LocalStorageSavedDrinkRepository().list()).toEqual([
+    await expect(new IndexedDbSavedDrinkRepository().list()).resolves.toEqual([
       updatedFirstSavedDrink,
       secondSavedDrink,
     ])
-    expect(updatedFirstSavedDrink.id).toBe(firstSavedDrink.id)
-    expect(updatedFirstSavedDrink.createdAt).toBe(firstSavedDrink.createdAt)
   })
 
-  it('deletes only the requested saved drink and persists the remaining list', () => {
-    const repository = new LocalStorageSavedDrinkRepository()
-    repository.add(firstSavedDrink)
-    repository.add(secondSavedDrink)
+  it('deletes only the requested saved drink and persists the remaining list', async () => {
+    const repository = new IndexedDbSavedDrinkRepository()
+    await repository.add(firstSavedDrink)
+    await repository.add(secondSavedDrink)
 
-    expect(repository.delete(firstSavedDrink.id)).toEqual([secondSavedDrink])
-    expect(new LocalStorageSavedDrinkRepository().list()).toEqual([
+    await expect(repository.delete(firstSavedDrink.id)).resolves.toEqual([
+      secondSavedDrink,
+    ])
+    await expect(new IndexedDbSavedDrinkRepository().list()).resolves.toEqual([
       secondSavedDrink,
     ])
   })
@@ -107,93 +108,60 @@ describe('LocalStorageSavedDrinkRepository', () => {
     )
   })
 
-  it('rejects an update that changes createdAt without writing it', () => {
-    const repository = new LocalStorageSavedDrinkRepository()
-    repository.add(firstSavedDrink)
+  it('rejects an invalid update without changing IndexedDB', async () => {
+    const repository = new IndexedDbSavedDrinkRepository()
+    await repository.add(firstSavedDrink)
     const invalidUpdate: SavedDrink = {
       ...firstSavedDrink,
       createdAt: '2026-08-27T09:30:00.000Z',
       updatedAt: '2026-08-27T10:30:00.000Z',
     }
 
-    expect(() => repository.update(invalidUpdate)).toThrow(
+    await expect(repository.update(invalidUpdate)).rejects.toThrow(
       'A saved drink creation time cannot be changed.',
     )
-    expect(repository.list()).toEqual([firstSavedDrink])
+    await expect(repository.list()).resolves.toEqual([firstSavedDrink])
   })
 
-  it.each([
-    ['malformed JSON', '{not-json'],
-    ['a non-array value', JSON.stringify({ savedDrinks: [] })],
-  ])('returns an empty collection for %s', (_caseName, storedValue) => {
-    window.localStorage.setItem(SAVED_DRINKS_STORAGE_KEY, storedValue)
+  it('rejects invalid saved drinks without writing them', async () => {
+    const repository = new IndexedDbSavedDrinkRepository()
+    const invalidSavedDrink = { ...firstSavedDrink, abvPercent: 101 }
 
-    const repository = new LocalStorageSavedDrinkRepository()
-
-    expect(() => repository.list()).not.toThrow()
-    expect(repository.list()).toEqual([])
-  })
-
-  it('filters malformed entries without discarding valid saved drinks', () => {
-    window.localStorage.setItem(
-      SAVED_DRINKS_STORAGE_KEY,
-      JSON.stringify([firstSavedDrink, { id: 'incomplete-saved-drink' }]),
-    )
-
-    const repository = new LocalStorageSavedDrinkRepository()
-
-    expect(repository.list()).toEqual([firstSavedDrink])
-  })
-
-  it('rejects invalid saved drinks without writing them', () => {
-    const repository = new LocalStorageSavedDrinkRepository()
-    const invalidSavedDrink = {
-      ...firstSavedDrink,
-      abvPercent: 101,
-    }
-
-    expect(() => repository.add(invalidSavedDrink)).toThrow(
+    await expect(repository.add(invalidSavedDrink)).rejects.toThrow(
       'Cannot save an invalid saved drink.',
     )
-    expect(window.localStorage.getItem(SAVED_DRINKS_STORAGE_KEY)).toBeNull()
+    await expect(repository.list()).resolves.toEqual([])
   })
 
-  it('does not overwrite saved drinks when storage cannot be read', () => {
-    const setItem = vi.fn()
-    const throwingStorage: Storage = {
-      length: 0,
-      clear: () => undefined,
-      getItem: () => {
-        throw new Error('Storage read failed')
-      },
-      key: () => null,
-      removeItem: () => undefined,
-      setItem,
+  it('surfaces database failures instead of reporting an empty or saved state', async () => {
+    const openFailedDatabase = vi.fn(async () => {
+      throw new Error('IndexedDB unavailable')
+    })
+    const repository = new IndexedDbSavedDrinkRepository(openFailedDatabase)
+
+    await expect(repository.list()).rejects.toThrow('IndexedDB unavailable')
+    await expect(repository.add(firstSavedDrink)).rejects.toThrow(
+      'IndexedDB unavailable',
+    )
+  })
+
+  it('does not modify drinking-record history when saving a reusable drink', async () => {
+    const recordRepository = new IndexedDbDrinkingRecordRepository()
+    const existingRecord = {
+      id: 'record-1',
+      drinkType: 'beer' as const,
+      drinkName: 'Historical beer',
+      servingVolumeMl: 375,
+      abvPercent: 4.5,
+      amountConsumed: 1,
+      consumedAt: '2026-08-26T09:30:00.000Z',
+      consumedTimezoneOffsetMinutes: -600,
+      createdAt: '2026-08-26T09:31:00.000Z',
     }
-    const repository = new LocalStorageSavedDrinkRepository(throwingStorage)
+    await recordRepository.add(existingRecord)
 
-    expect(repository.list()).toEqual([])
-    expect(() => repository.add(firstSavedDrink)).toThrow('Storage read failed')
-    expect(() => repository.update(firstSavedDrink)).toThrow(
-      'Storage read failed',
-    )
-    expect(() => repository.delete(firstSavedDrink.id)).toThrow(
-      'Storage read failed',
-    )
-    expect(setItem).not.toHaveBeenCalled()
-  })
+    await new IndexedDbSavedDrinkRepository().add(firstSavedDrink)
 
-  it('does not modify drinking-record history when saving a reusable drink', () => {
-    const existingHistory = '[{"id":"record-1"}]'
-    window.localStorage.setItem(
-      DRINKING_RECORDS_STORAGE_KEY,
-      existingHistory,
-    )
-
-    new LocalStorageSavedDrinkRepository().add(firstSavedDrink)
-
-    expect(window.localStorage.getItem(DRINKING_RECORDS_STORAGE_KEY)).toBe(
-      existingHistory,
-    )
+    await expect(recordRepository.list()).resolves.toEqual([existingRecord])
   })
 })
