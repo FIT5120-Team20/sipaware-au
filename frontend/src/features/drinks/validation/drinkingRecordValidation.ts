@@ -1,3 +1,10 @@
+/**
+ * Converts untrusted form strings into validated Epic 1 domain values.
+ *
+ * Keeping parsing and business rules outside React means new records, saved
+ * templates, and corrections all cross the same validation boundary before
+ * they can reach a repository.
+ */
 import { getDrinkTypeConfig, isDrinkType } from '../config/drinkTypes'
 import type { DrinkType } from '../types/drinkingRecord'
 import {
@@ -75,6 +82,11 @@ function parseTimeParts(value: string): readonly [number, number] | null {
   return [Number(match[1]), Number(match[2])]
 }
 
+/**
+ * Interpret date/time controls as the user's local wall-clock occasion.
+ * validateManualDrinkInput pairs the resulting ISO instant with its timezone
+ * offset so presentation can reconstruct the intended local time elsewhere.
+ */
 export function buildConsumedAtIso(date: string, time: string): string | null {
   const dateParts = parseDateParts(date)
   const timeParts = parseTimeParts(time)
@@ -102,6 +114,11 @@ export function buildConsumedAtIso(date: string, time: string): string | null {
   return consumedAt.toISOString()
 }
 
+/**
+ * Validate only attributes that can be reused for future drink occasions.
+ * Consumption amount and date/time are excluded because SavedDrink is a
+ * template rather than drinking history.
+ */
 export function validateReusableDrinkInput(
   values: ReusableDrinkFormValues,
 ): ReusableDrinkValidationResult {
@@ -172,6 +189,11 @@ export function validateReusableDrinkInput(
   }
 }
 
+/**
+ * Extend reusable-drink validation with occasion-specific snapshot fields.
+ * The serving volume is one serving's size; amountConsumed is the separate
+ * number of servings the user consumed.
+ */
 export function validateManualDrinkInput(
   values: ManualDrinkFormValues,
 ): ManualDrinkValidationResult {
@@ -200,6 +222,8 @@ export function validateManualDrinkInput(
   }
 
   const consumedAt = buildConsumedAtIso(values.date, values.time)
+  // Capture the offset for this particular date, including daylight-saving
+  // rules, so later formatting can preserve the entered wall-clock value.
   const consumedTimezoneOffsetMinutes = consumedAt
     ? new Date(consumedAt).getTimezoneOffset()
     : undefined

@@ -1,3 +1,8 @@
+/**
+ * Form controls intentionally hold strings until validation succeeds.
+ * Validated interfaces mark the boundary where numeric and timestamp values
+ * become safe domain data for SavedDrink or DrinkingRecord construction.
+ */
 import type { DrinkType } from './drinkingRecord'
 
 export const CUSTOM_SERVING_SIZE = 'custom'

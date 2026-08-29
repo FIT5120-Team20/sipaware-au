@@ -1,3 +1,10 @@
+/**
+ * Corrects one historical DrinkingRecord through the shared validation rules.
+ *
+ * The editor owns temporary form state only. Saving emits a corrected snapshot
+ * to the parent; cancelling emits nothing, and SavedDrink templates are outside
+ * this component's data flow.
+ */
 import { type FormEvent, useId, useRef, useState } from 'react'
 
 import { DRINK_TYPE_CONFIG, getDrinkTypeConfig } from '../config/drinkTypes'
@@ -33,6 +40,8 @@ const EDIT_FIELD_FOCUS_ORDER: readonly ManualDrinkField[] = [
 ]
 
 function createEditorValues(record: DrinkingRecord): ManualDrinkFormValues {
+  // Reconstruct the original wall-clock controls from stored ISO/offset data;
+  // using the viewer's current timezone here could silently shift the occasion.
   const drinkTypeConfig = getDrinkTypeConfig(record.drinkType)
   const usesCommonServingSize = Boolean(
     drinkTypeConfig?.servingSizesMl.includes(record.servingVolumeMl),
@@ -149,6 +158,10 @@ export function DrinkingRecordEditor({
     })
   }
 
+  /**
+   * Revalidate the complete correction before preserving ID and createdAt.
+   * Repository persistence occurs only after a valid snapshot is constructed.
+   */
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setSaveError(null)
@@ -398,6 +411,7 @@ export function DrinkingRecordEditor({
         <button className="primary-button" type="submit" disabled={isSaving}>
           Save changes
         </button>
+        {/* Cancel discards editor state without invoking onSave. */}
         <button className="secondary-button" type="button" onClick={onCancel}>
           Cancel
         </button>

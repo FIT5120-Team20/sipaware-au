@@ -1,3 +1,8 @@
+/**
+ * Persistence boundary for reusable SavedDrink templates.
+ * React code depends on this asynchronous contract rather than IndexedDB APIs,
+ * and no operation in this module reads or mutates drinking-record history.
+ */
 import type { IDBPTransaction } from 'idb'
 
 import { isDrinkType } from '../config/drinkTypes'
@@ -120,6 +125,8 @@ export class IndexedDbSavedDrinkRepository implements SavedDrinkRepository {
       SAVED_DRINKS_STORE_NAME,
       'readwrite',
     )
+    // Identity and creation metadata describe the original template. Updates
+    // may change reusable fields only and must advance updatedAt monotonically.
     const existingSavedDrink = await transaction.store.get(savedDrink.id)
 
     if (!existingSavedDrink) {
@@ -154,6 +161,8 @@ export class IndexedDbSavedDrinkRepository implements SavedDrinkRepository {
       throw new Error('A saved drink ID is required for deletion.')
     }
 
+    // Only the template store participates in this transaction; historical
+    // DrinkingRecord snapshots remain intact after My Drinks deletion.
     const database = await this.openDatabase()
     const transaction = database.transaction(
       SAVED_DRINKS_STORE_NAME,

@@ -1,3 +1,10 @@
+/**
+ * Presents reusable My Drinks templates for selection and management.
+ *
+ * The component never opens IndexedDB itself. It reports validated edits and
+ * confirmed deletions through callbacks, preserving the page's repository
+ * boundary and the separation from historical DrinkingRecords.
+ */
 import { useState } from 'react'
 
 import { getDrinkTypeLabel } from '../config/drinkTypes'
@@ -45,6 +52,8 @@ export function SavedDrinkPicker({
   }
 
   async function saveEditedDrink(savedDrink: SavedDrink) {
+    // Editing changes only the reusable template. If it is currently selected,
+    // ManualDrinkForm separately refreshes the prefilled reusable controls.
     await onUpdate(savedDrink)
     setEditingSavedDrinkId(null)
     setManagementStatus({
@@ -59,6 +68,11 @@ export function SavedDrinkPicker({
     setManagementStatus(null)
   }
 
+  /**
+   * Delete only after explicit confirmation of the history boundary.
+   * The callback targets the SavedDrink repository, so persisted historical
+   * DrinkingRecords remain unchanged and continue displaying their snapshots.
+   */
   async function confirmDelete(savedDrink: SavedDrink) {
     setDeletingSavedDrinkId(savedDrink.id)
     try {

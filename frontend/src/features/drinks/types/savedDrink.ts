@@ -1,5 +1,10 @@
 import type { DrinkType } from './drinkingRecord'
 
+/**
+ * Reusable drink template containing only attributes shared across occasions.
+ * It has no consumption date, serving count, or link to DrinkingRecord, so
+ * editing or deleting it cannot retroactively change historical snapshots.
+ */
 export interface SavedDrink {
   id: string
   drinkType: DrinkType
@@ -37,6 +42,11 @@ export function createSavedDrink(values: NewSavedDrink): SavedDrink {
   }
 }
 
+/**
+ * Update template fields while preserving identity and creation metadata.
+ * updatedAt always moves forward so the repository can enforce monotonic
+ * update metadata.
+ */
 export function createUpdatedSavedDrink(
   savedDrink: SavedDrink,
   values: NewSavedDrink,

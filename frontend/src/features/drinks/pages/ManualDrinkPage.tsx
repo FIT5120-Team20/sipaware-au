@@ -1,3 +1,10 @@
+/**
+ * Epic 1 orchestration boundary for manual capture, My Drinks, and history.
+ *
+ * Child components create or edit domain objects, but only this page calls the
+ * repositories. Keeping persistence here prevents UI controls from depending
+ * directly on IndexedDB and keeps SavedDrink and DrinkingRecord state separate.
+ */
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { ManualDrinkForm } from '../components/ManualDrinkForm'
@@ -25,6 +32,9 @@ export function ManualDrinkPage() {
   const [hydrationStatus, setHydrationStatus] =
     useState<HydrationStatus>('loading')
 
+  // IndexedDB reads are asynchronous. The feature stays in a loading state
+  // until both independent stores have hydrated, avoiding an empty-state flash
+  // that could be mistaken for lost browser data.
   useEffect(() => {
     isMounted.current = true
 
@@ -58,6 +68,9 @@ export function ManualDrinkPage() {
     }
   }, [drinkingRecordRepository, savedDrinkRepository])
 
+  // Every write returns the repository's complete committed collection. React
+  // replaces its state from that result so the screen mirrors IndexedDB after
+  // add, correction, or deletion rather than guessing the mutation succeeded.
   async function saveRecord(record: DrinkingRecord): Promise<void> {
     const persistedRecords = await drinkingRecordRepository.add(record)
     if (isMounted.current) {
@@ -79,6 +92,8 @@ export function ManualDrinkPage() {
     }
   }
 
+  // SavedDrink operations update only the reusable-template collection. They
+  // never rewrite the historical DrinkingRecord snapshots already in history.
   async function saveDrinkForFutureUse(
     savedDrink: SavedDrink,
   ): Promise<void> {

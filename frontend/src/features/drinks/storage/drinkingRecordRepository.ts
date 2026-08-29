@@ -1,3 +1,8 @@
+/**
+ * Persistence boundary for self-contained historical DrinkingRecord snapshots.
+ * React code depends on this asynchronous contract rather than IndexedDB APIs,
+ * and no operation in this module reads or mutates the SavedDrink store.
+ */
 import type { IDBPTransaction } from 'idb'
 
 import { isDrinkType } from '../config/drinkTypes'
@@ -128,6 +133,8 @@ export class IndexedDbDrinkingRecordRepository
       DRINKING_RECORDS_STORE_NAME,
       'readwrite',
     )
+    // The ID selects the snapshot being corrected. createdAt remains immutable
+    // so a correction cannot masquerade as a newly recorded occasion.
     const existingRecord = await transaction.store.get(record.id)
 
     if (!existingRecord) {
@@ -153,6 +160,8 @@ export class IndexedDbDrinkingRecordRepository
       throw new Error('A drinking record ID is required for deletion.')
     }
 
+    // Only the history store participates in this transaction; deleting a
+    // record therefore cannot remove or rewrite a My Drinks template.
     const database = await this.openDatabase()
     const transaction = database.transaction(
       DRINKING_RECORDS_STORE_NAME,

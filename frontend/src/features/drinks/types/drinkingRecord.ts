@@ -1,5 +1,11 @@
 export type DrinkType = 'beer' | 'wine' | 'cider' | 'spirits' | 'other'
 
+/**
+ * Self-contained historical snapshot of one recorded drinking occasion.
+ * servingVolumeMl is the size of one serving and amountConsumed is the number
+ * consumed. No SavedDrink reference is stored, protecting history from later
+ * template edits/deletion and protecting templates from record corrections.
+ */
 export interface DrinkingRecord {
   id: string
   drinkType: DrinkType
@@ -35,6 +41,10 @@ export function createDrinkingRecord(
   }
 }
 
+/**
+ * Correct one historical snapshot while preserving its ID and creation time.
+ * The returned value remains independent of every SavedDrink template.
+ */
 export function createUpdatedDrinkingRecord(
   record: DrinkingRecord,
   values: NewDrinkingRecord,

@@ -7,8 +7,8 @@ import type { SavedDrink } from '../types/savedDrink'
  * Browser-local schema for SipAware's personal drink data.
  *
  * `idb` is only a small Promise-based wrapper. The records are stored by the
- * browser's native IndexedDB implementation and are never sent to FastAPI or
- * AWS RDS.
+ * browser's native IndexedDB implementation and are never sent to a backend,
+ * analytics service, or cloud database.
  */
 export interface SipAwareDatabaseSchema extends DBSchema {
   saved_drinks: {
@@ -36,9 +36,11 @@ let databasePromise: Promise<SipAwareDatabase> | undefined
  *
  * Version 1 creates one store for reusable drinks and one for independent
  * drinking-history snapshots. Both use the application-generated `id` as the
- * IndexedDB primary key, which also preserves IDs during legacy migration.
+ * IndexedDB primary key, keeping identity stable through later corrections.
  */
 export function openSipAwareDatabase(): Promise<SipAwareDatabase> {
+  // All repositories share one asynchronously opened connection, ensuring they
+  // use the same versioned schema while still operating on separate stores.
   databasePromise ??= openDB<SipAwareDatabaseSchema>(
     SIPAWARE_DATABASE_NAME,
     SIPAWARE_DATABASE_VERSION,

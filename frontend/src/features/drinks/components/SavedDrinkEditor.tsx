@@ -1,3 +1,9 @@
+/**
+ * Edits the reusable attributes of one SavedDrink template.
+ *
+ * Occasion-specific amount/date/time fields do not exist in this editor, and
+ * persistence remains delegated to the parent repository callback.
+ */
 import { type FormEvent, useId, useRef, useState } from 'react'
 
 import { DRINK_TYPE_CONFIG, getDrinkTypeConfig } from '../config/drinkTypes'
@@ -29,6 +35,8 @@ const EDIT_FIELD_FOCUS_ORDER: readonly ReusableDrinkField[] = [
 ]
 
 function createEditorValues(savedDrink: SavedDrink): ReusableDrinkFormValues {
+  // Domain numbers become strings only for HTML controls; validation converts
+  // them back before an updated template is allowed to reach persistence.
   const drinkTypeConfig = getDrinkTypeConfig(savedDrink.drinkType)
   const usesCommonServingSize = Boolean(
     drinkTypeConfig?.servingSizesMl.includes(savedDrink.servingVolumeMl),
@@ -142,6 +150,10 @@ export function SavedDrinkEditor({
     })
   }
 
+  /**
+   * Validate reusable fields, preserve ID/createdAt, and advance updatedAt.
+   * No DrinkingRecord is read or changed during a SavedDrink edit.
+   */
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setSaveError(null)
@@ -323,6 +335,7 @@ export function SavedDrinkEditor({
         <button className="primary-button" type="submit" disabled={isSaving}>
           Save changes
         </button>
+        {/* Cancel closes local editor state without invoking persistence. */}
         <button className="secondary-button" type="button" onClick={onCancel}>
           Cancel editing
         </button>

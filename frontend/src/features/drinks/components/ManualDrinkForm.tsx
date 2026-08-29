@@ -1,3 +1,10 @@
+/**
+ * Collects raw HTML control strings for manual and quick drink recording.
+ *
+ * Raw form values are not trusted domain data. This component validates and
+ * transforms them before creating a SavedDrink template or an independent
+ * DrinkingRecord snapshot, then delegates persistence through parent callbacks.
+ */
 import {
   type FormEvent,
   type ReactNode,
@@ -75,6 +82,8 @@ function padDatePart(value: number): string {
 function createInitialManualDrinkFormValues(
   now = new Date(),
 ): ManualDrinkFormValues {
+  // Date and time inputs start from the user's local wall clock, not UTC, so a
+  // new record initially reflects the occasion the user sees on their device.
   return {
     drinkType: '',
     drinkName: '',
@@ -130,6 +139,9 @@ export function ManualDrinkForm({
   const selectedSavedDrink = savedDrinks.find(
     (savedDrink) => savedDrink.id === selectedSavedDrinkId,
   )
+  // A selected SavedDrink supplies reusable attributes and therefore locks the
+  // corresponding controls below. Occasion-specific servings, date, and time
+  // remain editable because they belong to the new DrinkingRecord, not the template.
   const isCustomVolume =
     values.servingSizeSelection === CUSTOM_SERVING_SIZE
 
@@ -181,6 +193,8 @@ export function ManualDrinkForm({
   }
 
   function handleSavedDrinkSelect(savedDrink: SavedDrink) {
+    // Copy values from the reusable template into this occasion's form. The new
+    // history record will contain its own values, not a live SavedDrink link.
     const drinkTypeConfig = getDrinkTypeConfig(savedDrink.drinkType)
     const usesCommonServingSize = Boolean(
       drinkTypeConfig?.servingSizesMl.includes(savedDrink.servingVolumeMl),
@@ -204,6 +218,8 @@ export function ManualDrinkForm({
   }
 
   function clearSavedDrinkSelection() {
+    // Returning to manual entry releases the template selection and its field
+    // locks so reusable attributes can be entered independently again.
     setValues((currentValues) => ({
       ...currentValues,
       drinkType: '',
@@ -249,6 +265,11 @@ export function ManualDrinkForm({
     })
   }
 
+  /**
+   * Validate raw strings and create one self-contained historical snapshot.
+   * Serving volume describes the size of one serving; amountConsumed records
+   * how many servings were consumed. Saving never mutates a selected template.
+   */
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setSaveStatus(null)
@@ -287,6 +308,10 @@ export function ManualDrinkForm({
     })
   }
 
+  /**
+   * Save only reusable drink attributes as a SavedDrink template.
+   * Occasion-specific servings, date, and time are intentionally excluded.
+   */
   async function handleSaveForFutureUse() {
     setSaveStatus(null)
 

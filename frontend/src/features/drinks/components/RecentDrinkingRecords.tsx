@@ -1,3 +1,9 @@
+/**
+ * Displays and manages immutable-by-default DrinkingRecord snapshots.
+ *
+ * Corrections and deletions are delegated to the history repository callbacks;
+ * this component never changes My Drinks or talks to IndexedDB directly.
+ */
 import { useState } from 'react'
 
 import { getDrinkTypeLabel } from '../config/drinkTypes'
@@ -31,6 +37,8 @@ export function RecentDrinkingRecords({
   const [deletingRecordId, setDeletingRecordId] = useState<string | null>(null)
   const [managementStatus, setManagementStatus] =
     useState<ManagementStatus>(null)
+  // Repositories return oldest-to-newest collections. slice returns a copy, so
+  // reversing the newest three here cannot mutate repository-backed page state.
   const recentRecords = records.slice(-MAX_RECENT_RECORDS).reverse()
 
   function beginEditing(recordId: string) {
@@ -40,6 +48,8 @@ export function RecentDrinkingRecords({
   }
 
   async function saveEditedRecord(record: DrinkingRecord) {
+    // The corrected value replaces only the selected historical snapshot; no
+    // SavedDrink callback or template mutation participates in this workflow.
     await onUpdate(record)
     setEditingRecordId(null)
     setManagementStatus({
@@ -54,6 +64,7 @@ export function RecentDrinkingRecords({
     setManagementStatus(null)
   }
 
+  /** Delete only this history ID after the user confirms the store boundary. */
   async function confirmDelete(record: DrinkingRecord) {
     setDeletingRecordId(record.id)
     try {
@@ -179,6 +190,7 @@ export function RecentDrinkingRecords({
                       >
                         Yes, delete record
                       </button>
+                      {/* Cancel exits confirmation without calling the repository. */}
                       <button
                         className="secondary-button"
                         type="button"
