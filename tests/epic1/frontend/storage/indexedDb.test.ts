@@ -1,3 +1,5 @@
+/** Protects the browser-local database name, version, and personal-data stores. */
+
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -6,7 +8,7 @@ import {
   SAVED_DRINKS_STORE_NAME,
   SIPAWARE_DATABASE_NAME,
   SIPAWARE_DATABASE_VERSION,
-} from './indexedDb'
+} from '../../../../frontend/src/features/drinks/storage/indexedDb'
 
 describe('SipAware IndexedDB database', () => {
   it('opens the Data Science browser database and creates both personal-data stores', async () => {

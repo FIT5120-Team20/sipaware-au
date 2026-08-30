@@ -1,11 +1,11 @@
 /** Shared public-reference fixture for component tests; contains no personal data. */
 
-import { mapDrinkReferenceCategories } from '../features/drinks/config/drinkTypes'
+import { mapDrinkReferenceCategories } from '../../../../frontend/src/features/drinks/config/drinkTypes'
 import type {
   DrinkOptionsResponseDto,
   ReferenceSourceDto,
   ServingSizeDto,
-} from '../features/drinks/types/drinkReference'
+} from '../../../../frontend/src/features/drinks/types/drinkReference'
 
 const source: ReferenceSourceDto = {
   id: 5,

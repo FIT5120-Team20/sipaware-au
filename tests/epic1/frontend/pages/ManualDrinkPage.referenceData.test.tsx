@@ -1,3 +1,5 @@
+/** Protects public reference loading boundaries without blocking local personal data. */
+
 import {
   render,
   screen,
@@ -7,10 +9,10 @@ import {
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
-import { DRINK_OPTIONS_RESPONSE } from '../../../test/drinkReferenceFixture'
-import { IndexedDbSavedDrinkRepository } from '../storage/savedDrinkRepository'
-import type { SavedDrink } from '../types/savedDrink'
-import { ManualDrinkPage } from './ManualDrinkPage'
+import { DRINK_OPTIONS_RESPONSE } from '../fixtures/drinkReferenceFixture'
+import { ManualDrinkPage } from '../../../../frontend/src/features/drinks/pages/ManualDrinkPage'
+import { IndexedDbSavedDrinkRepository } from '../../../../frontend/src/features/drinks/storage/savedDrinkRepository'
+import type { SavedDrink } from '../../../../frontend/src/features/drinks/types/savedDrink'
 
 function successfulReferenceResponse(): Response {
   return new Response(JSON.stringify(DRINK_OPTIONS_RESPONSE), {

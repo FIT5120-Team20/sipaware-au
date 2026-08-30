@@ -1,7 +1,9 @@
+/** Protects the bodyless same-origin public reference API contract and failures. */
+
 import { describe, expect, it, vi } from 'vitest'
 
-import { DRINK_OPTIONS_RESPONSE } from '../test/drinkReferenceFixture'
-import { getDrinkOptions } from './drinkReferenceApi'
+import { DRINK_OPTIONS_RESPONSE } from '../fixtures/drinkReferenceFixture'
+import { getDrinkOptions } from '../../../../frontend/src/services/drinkReferenceApi'
 
 describe('drink reference API client', () => {
   it('returns the typed public response through a bodyless same-origin GET', async () => {

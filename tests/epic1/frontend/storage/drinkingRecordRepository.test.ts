@@ -1,10 +1,12 @@
+/** Protects local DrinkingRecord persistence, updates, ordering, and deletion. */
+
 import { describe, expect, it, vi } from 'vitest'
 
 import {
   createUpdatedDrinkingRecord,
   type DrinkingRecord,
-} from '../types/drinkingRecord'
-import { IndexedDbDrinkingRecordRepository } from './drinkingRecordRepository'
+} from '../../../../frontend/src/features/drinks/types/drinkingRecord'
+import { IndexedDbDrinkingRecordRepository } from '../../../../frontend/src/features/drinks/storage/drinkingRecordRepository'
 
 const firstRecord: DrinkingRecord = {
   id: 'record-1',

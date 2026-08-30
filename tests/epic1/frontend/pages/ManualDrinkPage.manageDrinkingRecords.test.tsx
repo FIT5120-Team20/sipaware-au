@@ -1,3 +1,5 @@
+/** Protects history correction and deletion while keeping saved drinks independent. */
+
 import {
   fireEvent,
   render,
@@ -8,18 +10,18 @@ import {
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
-import { DRINK_REFERENCE_CATEGORIES } from '../../../test/drinkReferenceFixture'
-import { DrinkingRecordEditor } from '../components/DrinkingRecordEditor'
-import { RecentDrinkingRecords } from '../components/RecentDrinkingRecords'
+import { DRINK_REFERENCE_CATEGORIES } from '../fixtures/drinkReferenceFixture'
+import { DrinkingRecordEditor } from '../../../../frontend/src/features/drinks/components/DrinkingRecordEditor'
+import { RecentDrinkingRecords } from '../../../../frontend/src/features/drinks/components/RecentDrinkingRecords'
 import {
   IndexedDbDrinkingRecordRepository,
-} from '../storage/drinkingRecordRepository'
+} from '../../../../frontend/src/features/drinks/storage/drinkingRecordRepository'
 import {
   IndexedDbSavedDrinkRepository,
-} from '../storage/savedDrinkRepository'
-import type { DrinkingRecord } from '../types/drinkingRecord'
-import type { SavedDrink } from '../types/savedDrink'
-import { ManualDrinkPage } from './ManualDrinkPage'
+} from '../../../../frontend/src/features/drinks/storage/savedDrinkRepository'
+import { ManualDrinkPage } from '../../../../frontend/src/features/drinks/pages/ManualDrinkPage'
+import type { DrinkingRecord } from '../../../../frontend/src/features/drinks/types/drinkingRecord'
+import type { SavedDrink } from '../../../../frontend/src/features/drinks/types/savedDrink'
 
 const savedSky: SavedDrink = {
   id: 'saved-sky',

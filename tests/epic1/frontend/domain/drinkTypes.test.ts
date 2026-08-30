@@ -1,12 +1,14 @@
+/** Protects stable persisted drink identifiers while mapping public reference data. */
+
 import { describe, expect, it } from 'vitest'
 
-import { DRINK_OPTIONS_RESPONSE } from '../../../test/drinkReferenceFixture'
+import { DRINK_OPTIONS_RESPONSE } from '../fixtures/drinkReferenceFixture'
 import {
   DRINK_TYPE_COMPATIBILITY,
   getDrinkTypeLabel,
   isDrinkType,
   mapDrinkReferenceCategories,
-} from './drinkTypes'
+} from '../../../../frontend/src/features/drinks/config/drinkTypes'
 
 describe('drink type persistence compatibility', () => {
   it('keeps legacy values and adds stable identifiers for new categories', () => {

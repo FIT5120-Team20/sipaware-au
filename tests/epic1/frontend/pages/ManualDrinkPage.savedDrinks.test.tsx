@@ -1,18 +1,20 @@
+/** Protects saved-drink reuse, independent history snapshots, and failure handling. */
+
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 
-import { DRINK_REFERENCE_CATEGORIES } from '../../../test/drinkReferenceFixture'
-import { ManualDrinkForm } from '../components/ManualDrinkForm'
+import { DRINK_REFERENCE_CATEGORIES } from '../fixtures/drinkReferenceFixture'
+import { ManualDrinkForm } from '../../../../frontend/src/features/drinks/components/ManualDrinkForm'
 import {
   IndexedDbDrinkingRecordRepository,
-} from '../storage/drinkingRecordRepository'
+} from '../../../../frontend/src/features/drinks/storage/drinkingRecordRepository'
 import {
   IndexedDbSavedDrinkRepository,
-} from '../storage/savedDrinkRepository'
-import type { DrinkingRecord } from '../types/drinkingRecord'
-import type { SavedDrink } from '../types/savedDrink'
-import { ManualDrinkPage } from './ManualDrinkPage'
+} from '../../../../frontend/src/features/drinks/storage/savedDrinkRepository'
+import type { DrinkingRecord } from '../../../../frontend/src/features/drinks/types/drinkingRecord'
+import type { SavedDrink } from '../../../../frontend/src/features/drinks/types/savedDrink'
+import { ManualDrinkPage } from '../../../../frontend/src/features/drinks/pages/ManualDrinkPage'
 
 const savedCarltonDraught: SavedDrink = {
   id: 'saved-carlton-draught',

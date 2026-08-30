@@ -1,11 +1,13 @@
+/** Protects local SavedDrink persistence and its separation from drinking history. */
+
 import { describe, expect, it, vi } from 'vitest'
 
 import {
   createUpdatedSavedDrink,
   type SavedDrink,
-} from '../types/savedDrink'
-import { IndexedDbDrinkingRecordRepository } from './drinkingRecordRepository'
-import { IndexedDbSavedDrinkRepository } from './savedDrinkRepository'
+} from '../../../../frontend/src/features/drinks/types/savedDrink'
+import { IndexedDbDrinkingRecordRepository } from '../../../../frontend/src/features/drinks/storage/drinkingRecordRepository'
+import { IndexedDbSavedDrinkRepository } from '../../../../frontend/src/features/drinks/storage/savedDrinkRepository'
 
 const firstSavedDrink: SavedDrink = {
   id: 'saved-drink-1',

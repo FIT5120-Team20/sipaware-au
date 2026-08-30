@@ -1,9 +1,11 @@
+/** Protects Australian-English display formatting and recorded local-time fidelity. */
+
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 
-import { DRINK_REFERENCE_CATEGORIES } from '../../../test/drinkReferenceFixture'
-import type { DrinkingRecord } from '../types/drinkingRecord'
-import { RecentDrinkingRecords } from './RecentDrinkingRecords'
+import { DRINK_REFERENCE_CATEGORIES } from '../fixtures/drinkReferenceFixture'
+import { RecentDrinkingRecords } from '../../../../frontend/src/features/drinks/components/RecentDrinkingRecords'
+import type { DrinkingRecord } from '../../../../frontend/src/features/drinks/types/drinkingRecord'
 
 describe('RecentDrinkingRecords', () => {
   it('uses Australian English and preserves the originally entered local time', () => {

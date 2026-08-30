@@ -1,3 +1,5 @@
+/** Protects normalisation and validation boundaries for records and reusable drinks. */
+
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -5,11 +7,11 @@ import {
   type ManualDrinkField,
   type ManualDrinkFormValues,
   type ReusableDrinkField,
-} from '../types/manualDrinkForm'
+} from '../../../../frontend/src/features/drinks/types/manualDrinkForm'
 import {
   validateManualDrinkInput,
   validateReusableDrinkInput,
-} from './drinkingRecordValidation'
+} from '../../../../frontend/src/features/drinks/validation/drinkingRecordValidation'
 
 function validValues(): ManualDrinkFormValues {
   return {

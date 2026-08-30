@@ -28,7 +28,10 @@ performed by source changes.
 ```text
 .
 |-- frontend/           React + TypeScript + Vite service
-|-- backend/            FastAPI service and backend tests
+|   `-- src/            Production frontend source
+|-- backend/            FastAPI service
+|   `-- app/            Production backend source
+|-- tests/              Automated tests and test-only support code
 |-- data/               Data boundary documentation
 |-- docs/               Architecture, requirements, and data-contract notes
 |-- infrastructure/     Hosting-direction documentation
