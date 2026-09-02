@@ -111,7 +111,9 @@ describe('ManualDrinkPage alcohol consumption integration', () => {
     expect(guidance).not.toHaveTextContent(
       /personalised (driving )?(recommendation|clearance)|you (can|may) drive/i,
     )
-    expect(within(guidance).queryByRole('link')).not.toBeInTheDocument()
+    expect(
+      within(guidance).getByRole('link', { name: 'Why this matters' }),
+    ).toHaveAttribute('href', '/alcohol-guidelines#ALCOHOL_DRIVING')
     expect(within(guidance).queryByRole('button')).not.toBeInTheDocument()
     expect(ALCOHOL_INFORMATION_TOPIC_CODES).toContain('ALCOHOL_DRIVING')
 

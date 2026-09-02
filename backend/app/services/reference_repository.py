@@ -11,11 +11,17 @@ from collections.abc import Callable
 from contextlib import AbstractContextManager
 from typing import Any
 
+from pydantic import ValidationError
+
 from app.integrations.database import DatabaseConnection, open_database_connection
 from app.schemas.reference import (
     AbvOption,
     AlcoholGuideline,
     AlcoholGuidelinesResponse,
+    AlcoholInformationContent,
+    AlcoholInformationResponse,
+    AlcoholInformationSource,
+    AlcoholInformationTopic,
     DrinkCategoryOption,
     DrinkOptionsResponse,
     DrinkVariantOption,
@@ -89,6 +95,42 @@ GUIDELINE_SELECT = """
              END
 """
 
+INFORMATION_SELECT = '''
+    SELECT topic.topic_id,
+           topic.topic_code,
+           topic.display_name,
+           topic.display_order AS topic_display_order,
+           content.content_id,
+           content.content_title,
+           content.body_text,
+           content.content_type,
+           content.display_order AS content_display_order,
+           content.last_verified,
+           link.source_role,
+           source.source_id,
+           source.source_name,
+           source.organisation,
+           source.source_url
+    FROM public.information_topic AS topic
+    JOIN public.information_content AS content
+      ON content.topic_id = topic.topic_id
+    LEFT JOIN public.information_content_source AS link
+      ON link.content_id = content.content_id
+    LEFT JOIN public.source AS source
+      ON source.source_id = link.source_id
+    WHERE content.is_active IS TRUE
+    ORDER BY topic.display_order,
+             topic.topic_id,
+             content.display_order,
+             content.content_id,
+             CASE link.source_role
+                 WHEN 'PRIMARY' THEN 1
+                 WHEN 'SUPPORTING' THEN 2
+                 ELSE 3
+             END,
+             source.source_id
+'''
+
 # Keeping every executed statement in one exported tuple makes the read-only
 # contract easy to inspect and regression-test without connecting to Neon.
 REFERENCE_SELECT_STATEMENTS = (
@@ -101,6 +143,10 @@ REFERENCE_SELECT_STATEMENTS = (
 # Guideline SQL stays separate so the Epic 1 drink-options query contract keeps
 # its original four statements and the two endpoints can fail independently.
 GUIDELINE_SELECT_STATEMENTS = (GUIDELINE_SELECT,)
+
+# US2.3 deliberately uses one joined SELECT: LEFT JOIN keeps missing provenance
+# visible for validation, while a separate tuple protects earlier query audits.
+INFORMATION_SELECT_STATEMENTS = (INFORMATION_SELECT,)
 
 
 class ReferenceDataIntegrityError(RuntimeError):
@@ -195,6 +241,135 @@ class ReferenceRepository:
             ) from None
 
         return DrinkOptionsResponse(categories=list(categories_by_id.values()))
+
+    def fetch_alcohol_information(self) -> AlcoholInformationResponse:
+        '''Aggregate active topic content and provenance from one joined query.'''
+        with self._connection_factory() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(INFORMATION_SELECT)
+                information_rows = cursor.fetchall()
+
+        if not information_rows:
+            raise ReferenceDataIntegrityError(
+                'Alcohol information rows are inconsistent.'
+            )
+
+        topic_fields_by_id: dict[int, tuple[Any, ...]] = {}
+        topic_ids_by_code: dict[str, int] = {}
+        topic_builders: dict[int, dict[str, Any]] = {}
+        content_fields_by_id: dict[int, tuple[Any, ...]] = {}
+        content_topic_ids: dict[int, int] = {}
+        content_builders: dict[int, dict[str, Any]] = {}
+        source_ids_by_content: dict[int, set[int]] = {}
+
+        try:
+            for row in information_rows:
+                topic_id = row['topic_id']
+                topic_code = row['topic_code']
+                topic_fields = (
+                    topic_code,
+                    row['display_name'],
+                    row['topic_display_order'],
+                )
+                if topic_id in topic_fields_by_id:
+                    if topic_fields_by_id[topic_id] != topic_fields:
+                        raise ReferenceDataIntegrityError(
+                            'Alcohol information rows are inconsistent.'
+                        )
+                else:
+                    if topic_code in topic_ids_by_code:
+                        raise ReferenceDataIntegrityError(
+                            'Alcohol information rows are inconsistent.'
+                        )
+                    topic_fields_by_id[topic_id] = topic_fields
+                    topic_ids_by_code[topic_code] = topic_id
+                    topic_builders[topic_id] = {
+                        'topic_code': topic_code,
+                        'display_name': row['display_name'],
+                        'display_order': row['topic_display_order'],
+                        'content': [],
+                    }
+
+                content_id = row['content_id']
+                content_fields = (
+                    row['content_title'],
+                    row['body_text'],
+                    row['content_type'],
+                    row['content_display_order'],
+                    row['last_verified'],
+                )
+                if content_id in content_fields_by_id:
+                    if (
+                        content_fields_by_id[content_id] != content_fields
+                        or content_topic_ids[content_id] != topic_id
+                    ):
+                        raise ReferenceDataIntegrityError(
+                            'Alcohol information rows are inconsistent.'
+                        )
+                else:
+                    content_fields_by_id[content_id] = content_fields
+                    content_topic_ids[content_id] = topic_id
+                    content_builders[content_id] = {
+                        'id': content_id,
+                        'title': row['content_title'],
+                        'content_type': row['content_type'],
+                        'body_text': row['body_text'],
+                        'display_order': row['content_display_order'],
+                        'last_verified': row['last_verified'],
+                        'sources': [],
+                    }
+                    source_ids_by_content[content_id] = set()
+                    topic_builders[topic_id]['content'].append(
+                        content_builders[content_id]
+                    )
+
+                # The LEFT JOIN intentionally yields nulls when active content
+                # lacks provenance; failing here avoids silently dropping it.
+                source_values = (
+                    row['source_id'],
+                    row['source_role'],
+                    row['source_name'],
+                    row['organisation'],
+                    row['source_url'],
+                )
+                if any(value is None for value in source_values):
+                    raise ReferenceDataIntegrityError(
+                        'Alcohol information rows are inconsistent.'
+                    )
+
+                source_id = row['source_id']
+                if source_id in source_ids_by_content[content_id]:
+                    raise ReferenceDataIntegrityError(
+                        'Alcohol information rows are inconsistent.'
+                    )
+                source_ids_by_content[content_id].add(source_id)
+                content_builders[content_id]['sources'].append(
+                    AlcoholInformationSource(
+                        id=source_id,
+                        role=row['source_role'],
+                        name=row['source_name'],
+                        organisation=row['organisation'],
+                        url=row['source_url'],
+                    )
+                )
+
+            topics = [
+                AlcoholInformationTopic(
+                    topic_code=builder['topic_code'],
+                    display_name=builder['display_name'],
+                    display_order=builder['display_order'],
+                    content=[
+                        AlcoholInformationContent(**content)
+                        for content in builder['content']
+                    ],
+                )
+                for builder in topic_builders.values()
+            ]
+            return AlcoholInformationResponse(topics=topics)
+        except (KeyError, TypeError, ValueError, ValidationError):
+            raise ReferenceDataIntegrityError(
+                'Alcohol information rows are inconsistent.'
+            ) from None
 
     def fetch_alcohol_guidelines(self) -> AlcoholGuidelinesResponse:
         """Return exactly one DAILY and one WEEKLY public guideline."""

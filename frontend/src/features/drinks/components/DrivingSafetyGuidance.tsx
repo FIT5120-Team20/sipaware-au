@@ -4,8 +4,9 @@
  *
  * This component accepts no personal or calculated input and owns no trigger,
  * BAC/clearance logic, network request, or persistence. Detailed sourced
- * information and working navigation remain the responsibility of US2.3.
+ * information remains separate and is reached through one stable topic link.
  */
+import { AlcoholInformationTopicLink } from './AlcoholInformationTopicLink'
 import '../alcoholConsumption.css'
 
 export function DrivingSafetyGuidance() {
@@ -22,6 +23,11 @@ export function DrivingSafetyGuidance() {
       </p>
       <p>
         SipAware does not estimate BAC or tell you when it is safe to drive.
+      </p>
+      <p>
+        <AlcoholInformationTopicLink topicCode='ALCOHOL_DRIVING'>
+          Why this matters
+        </AlcoholInformationTopicLink>
       </p>
     </section>
   )

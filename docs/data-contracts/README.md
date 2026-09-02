@@ -33,6 +33,13 @@ drink template or consumption-history fields.
 thresholds, guideline wording, period descriptions, and NHMRC source
 attribution. The bodyless request carries no browser-local personal data.
 
+`GET /api/reference/alcohol-information` returns active public topics in
+deterministic display order. Each topic contains ordered content items with
+content type, plain body text, display order, last-verified date, and one or
+more PRIMARY/SUPPORTING sources. Topic codes are limited to STANDARD_DRINK,
+ALCOHOL_GUIDELINES, ALCOHOL_AGEING, ALCOHOL_DRIVING, ALCOHOL_MEDICINES, and
+ALCOHOL_LEGAL. The bodyless GET accepts no personal-data argument.
+
 The frontend validates this response before mapping database category IDs to
 stable local DrinkType values. FastAPI keeps database column names behind DTOs,
 uses SELECT-only SQL, and opens short-lived read-only connections through the
@@ -41,3 +48,7 @@ pooled `app_reader` URL supplied as `DATABASE_URL`.
 Standard-drink totals, local-calendar history spans, and the US2.2 eligible
 today-record presence flag are derived in React. They are not added to IndexedDB
 or sent to FastAPI or Neon. Automatic ABV selection remains future scope.
+
+US2.3 consumes only its nested public-reference DTO. It does not add an
+IndexedDB store or migration, and no health or legal fallback facts are
+hard-coded into the client.

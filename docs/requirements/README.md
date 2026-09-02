@@ -13,13 +13,16 @@ The current implemented scope is limited to:
 - Epic 1 US1.4 validated correction and confirmed deletion of displayed recent DrinkingRecord snapshots without changing My Drinks;
 - Epic 2 US2.1 locally derived standard-drink feedback against public DAILY and rolling-seven-local-calendar-day guideline thresholds;
 - Epic 2 US2.2 general drinking-and-driving safety guidance triggered by an eligible device-local record for today;
+- Epic 2 US2.3 API-driven alcohol guidelines, ageing, driving, medicines, and legal information with trusted Australian source links;
 - lightweight architecture and project documentation.
 
 Other unimplemented stories remain excluded. US2.2 provides no BAC estimate,
 sober-time prediction, legal-limit result, or personalised driving clearance.
-Being below an alcohol guideline does not mean it is safe to drive.
-Stable topic codes are reserved, but US2.1 and US2.2 information navigation
-remains pending end-to-end US2.3 integration so neither story ships dead
-controls. Authentication is not currently in scope unless later requirements
-state otherwise. Future requirements must be recorded here without inferring
-unapproved product or data behaviour.
+Being below an alcohol guideline does not mean it is safe to drive. US2.3 is
+general educational information only: it provides no personalised medical or
+legal advice, BAC estimate, safe-to-drive prediction, medicine checker, or
+individual risk calculation. Its live ALCOHOL_AGEING wording remains subject to
+the authorised data-owner update and final content acceptance. Authentication
+is not currently in scope unless later requirements state otherwise. Future
+requirements must be recorded here without inferring unapproved product or data
+behaviour.

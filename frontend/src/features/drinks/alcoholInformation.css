@@ -1,0 +1,185 @@
+.alcohol-information-page {
+  min-height: 100vh;
+  padding: clamp(1.25rem, 4vw, 3rem);
+}
+
+.alcohol-information-shell {
+  width: min(100%, 64rem);
+  margin: 0 auto;
+}
+
+.alcohol-information-back-link,
+.alcohol-information-contents a,
+.alcohol-information-sources a {
+  color: #0b4f6c;
+  font-weight: 700;
+}
+
+.alcohol-information-back-link {
+  display: inline-block;
+  margin-bottom: 1.25rem;
+}
+
+.alcohol-information-header {
+  max-width: 50rem;
+  margin-bottom: 1.75rem;
+}
+
+.alcohol-information-header h1 {
+  margin: 0.35rem 0 0;
+  color: #102a43;
+  font-size: clamp(2.1rem, 6vw, 3.35rem);
+  line-height: 1.1;
+}
+
+.alcohol-information-header > p:last-child {
+  margin: 0.875rem 0 0;
+  color: #3e4c59;
+  font-size: 1.0625rem;
+  line-height: 1.7;
+}
+
+.alcohol-information-status,
+.alcohol-information-error,
+.alcohol-information-target-message,
+.alcohol-information-contents,
+.alcohol-information-section {
+  padding: clamp(1rem, 3vw, 1.5rem);
+  border-radius: 0.75rem;
+}
+
+.alcohol-information-status,
+.alcohol-information-target-message {
+  border: 1px solid #bcccdc;
+  color: #334e68;
+  background: #f0f4f8;
+}
+
+.alcohol-information-error {
+  border: 2px solid #b42318;
+  color: #7a1911;
+  background: #fff2f0;
+}
+
+.alcohol-information-error p {
+  margin: 0 0 0.875rem;
+}
+
+.alcohol-information-contents {
+  margin-bottom: 1.25rem;
+  border: 1px solid #bcccdc;
+  background: #eaf6fb;
+}
+
+.alcohol-information-contents h2 {
+  margin: 0;
+  color: #102a43;
+  font-size: 1.25rem;
+}
+
+.alcohol-information-contents ul {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem 1.5rem;
+  margin: 0.875rem 0 0;
+  padding-left: 1.25rem;
+}
+
+.alcohol-information-sections {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.alcohol-information-section {
+  scroll-margin-top: 1rem;
+  border: 1px solid #d8dee3;
+  background: #ffffff;
+  box-shadow: 0 0.75rem 2rem rgb(31 41 51 / 8%);
+}
+
+.alcohol-information-section > h2 {
+  margin: 0;
+  color: #102a43;
+  font-size: 1.75rem;
+  line-height: 1.25;
+}
+
+.alcohol-information-content {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid #d8dee3;
+}
+
+.alcohol-information-content h3,
+.alcohol-information-content h4 {
+  margin: 0;
+  color: #243b53;
+}
+
+.alcohol-information-content h3 {
+  font-size: 1.2rem;
+}
+
+.alcohol-information-content h4 {
+  font-size: 1rem;
+}
+
+.alcohol-information-content p {
+  margin: 0.7rem 0 0;
+  line-height: 1.65;
+}
+
+.alcohol-information-verified {
+  color: #52616b;
+  font-size: 0.925rem;
+}
+
+.alcohol-information-sources {
+  margin-top: 1rem;
+  padding: 1rem;
+  border-left: 4px solid #486581;
+  border-radius: 0.35rem;
+  background: #f8fafb;
+}
+
+.alcohol-information-sources ul {
+  display: grid;
+  gap: 0.85rem;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.alcohol-information-source-role,
+.alcohol-information-source-organisation {
+  display: block;
+}
+
+.alcohol-information-source-role {
+  color: #52616b;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.alcohol-information-source-organisation {
+  margin-top: 0.15rem;
+  color: #52616b;
+  font-size: 0.925rem;
+}
+
+.alcohol-information-page a:focus-visible,
+.alcohol-information-page button:focus-visible,
+.alcohol-information-section > h2:focus-visible {
+  outline: 3px solid #8a4b08;
+  outline-offset: 3px;
+}
+
+@media (max-width: 40rem) {
+  .alcohol-information-page {
+    padding: 1rem;
+  }
+
+  .alcohol-information-contents ul {
+    grid-template-columns: 1fr;
+  }
+}

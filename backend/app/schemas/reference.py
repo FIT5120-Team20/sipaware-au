@@ -7,9 +7,10 @@ personal drink templates and consumption history are never represented here.
 
 from __future__ import annotations
 
-from typing import Literal
+from datetime import date
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, StringConstraints
 
 
 def to_camel_case(value: str) -> str:
@@ -25,6 +26,66 @@ class ReferenceModel(BaseModel):
         alias_generator=to_camel_case,
         populate_by_name=True,
     )
+
+
+# Information DTOs reject blank display content at the application boundary so
+# malformed public data cannot become unsourced health or legal presentation.
+NonEmptyText = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1),
+]
+
+AlcoholInformationTopicCode = Literal[
+    'STANDARD_DRINK',
+    'ALCOHOL_GUIDELINES',
+    'ALCOHOL_AGEING',
+    'ALCOHOL_DRIVING',
+    'ALCOHOL_MEDICINES',
+    'ALCOHOL_LEGAL',
+]
+AlcoholInformationContentType = Literal[
+    'PROJECT_SUMMARY',
+    'SOURCE_EXCERPT',
+    'LINK_ONLY',
+]
+AlcoholInformationSourceRole = Literal['PRIMARY', 'SUPPORTING']
+
+
+class AlcoholInformationSource(ReferenceModel):
+    '''Trusted source attached to one public information content item.'''
+
+    id: int = Field(gt=0)
+    role: AlcoholInformationSourceRole
+    name: NonEmptyText
+    organisation: NonEmptyText
+    url: HttpUrl
+
+
+class AlcoholInformationContent(ReferenceModel):
+    '''One verified content item and all of its many-to-many provenance.'''
+
+    id: int = Field(gt=0)
+    title: NonEmptyText
+    content_type: AlcoholInformationContentType
+    body_text: NonEmptyText
+    display_order: int = Field(gt=0)
+    last_verified: date
+    sources: list[AlcoholInformationSource] = Field(min_length=1)
+
+
+class AlcoholInformationTopic(ReferenceModel):
+    '''Stable topic-code contract separated from physical Neon identifiers.'''
+
+    topic_code: AlcoholInformationTopicCode
+    display_name: NonEmptyText
+    display_order: int = Field(gt=0)
+    content: list[AlcoholInformationContent] = Field(min_length=1)
+
+
+class AlcoholInformationResponse(ReferenceModel):
+    '''All active public alcohol information required by the US2.3 page.'''
+
+    topics: list[AlcoholInformationTopic] = Field(min_length=1)
 
 
 class SourceSummary(ReferenceModel):

@@ -11,7 +11,11 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from app.core.config import DatabaseConfigurationError
 from app.integrations.database import DatabaseUnavailableError
-from app.schemas.reference import AlcoholGuidelinesResponse, DrinkOptionsResponse
+from app.schemas.reference import (
+    AlcoholGuidelinesResponse,
+    AlcoholInformationResponse,
+    DrinkOptionsResponse,
+)
 from app.services.reference_repository import (
     ReferenceDataIntegrityError,
     ReferenceRepository,
@@ -84,3 +88,32 @@ def get_alcohol_guidelines(
 
     response.headers["Cache-Control"] = REFERENCE_CACHE_CONTROL
     return guidelines
+
+
+@router.get(
+    '/alcohol-information',
+    response_model=AlcoholInformationResponse,
+    response_model_by_alias=True,
+)
+def get_alcohol_information(
+    response: Response,
+    repository: Annotated[
+        ReferenceRepository,
+        Depends(get_reference_repository),
+    ],
+) -> AlcoholInformationResponse:
+    '''Return active, sourced public information without personal input.'''
+    try:
+        information = repository.fetch_alcohol_information()
+    except (
+        DatabaseConfigurationError,
+        DatabaseUnavailableError,
+        ReferenceDataIntegrityError,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=UNAVAILABLE_DETAIL,
+        ) from None
+
+    response.headers['Cache-Control'] = REFERENCE_CACHE_CONTROL
+    return information

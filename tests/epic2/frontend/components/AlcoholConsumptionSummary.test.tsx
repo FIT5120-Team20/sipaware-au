@@ -207,7 +207,35 @@ describe('AlcoholConsumptionSummary', () => {
     expect(onRetry).toHaveBeenCalledTimes(1)
   })
 
-  it('does not render the pending US2.3 explanation controls', () => {
+  it.each([
+    ['no history', summary({ recordedHistorySpanStatus: 'none' }), 'loaded'],
+    ['guideline loading', summary(), 'loading'],
+    ['guideline failure', summary(), 'failed'],
+  ] as const)(
+    'keeps related information navigation available during %s',
+    (_name, currentSummary, guidelineStatus) => {
+      render(
+        <AlcoholConsumptionSummary
+          summary={currentSummary}
+          guidelines={
+            guidelineStatus === 'loaded'
+              ? ALCOHOL_GUIDELINES_RESPONSE
+              : null
+          }
+          guidelineStatus={guidelineStatus}
+          onRetryGuidelines={() => undefined}
+        />,
+      )
+
+      expect(
+        screen.getByRole('navigation', {
+          name: 'Related alcohol information',
+        }),
+      ).toBeInTheDocument()
+    },
+  )
+
+  it('renders the three US2.1 links with working US2.3 destinations', () => {
     render(
       <AlcoholConsumptionSummary
         summary={summary()}
@@ -218,13 +246,13 @@ describe('AlcoholConsumptionSummary', () => {
     )
 
     expect(
-      screen.queryByRole('link', { name: /What is a standard drink/i }),
-    ).not.toBeInTheDocument()
+      screen.getByRole('link', { name: /What is a standard drink/i }),
+    ).toHaveAttribute('href', '/alcohol-guidelines#STANDARD_DRINK')
     expect(
-      screen.queryByRole('link', { name: /About the Australian guidelines/i }),
-    ).not.toBeInTheDocument()
+      screen.getByRole('link', { name: /About the Australian guidelines/i }),
+    ).toHaveAttribute('href', '/alcohol-guidelines#ALCOHOL_GUIDELINES')
     expect(
-      screen.queryByRole('link', { name: /Why does age matter/i }),
-    ).not.toBeInTheDocument()
+      screen.getByRole('link', { name: /Why does age matter/i }),
+    ).toHaveAttribute('href', '/alcohol-guidelines#ALCOHOL_AGEING')
   })
 })

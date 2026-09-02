@@ -131,6 +131,37 @@
   font-weight: 700;
 }
 
+.related-information {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid #d8dee3;
+}
+
+.related-information h3 {
+  margin: 0;
+  color: #243b53;
+  font-size: 1.05rem;
+}
+
+.related-information ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 1.25rem;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.information-topic-link {
+  color: #0b4f6c;
+  font-weight: 700;
+}
+
+.information-topic-link:focus-visible {
+  outline: 3px solid #8a4b08;
+  outline-offset: 3px;
+}
+
 @media (max-width: 52rem) {
   .consumption-comparisons {
     grid-template-columns: 1fr;

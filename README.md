@@ -8,8 +8,8 @@ FIT5120 Team20
 
 SipAware AU is a web application focused on alcohol-consumption awareness and
 preventive health. The repository contains a React frontend, a FastAPI backend
-for public drink-reference data, architecture documentation, and the Epic 1
-US1.1 through US1.4 manual drink-capture features.
+for public reference data, architecture documentation, Epic 1 manual
+drink-capture features, and Epic 2 consumption and educational information.
 
 ## Technology Stack
 
@@ -93,6 +93,7 @@ The API runs at `http://localhost:8000` and exposes:
 - `GET /api/health`
 - `GET /api/reference/drink-options`
 - `GET /api/reference/alcohol-guidelines`
+- `GET /api/reference/alcohol-information`
 
 The health route does not require database configuration. The reference route
 requires `DATABASE_URL` in the process environment or untracked `backend/.env`.
@@ -155,8 +156,14 @@ Epic 2 US2.2 adds general driving-safety guidance when at least one eligible
 DrinkingRecord exists for the current local date. It does not estimate BAC or
 provide personalised driving clearance.
 
-Authentication, automatic ABV estimates, the full information page, and
-personalised medical or legal advice are not implemented.
+Epic 2 US2.3 adds an API-driven Alcohol Guidelines & Legal Information page at
+`/alcohol-guidelines`. Six stable topic sections present active Neon content,
+verification dates, and PRIMARY/SUPPORTING Australian source links. The
+US2.1 explanation controls and US2.2 driving link use native deep links to
+these real destinations.
+
+Authentication, automatic ABV estimates, personalised medical advice, and
+personalised legal advice are not implemented.
 
 ## Data and Privacy Architecture
 
@@ -190,6 +197,10 @@ before one-decimal display rounding, and never persists the result.
 
 US2.2 derives its today-record presence trigger from that same eligible local
 record collection. The trigger is neither persisted nor sent to the backend.
+
+US2.3 independently issues a bodyless public-reference GET. It does not read
+IndexedDB or send DrinkingRecords, SavedDrinks, totals, driving triggers, or
+personal attributes to FastAPI or Neon.
 
 See [data/README.md](data/README.md) and
 [docs/data-contracts/README.md](docs/data-contracts/README.md).

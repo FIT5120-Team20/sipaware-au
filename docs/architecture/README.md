@@ -29,6 +29,21 @@ React consumption summary
   -> Neon guideline_reference and source
 ```
 
+US2.3 adds a separate public-reference flow with no personal input:
+
+    React Alcohol Guidelines & Legal Information page
+      -> GET /api/reference/alcohol-information
+      -> FastAPI reference repository
+      -> one active-only, LEFT JOIN SELECT
+      -> Neon information_topic, information_content,
+         information_content_source, and source
+
+The LEFT JOIN keeps missing provenance visible to repository validation instead
+of silently discarding active content. Stable topic codes are both API values
+and native hash section IDs. App selects only `/` and
+`/alcohol-guidelines`; normal anchors and the existing SPA fallback provide
+history and direct reloads.
+
 The health route is independent of database configuration:
 
 ```text
@@ -114,3 +129,7 @@ and does not inspect, import, or fall back to prototype keys.
 
 Automatic ABV estimates, personalised driving clearance, and personalised
 medical or legal advice remain outside the implemented scope.
+
+The information page performs no BAC, clearance, medicine-interaction, legal,
+or health-risk calculation. It does not access IndexedDB and never receives
+browser-local personal records.

@@ -11,6 +11,7 @@ import type {
   AlcoholGuidelinesResponseDto,
   GuidelineLoadStatus,
 } from '../types/alcoholGuideline'
+import { AlcoholInformationTopicLink } from './AlcoholInformationTopicLink'
 import '../alcoholConsumption.css'
 
 interface AlcoholConsumptionSummaryProps {
@@ -246,6 +247,30 @@ export function AlcoholConsumptionSummary({
           )}
         </>
       )}
+
+      <nav
+        className='related-information'
+        aria-label='Related alcohol information'
+      >
+        <h3>Learn more</h3>
+        <ul>
+          <li>
+            <AlcoholInformationTopicLink topicCode='STANDARD_DRINK'>
+              What is a standard drink?
+            </AlcoholInformationTopicLink>
+          </li>
+          <li>
+            <AlcoholInformationTopicLink topicCode='ALCOHOL_GUIDELINES'>
+              About the Australian guidelines
+            </AlcoholInformationTopicLink>
+          </li>
+          <li>
+            <AlcoholInformationTopicLink topicCode='ALCOHOL_AGEING'>
+              Why does age matter?
+            </AlcoholInformationTopicLink>
+          </li>
+        </ul>
+      </nav>
     </section>
   )
 }
