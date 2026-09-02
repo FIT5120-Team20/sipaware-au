@@ -1,0 +1,112 @@
+.consumption-summary-card {
+  margin-bottom: 1.5rem;
+  padding: clamp(1.25rem, 4vw, 2rem);
+  border: 1px solid #d8dee3;
+  border-radius: 0.75rem;
+  background: #ffffff;
+  box-shadow: 0 0.75rem 2rem rgb(31 41 51 / 8%);
+}
+
+.consumption-summary-heading {
+  margin-bottom: 1.25rem;
+}
+
+.consumption-comparisons {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.consumption-comparison,
+.consumption-history-message,
+.guideline-load-error,
+.guideline-context {
+  padding: 1rem;
+  border-radius: 0.55rem;
+  line-height: 1.55;
+}
+
+.consumption-comparison {
+  border: 2px solid #829ab1;
+  background: #f8fafb;
+}
+
+.consumption-comparison--not-above {
+  border-color: #2f855a;
+  background: #edfdf4;
+}
+
+.consumption-comparison--above {
+  border-color: #b42318;
+  background: #fff2f0;
+}
+
+.consumption-comparison p,
+.consumption-history-message p,
+.guideline-load-error p,
+.guideline-context p {
+  margin: 0;
+}
+
+.consumption-comparison p + p,
+.consumption-history-message p + p,
+.guideline-context p + p {
+  margin-top: 0.5rem;
+}
+
+.consumption-comparison__label {
+  color: #52616b;
+  font-weight: 700;
+}
+
+.consumption-comparison__value {
+  color: #102a43;
+}
+
+.consumption-comparison__value strong {
+  font-size: 1.75rem;
+}
+
+.consumption-comparison__status {
+  font-weight: 700;
+}
+
+.consumption-history-message {
+  border: 1px solid #bcccdc;
+  color: #334e68;
+  background: #f0f4f8;
+}
+
+.guideline-load-message {
+  margin: 1rem 0 0;
+  color: #52616b;
+}
+
+.guideline-load-error {
+  margin-top: 1rem;
+  border: 2px solid #b42318;
+  color: #7a1911;
+  background: #fff2f0;
+}
+
+.guideline-load-error .secondary-button {
+  margin-top: 0.875rem;
+}
+
+.guideline-context {
+  margin-top: 1rem;
+  border-left: 4px solid #486581;
+  color: #334e68;
+  background: #f8fafb;
+}
+
+.guideline-context a {
+  color: #0b4f6c;
+  font-weight: 700;
+}
+
+@media (max-width: 52rem) {
+  .consumption-comparisons {
+    grid-template-columns: 1fr;
+  }
+}

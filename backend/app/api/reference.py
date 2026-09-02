@@ -1,4 +1,4 @@
-"""HTTP boundary for Epic 1 public drink-reference options.
+"""HTTP boundary for public drink and alcohol-guideline reference data.
 
 The route translates repository DTOs and sanitized infrastructure failures into
 one stable frontend contract. SQL, credentials, and personal browser records
@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from app.core.config import DatabaseConfigurationError
 from app.integrations.database import DatabaseUnavailableError
-from app.schemas.reference import DrinkOptionsResponse
+from app.schemas.reference import AlcoholGuidelinesResponse, DrinkOptionsResponse
 from app.services.reference_repository import (
     ReferenceDataIntegrityError,
     ReferenceRepository,
@@ -55,3 +55,32 @@ def get_drink_options(
 
     response.headers["Cache-Control"] = REFERENCE_CACHE_CONTROL
     return drink_options
+
+
+@router.get(
+    "/alcohol-guidelines",
+    response_model=AlcoholGuidelinesResponse,
+    response_model_by_alias=True,
+)
+def get_alcohol_guidelines(
+    response: Response,
+    repository: Annotated[
+        ReferenceRepository,
+        Depends(get_reference_repository),
+    ],
+) -> AlcoholGuidelinesResponse:
+    """Return public Australian guideline values without personal data."""
+    try:
+        guidelines = repository.fetch_alcohol_guidelines()
+    except (
+        DatabaseConfigurationError,
+        DatabaseUnavailableError,
+        ReferenceDataIntegrityError,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=UNAVAILABLE_DETAIL,
+        ) from None
+
+    response.headers["Cache-Control"] = REFERENCE_CACHE_CONTROL
+    return guidelines

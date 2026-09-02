@@ -41,7 +41,10 @@ export default defineConfig(({ mode }) => ({
     ...(mode === 'test' ? { fs: { allow: ['..'] } } : {}),
   },
   test: {
-    include: ['../tests/epic1/frontend/**/*.test.{ts,tsx}'],
+    include: [
+      '../tests/epic1/frontend/**/*.test.{ts,tsx}',
+      '../tests/epic2/frontend/**/*.test.{ts,tsx}',
+    ],
     environment: 'jsdom',
     environmentOptions: {
       jsdom: {

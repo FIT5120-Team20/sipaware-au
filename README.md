@@ -92,6 +92,7 @@ The API runs at `http://localhost:8000` and exposes:
 
 - `GET /api/health`
 - `GET /api/reference/drink-options`
+- `GET /api/reference/alcohol-guidelines`
 
 The health route does not require database configuration. The reference route
 requires `DATABASE_URL` in the process environment or untracked `backend/.env`.
@@ -145,10 +146,13 @@ Epic 1 US1.1 through US1.4 let users manually record a drink in browser-local
 history, explicitly save reusable drink definitions to My Drinks, select a saved
 drink to create a new history snapshot, manage saved definitions, and correct or
 delete recent drinking records. Current categories, variants, serving sizes, and
-reference attribution are loaded from the public FastAPI endpoint.
+reference attribution are loaded from the public FastAPI endpoint. Epic 2 US2.1
+derives standard-drink totals for today and a rolling seven-local-calendar-day
+window, then compares eligible recorded history with public Australian
+guideline values from FastAPI.
 
-Authentication, health calculations, guideline logic, automatic ABV estimates,
-safety guidance, and Epic 2 functionality are not implemented.
+Authentication, automatic ABV estimates, driving guidance, and personalised
+medical or legal advice are not implemented.
 
 ## Data and Privacy Architecture
 
@@ -176,7 +180,9 @@ baseline and does not read or fall back to the old keys.
 
 For US1.1, `amountConsumed` means the number of servings consumed. For example,
 a serving volume of 375 mL and an amount of 1.5 represents 1.5 servings of 375
-mL each. No standard-drink or health calculation is performed.
+mL each. US2.1 derives standard drinks locally as
+`servingVolumeMl * amountConsumed * abvPercent * 0.789 / 1000`, sums values
+before one-decimal display rounding, and never persists the result.
 
 See [data/README.md](data/README.md) and
 [docs/data-contracts/README.md](docs/data-contracts/README.md).

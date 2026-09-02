@@ -1,4 +1,4 @@
-"""SELECT-only repository for Epic 1 public drink-reference information.
+"""SELECT-only repository for public drink and guideline reference information.
 
 All physical PostgreSQL knowledge stays in this module. The API route receives
 an application DTO, while the React application will continue to persist all
@@ -14,6 +14,8 @@ from typing import Any
 from app.integrations.database import DatabaseConnection, open_database_connection
 from app.schemas.reference import (
     AbvOption,
+    AlcoholGuideline,
+    AlcoholGuidelinesResponse,
     DrinkCategoryOption,
     DrinkOptionsResponse,
     DrinkVariantOption,
@@ -68,6 +70,25 @@ ABV_SELECT = """
     ORDER BY abv.category_id, abv.abv_reference_id
 """
 
+GUIDELINE_SELECT = """
+    SELECT guideline.guideline_id,
+           guideline.guideline_type,
+           guideline.threshold_standard_drinks,
+           guideline.period_description,
+           guideline.guideline_text,
+           source.source_id,
+           source.source_name,
+           source.organisation,
+           source.source_url
+    FROM public.guideline_reference AS guideline
+    JOIN public.source AS source ON source.source_id = guideline.source_id
+    WHERE guideline.guideline_type IN ('DAILY', 'WEEKLY')
+    ORDER BY CASE guideline.guideline_type
+                 WHEN 'DAILY' THEN 1
+                 WHEN 'WEEKLY' THEN 2
+             END
+"""
+
 # Keeping every executed statement in one exported tuple makes the read-only
 # contract easy to inspect and regression-test without connecting to Neon.
 REFERENCE_SELECT_STATEMENTS = (
@@ -76,6 +97,10 @@ REFERENCE_SELECT_STATEMENTS = (
     SERVING_SIZE_SELECT,
     ABV_SELECT,
 )
+
+# Guideline SQL stays separate so the Epic 1 drink-options query contract keeps
+# its original four statements and the two endpoints can fail independently.
+GUIDELINE_SELECT_STATEMENTS = (GUIDELINE_SELECT,)
 
 
 class ReferenceDataIntegrityError(RuntimeError):
@@ -96,7 +121,7 @@ def _source_from_row(row: dict[str, Any]) -> SourceSummary:
 
 
 class ReferenceRepository:
-    """Read and aggregate drink options without exposing SQL to API routes."""
+    """Read public reference DTOs without exposing SQL to API routes."""
 
     def __init__(
         self,
@@ -170,3 +195,49 @@ class ReferenceRepository:
             ) from None
 
         return DrinkOptionsResponse(categories=list(categories_by_id.values()))
+
+    def fetch_alcohol_guidelines(self) -> AlcoholGuidelinesResponse:
+        """Return exactly one DAILY and one WEEKLY public guideline."""
+        with self._connection_factory() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(GUIDELINE_SELECT)
+                guideline_rows = cursor.fetchall()
+
+        guidelines_by_type: dict[str, AlcoholGuideline] = {}
+        try:
+            for row in guideline_rows:
+                guideline_type = row["guideline_type"]
+                if (
+                    guideline_type not in {"DAILY", "WEEKLY"}
+                    or guideline_type in guidelines_by_type
+                ):
+                    raise ReferenceDataIntegrityError(
+                        "Alcohol guideline rows are inconsistent."
+                    )
+
+                guidelines_by_type[guideline_type] = AlcoholGuideline(
+                    id=row["guideline_id"],
+                    guideline_type=guideline_type,
+                    threshold_standard_drinks=float(
+                        row["threshold_standard_drinks"]
+                    ),
+                    period_description=row["period_description"],
+                    guideline_text=row["guideline_text"],
+                    source=_source_from_row(row),
+                )
+        except (KeyError, TypeError, ValueError):
+            raise ReferenceDataIntegrityError(
+                "Alcohol guideline rows are inconsistent."
+            ) from None
+
+        if set(guidelines_by_type) != {"DAILY", "WEEKLY"}:
+            raise ReferenceDataIntegrityError(
+                "Alcohol guideline rows are inconsistent."
+            )
+
+        return AlcoholGuidelinesResponse(
+            guidelines=[
+                guidelines_by_type["DAILY"],
+                guidelines_by_type["WEEKLY"],
+            ]
+        )

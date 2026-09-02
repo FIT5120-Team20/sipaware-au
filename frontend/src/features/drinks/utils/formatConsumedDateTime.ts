@@ -6,10 +6,11 @@
  * later viewer timezone does not change the time the user intended to record.
  */
 import type { DrinkingRecord } from '../types/drinkingRecord'
+import { getRecordedLocalWallClockDate } from './localCalendarDate'
 
-// UTC formatting is intentional after getEnteredWallClockDate has shifted the
-// instant back to the recorded wall clock; applying another timezone would
-// reintroduce the display shift this module is designed to prevent.
+// UTC formatting is intentional after the shared helper has shifted the instant
+// back to the recorded wall clock; another timezone would reintroduce the
+// display shift this module is designed to prevent.
 const australianEnglishDateTimeFormatter = new Intl.DateTimeFormat('en-AU', {
   day: 'numeric',
   month: 'short',
@@ -19,19 +20,6 @@ const australianEnglishDateTimeFormatter = new Intl.DateTimeFormat('en-AU', {
   hour12: true,
   timeZone: 'UTC',
 })
-
-/** Convert the ISO instant and stored offset back to entered clock components. */
-function getEnteredWallClockDate(
-  record: Pick<
-    DrinkingRecord,
-    'consumedAt' | 'consumedTimezoneOffsetMinutes'
-  >,
-): Date {
-  const consumedAtMilliseconds = new Date(record.consumedAt).getTime()
-  return new Date(
-    consumedAtMilliseconds - record.consumedTimezoneOffsetMinutes * 60_000,
-  )
-}
 
 function padDateTimePart(value: number): string {
   return String(value).padStart(2, '0')
@@ -44,7 +32,7 @@ export function getConsumedDateTimeInputValues(
     'consumedAt' | 'consumedTimezoneOffsetMinutes'
   >,
 ): { date: string; time: string } {
-  const enteredWallClockDate = getEnteredWallClockDate(record)
+  const enteredWallClockDate = getRecordedLocalWallClockDate(record)
 
   return {
     date: `${enteredWallClockDate.getUTCFullYear()}-${padDateTimePart(
@@ -64,6 +52,6 @@ export function formatConsumedDateTime(
   >,
 ): string {
   return australianEnglishDateTimeFormatter.format(
-    getEnteredWallClockDate(record),
+    getRecordedLocalWallClockDate(record),
   )
 }

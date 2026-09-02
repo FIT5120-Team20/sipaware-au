@@ -21,6 +21,7 @@
   "include": [
     "src/vite-env.d.ts",
     "../tests/epic1/frontend",
+    "../tests/epic2/frontend",
     "../tests/shared/frontend"
   ]
 }

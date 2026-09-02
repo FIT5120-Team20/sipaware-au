@@ -10,12 +10,20 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
 import { DRINK_OPTIONS_RESPONSE } from '../fixtures/drinkReferenceFixture'
+import { ALCOHOL_GUIDELINES_RESPONSE } from '../../../epic2/frontend/fixtures/alcoholGuidelineFixture'
 import { ManualDrinkPage } from '../../../../frontend/src/features/drinks/pages/ManualDrinkPage'
 import { IndexedDbSavedDrinkRepository } from '../../../../frontend/src/features/drinks/storage/savedDrinkRepository'
 import type { SavedDrink } from '../../../../frontend/src/features/drinks/types/savedDrink'
 
 function successfulReferenceResponse(): Response {
   return new Response(JSON.stringify(DRINK_OPTIONS_RESPONSE), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
+
+function successfulGuidelineResponse(): Response {
+  return new Response(JSON.stringify(ALCOHOL_GUIDELINES_RESPONSE), {
     status: 200,
     headers: { 'Content-Type': 'application/json' },
   })
@@ -40,7 +48,14 @@ describe('ManualDrinkPage public reference loading', () => {
       updatedAt: '2026-08-25T08:00:00.000Z',
     }
     await new IndexedDbSavedDrinkRepository().add(savedDrink)
-    vi.stubGlobal('fetch', vi.fn(() => new Promise(() => undefined)))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) =>
+        String(input).endsWith('/api/reference/alcohol-guidelines')
+          ? Promise.resolve(successfulGuidelineResponse())
+          : new Promise<Response>(() => undefined),
+      ),
+    )
 
     render(<ManualDrinkPage />)
 
@@ -55,10 +70,18 @@ describe('ManualDrinkPage public reference loading', () => {
   })
 
   it('shows an explicit failure and retries without changing IndexedDB data', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockRejectedValueOnce(new Error('Reference service unavailable'))
-      .mockResolvedValueOnce(successfulReferenceResponse())
+    let drinkOptionAttempts = 0
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).endsWith('/api/reference/alcohol-guidelines')) {
+        return successfulGuidelineResponse()
+      }
+
+      drinkOptionAttempts += 1
+      if (drinkOptionAttempts === 1) {
+        throw new Error('Reference service unavailable')
+      }
+      return successfulReferenceResponse()
+    })
     vi.stubGlobal('fetch', fetchMock)
     const user = userEvent.setup()
 
@@ -74,7 +97,7 @@ describe('ManualDrinkPage public reference loading', () => {
     )
 
     await waitFor(() => expect(screen.getByLabelText('Drink type')).toBeEnabled())
-    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(drinkOptionAttempts).toBe(2)
     expect(
       within(screen.getByLabelText('Drink type')).getByRole('option', {
         name: 'Straight Spirits',

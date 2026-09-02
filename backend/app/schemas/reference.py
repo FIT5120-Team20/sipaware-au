@@ -1,4 +1,4 @@
-"""Application DTOs for Epic 1 public drink-reference data.
+"""Application DTOs for public drink and alcohol-guideline reference data.
 
 These models deliberately isolate the frontend contract from PostgreSQL column
 layout. They contain only reference values needed for later form integration;
@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 def to_camel_case(value: str) -> str:
@@ -34,6 +34,23 @@ class SourceSummary(ReferenceModel):
     name: str
     organisation: str
     url: str
+
+
+class AlcoholGuideline(ReferenceModel):
+    """One public Australian alcohol-guideline threshold and attribution."""
+
+    id: int
+    guideline_type: Literal["DAILY", "WEEKLY"]
+    threshold_standard_drinks: float = Field(gt=0)
+    period_description: str
+    guideline_text: str
+    source: SourceSummary
+
+
+class AlcoholGuidelinesResponse(ReferenceModel):
+    """The DAILY and WEEKLY public guideline rows required by US2.1."""
+
+    guidelines: list[AlcoholGuideline]
 
 
 class DrinkVariantOption(ReferenceModel):

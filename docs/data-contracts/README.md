@@ -29,9 +29,14 @@ Neon. The response contains categories, variants, category/variant-scoped servin
 sizes, ABV reference options, and source attribution. It contains no personal
 drink template or consumption-history fields.
 
+`GET /api/reference/alcohol-guidelines` returns the public DAILY and WEEKLY
+thresholds, guideline wording, period descriptions, and NHMRC source
+attribution. The bodyless request carries no browser-local personal data.
+
 The frontend validates this response before mapping database category IDs to
 stable local DrinkType values. FastAPI keeps database column names behind DTOs,
 uses SELECT-only SQL, and opens short-lived read-only connections through the
 pooled `app_reader` URL supplied as `DATABASE_URL`.
 
-Standard-drink calculation and automatic ABV selection remain Epic 2 scope.
+Standard-drink totals and local-calendar history spans are derived in React and
+are not added to IndexedDB. Automatic ABV selection remains future scope.

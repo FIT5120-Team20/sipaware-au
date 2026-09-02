@@ -19,6 +19,16 @@ React form options
   -> Neon public reference tables
 ```
 
+US2.1 uses the same public-reference boundary independently:
+
+```text
+React consumption summary
+  -> GET /api/reference/alcohol-guidelines
+  -> FastAPI reference repository
+  -> short-lived read-only Psycopg connection
+  -> Neon guideline_reference and source
+```
+
 The health route is independent of database configuration:
 
 ```text
@@ -57,6 +67,16 @@ snapshot containing those values plus servings consumed, consumption time, the
 original wall-clock timezone offset, ID, and creation time. Editing or deleting
 either collection never cascades into the other.
 
+US2.1 derives standard-drink values from DrinkingRecords in React. Record-local
+dates are reconstructed from each ISO instant and stored offset; today uses the
+current device-local date. Rolling comparison covers today plus six preceding
+local calendar dates, not a precise 168-hour duration. Future-dated records
+remain persisted but are excluded from current feedback and history-span
+derivation. The earliest eligible recorded date establishes only whether a
+seven-day comparison window is available: a shorter span shows its available
+recorded total without a weekly comparison, and missing dates are never assumed
+to mean zero consumption.
+
 ## Reference Compatibility Boundary
 
 The frontend validates the public response at runtime, then maps known Neon
@@ -86,5 +106,5 @@ An early development prototype used LocalStorage and held test data only. It was
 not deployed to production users, so Iteration 1 starts directly with IndexedDB
 and does not inspect, import, or fall back to prototype keys.
 
-Standard-drink calculations, guideline logic, automatic ABV estimates, and other
-health calculations remain Epic 2 scope and are not implemented here.
+Automatic ABV estimates, driving guidance, and personalised medical or legal
+advice remain outside the implemented scope.

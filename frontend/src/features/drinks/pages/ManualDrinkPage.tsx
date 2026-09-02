@@ -8,9 +8,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { getDrinkOptions } from '../../../services/drinkReferenceApi'
+import { getAlcoholGuidelines } from '../../../services/guidelineReferenceApi'
+import { calculateAlcoholConsumptionSummary } from '../calculations/alcoholConsumptionSummary'
+import { AlcoholConsumptionSummary } from '../components/AlcoholConsumptionSummary'
 import { ManualDrinkForm } from '../components/ManualDrinkForm'
 import { RecentDrinkingRecords } from '../components/RecentDrinkingRecords'
 import { mapDrinkReferenceCategories } from '../config/drinkTypes'
+import { useCurrentLocalDateKey } from '../hooks/useCurrentLocalDateKey'
 import { IndexedDbDrinkingRecordRepository } from '../storage/drinkingRecordRepository'
 import { IndexedDbSavedDrinkRepository } from '../storage/savedDrinkRepository'
 import type { DrinkingRecord } from '../types/drinkingRecord'
@@ -18,6 +22,10 @@ import type {
   DrinkReferenceCategory,
   ReferenceLoadStatus,
 } from '../types/drinkReference'
+import type {
+  AlcoholGuidelinesResponseDto,
+  GuidelineLoadStatus,
+} from '../types/alcoholGuideline'
 import type { SavedDrink } from '../types/savedDrink'
 import '../manualDrink.css'
 
@@ -43,6 +51,16 @@ export function ManualDrinkPage() {
   const [referenceStatus, setReferenceStatus] =
     useState<ReferenceLoadStatus>('loading')
   const [referenceLoadAttempt, setReferenceLoadAttempt] = useState(0)
+  const [guidelines, setGuidelines] =
+    useState<AlcoholGuidelinesResponseDto | null>(null)
+  const [guidelineStatus, setGuidelineStatus] =
+    useState<GuidelineLoadStatus>('loading')
+  const [guidelineLoadAttempt, setGuidelineLoadAttempt] = useState(0)
+  const currentLocalDateKey = useCurrentLocalDateKey()
+  const consumptionSummary = useMemo(
+    () => calculateAlcoholConsumptionSummary(records, currentLocalDateKey),
+    [records, currentLocalDateKey],
+  )
 
   // IndexedDB reads are asynchronous. The feature stays in a loading state
   // until both independent stores have hydrated, avoiding an empty-state flash
@@ -116,10 +134,48 @@ export function ManualDrinkPage() {
     }
   }, [referenceLoadAttempt])
 
+  // Guideline reference loading is independent from both the drink-option API
+  // and IndexedDB. A failure cannot block recording or alter personal history.
+  useEffect(() => {
+    const abortController = new AbortController()
+    let isActive = true
+
+    async function loadGuidelines() {
+      try {
+        const response = await getAlcoholGuidelines(abortController.signal)
+        if (isActive) {
+          setGuidelines(response)
+          setGuidelineStatus('loaded')
+        }
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          return
+        }
+
+        if (isActive) {
+          setGuidelines(null)
+          setGuidelineStatus('failed')
+        }
+      }
+    }
+
+    void loadGuidelines()
+    return () => {
+      isActive = false
+      abortController.abort()
+    }
+  }, [guidelineLoadAttempt])
+
   function retryReferenceData() {
     setReferenceCategories([])
     setReferenceStatus('loading')
     setReferenceLoadAttempt((currentAttempt) => currentAttempt + 1)
+  }
+
+  function retryGuidelines() {
+    setGuidelines(null)
+    setGuidelineStatus('loading')
+    setGuidelineLoadAttempt((currentAttempt) => currentAttempt + 1)
   }
 
   // Every write returns the repository's complete committed collection. React
@@ -199,24 +255,32 @@ export function ManualDrinkPage() {
         )}
 
         {hydrationStatus === 'ready' && (
-          <div className="manual-drink-layout">
-            <ManualDrinkForm
-              referenceCategories={referenceCategories}
-              referenceStatus={referenceStatus}
-              onRetryReferenceData={retryReferenceData}
-              savedDrinks={savedDrinks}
-              onSave={saveRecord}
-              onSaveSavedDrink={saveDrinkForFutureUse}
-              onUpdateSavedDrink={updateSavedDrink}
-              onDeleteSavedDrink={deleteSavedDrink}
+          <>
+            <AlcoholConsumptionSummary
+              summary={consumptionSummary}
+              guidelines={guidelines}
+              guidelineStatus={guidelineStatus}
+              onRetryGuidelines={retryGuidelines}
             />
-            <RecentDrinkingRecords
-              referenceCategories={referenceCategories}
-              records={records}
-              onUpdate={updateRecord}
-              onDelete={deleteRecord}
-            />
-          </div>
+            <div className="manual-drink-layout">
+              <ManualDrinkForm
+                referenceCategories={referenceCategories}
+                referenceStatus={referenceStatus}
+                onRetryReferenceData={retryReferenceData}
+                savedDrinks={savedDrinks}
+                onSave={saveRecord}
+                onSaveSavedDrink={saveDrinkForFutureUse}
+                onUpdateSavedDrink={updateSavedDrink}
+                onDeleteSavedDrink={deleteSavedDrink}
+              />
+              <RecentDrinkingRecords
+                referenceCategories={referenceCategories}
+                records={records}
+                onUpdate={updateRecord}
+                onDelete={deleteRecord}
+              />
+            </div>
+          </>
         )}
       </div>
     </main>
