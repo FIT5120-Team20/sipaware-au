@@ -151,8 +151,12 @@ derives standard-drink totals for today and a rolling seven-local-calendar-day
 window, then compares eligible recorded history with public Australian
 guideline values from FastAPI.
 
-Authentication, automatic ABV estimates, driving guidance, and personalised
-medical or legal advice are not implemented.
+Epic 2 US2.2 adds general driving-safety guidance when at least one eligible
+DrinkingRecord exists for the current local date. It does not estimate BAC or
+provide personalised driving clearance.
+
+Authentication, automatic ABV estimates, the full information page, and
+personalised medical or legal advice are not implemented.
 
 ## Data and Privacy Architecture
 
@@ -183,6 +187,9 @@ a serving volume of 375 mL and an amount of 1.5 represents 1.5 servings of 375
 mL each. US2.1 derives standard drinks locally as
 `servingVolumeMl * amountConsumed * abvPercent * 0.789 / 1000`, sums values
 before one-decimal display rounding, and never persists the result.
+
+US2.2 derives its today-record presence trigger from that same eligible local
+record collection. The trigger is neither persisted nor sent to the backend.
 
 See [data/README.md](data/README.md) and
 [docs/data-contracts/README.md](docs/data-contracts/README.md).

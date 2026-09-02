@@ -20,12 +20,13 @@ export type GuidelineLoadStatus = 'loading' | 'loaded' | 'failed'
 
 /**
  * Stable Neon topic identifiers reserved for the future US2.3 destination.
- * US2.1 intentionally renders no dead navigation controls for these topics.
+ * US2.1 and US2.2 intentionally render no dead controls before it exists.
  */
 export const ALCOHOL_INFORMATION_TOPIC_CODES = [
   'STANDARD_DRINK',
   'ALCOHOL_GUIDELINES',
   'ALCOHOL_AGEING',
+  'ALCOHOL_DRIVING',
 ] as const
 
 export type AlcoholInformationTopicCode =

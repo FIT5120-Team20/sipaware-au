@@ -11,6 +11,32 @@
   margin-bottom: 1.25rem;
 }
 
+.driving-safety-card {
+  margin-bottom: 1.5rem;
+  padding: clamp(1.25rem, 4vw, 2rem);
+  border: 1px solid #bcccdc;
+  border-left: 4px solid #486581;
+  border-radius: 0.75rem;
+  color: #243b53;
+  background: #f8fafb;
+}
+
+.driving-safety-card h2 {
+  margin: 0;
+  color: #102a43;
+  font-size: 1.625rem;
+  line-height: 1.25;
+}
+
+.driving-safety-card p {
+  margin: 0.625rem 0 0;
+  line-height: 1.6;
+}
+
+.driving-safety-lead {
+  font-weight: 700;
+}
+
 .consumption-comparisons {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

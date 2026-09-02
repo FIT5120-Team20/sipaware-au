@@ -28,6 +28,7 @@ function record(
 describe('alcohol consumption summary', () => {
   it('returns a no-history state without presenting synthetic zero days', () => {
     expect(calculateAlcoholConsumptionSummary([], TODAY)).toEqual({
+      hasEligibleDrinkingRecordToday: false,
       dailyStandardDrinks: 0,
       rollingSevenDayStandardDrinks: 0,
       earliestRecordedConsumptionDate: null,
@@ -43,6 +44,7 @@ describe('alcohol consumption summary', () => {
       TODAY,
     )
 
+    expect(summary.hasEligibleDrinkingRecordToday).toBe(true)
     expect(summary.dailyStandardDrinks).toBeCloseTo(2.95875, 12)
     expect(summary.rollingSevenDayStandardDrinks).toBeCloseTo(4.438125, 12)
   })
@@ -58,6 +60,7 @@ describe('alcohol consumption summary', () => {
       TODAY,
     )
 
+    expect(summary.hasEligibleDrinkingRecordToday).toBe(true)
     expect(summary.dailyStandardDrinks).toBeCloseTo(1.479375, 12)
   })
 
@@ -67,6 +70,7 @@ describe('alcohol consumption summary', () => {
       TODAY,
     )
 
+    expect(summary.hasEligibleDrinkingRecordToday).toBe(false)
     expect(summary.dailyStandardDrinks).toBe(0)
     expect(summary.recordedHistorySpanStatus).toBe('under-seven-days')
   })
@@ -132,6 +136,7 @@ describe('alcohol consumption summary', () => {
       TODAY,
     )
 
+    expect(summary.hasEligibleDrinkingRecordToday).toBe(true)
     expect(summary.dailyStandardDrinks).toBeCloseTo(1.479375, 12)
     expect(summary.rollingSevenDayStandardDrinks).toBeCloseTo(1.479375, 12)
     expect(summary.earliestRecordedConsumptionDate).toBe(TODAY)
@@ -146,6 +151,7 @@ describe('alcohol consumption summary', () => {
     )
 
     expect(summary).toMatchObject({
+      hasEligibleDrinkingRecordToday: false,
       dailyStandardDrinks: 0,
       rollingSevenDayStandardDrinks: 0,
       earliestRecordedConsumptionDate: null,

@@ -77,6 +77,12 @@ seven-day comparison window is available: a shorter span shows its available
 recorded total without a weekly comparison, and missing dates are never assumed
 to mean zero consumption.
 
+US2.2 reuses the eligible-today collection inside the same summary calculation
+to derive a record-presence boolean. ManualDrinkPage uses only that boolean to
+render one local, presentation-only driving-safety card below the consumption
+summary. The trigger is independent of calculated totals, guideline status,
+SavedDrinks, and backend availability; no personal value is sent off-device.
+
 ## Reference Compatibility Boundary
 
 The frontend validates the public response at runtime, then maps known Neon
@@ -106,5 +112,5 @@ An early development prototype used LocalStorage and held test data only. It was
 not deployed to production users, so Iteration 1 starts directly with IndexedDB
 and does not inspect, import, or fall back to prototype keys.
 
-Automatic ABV estimates, driving guidance, and personalised medical or legal
-advice remain outside the implemented scope.
+Automatic ABV estimates, personalised driving clearance, and personalised
+medical or legal advice remain outside the implemented scope.

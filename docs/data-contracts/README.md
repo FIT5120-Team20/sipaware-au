@@ -38,5 +38,6 @@ stable local DrinkType values. FastAPI keeps database column names behind DTOs,
 uses SELECT-only SQL, and opens short-lived read-only connections through the
 pooled `app_reader` URL supplied as `DATABASE_URL`.
 
-Standard-drink totals and local-calendar history spans are derived in React and
-are not added to IndexedDB. Automatic ABV selection remains future scope.
+Standard-drink totals, local-calendar history spans, and the US2.2 eligible
+today-record presence flag are derived in React. They are not added to IndexedDB
+or sent to FastAPI or Neon. Automatic ABV selection remains future scope.

@@ -1,5 +1,6 @@
 /**
- * Epic 1 orchestration boundary for manual capture, My Drinks, and history.
+ * Feature orchestration boundary for manual capture, local history, and
+ * browser-derived alcohol feedback.
  *
  * Child components create or edit domain objects, but only this page calls the
  * repositories. Keeping persistence here prevents UI controls from depending
@@ -11,6 +12,7 @@ import { getDrinkOptions } from '../../../services/drinkReferenceApi'
 import { getAlcoholGuidelines } from '../../../services/guidelineReferenceApi'
 import { calculateAlcoholConsumptionSummary } from '../calculations/alcoholConsumptionSummary'
 import { AlcoholConsumptionSummary } from '../components/AlcoholConsumptionSummary'
+import { DrivingSafetyGuidance } from '../components/DrivingSafetyGuidance'
 import { ManualDrinkForm } from '../components/ManualDrinkForm'
 import { RecentDrinkingRecords } from '../components/RecentDrinkingRecords'
 import { mapDrinkReferenceCategories } from '../config/drinkTypes'
@@ -262,6 +264,11 @@ export function ManualDrinkPage() {
               guidelineStatus={guidelineStatus}
               onRetryGuidelines={retryGuidelines}
             />
+            {/* Driving guidance depends only on shared local record presence,
+                never guideline status, totals, SavedDrinks, or backend data. */}
+            {consumptionSummary.hasEligibleDrinkingRecordToday && (
+              <DrivingSafetyGuidance />
+            )}
             <div className="manual-drink-layout">
               <ManualDrinkForm
                 referenceCategories={referenceCategories}

@@ -20,6 +20,7 @@ export type RecordedHistorySpanStatus =
   | 'seven-days-or-more'
 
 export interface AlcoholConsumptionSummary {
+  hasEligibleDrinkingRecordToday: boolean
   dailyStandardDrinks: number
   rollingSevenDayStandardDrinks: number
   earliestRecordedConsumptionDate: LocalCalendarDateKey | null
@@ -46,6 +47,12 @@ export function calculateAlcoholConsumptionSummary(
   const eligibleRecords = datedRecords.filter(
     ({ localDate }) => differenceInLocalCalendarDays(today, localDate) >= 0,
   )
+  // Record presence, rather than a calculated or rounded standard-drink value,
+  // triggers driving guidance. Reusing this collection for the daily total
+  // keeps local-date and future-record eligibility in one business rule.
+  const eligibleTodayRecords = eligibleRecords.filter(
+    ({ localDate }) => localDate === today,
+  )
   const excludedFutureRecordCount = datedRecords.length - eligibleRecords.length
   const earliestRecordedConsumptionDate = eligibleRecords.reduce<
     LocalCalendarDateKey | null
@@ -68,10 +75,9 @@ export function calculateAlcoholConsumptionSummary(
         : 'seven-days-or-more'
 
   return {
+    hasEligibleDrinkingRecordToday: eligibleTodayRecords.length > 0,
     dailyStandardDrinks: sumStandardDrinks(
-      eligibleRecords
-        .filter(({ localDate }) => localDate === today)
-        .map(({ record }) => record),
+      eligibleTodayRecords.map(({ record }) => record),
     ),
     // This is a rolling collection of seven local dates, not a 168-hour range.
     rollingSevenDayStandardDrinks: sumStandardDrinks(

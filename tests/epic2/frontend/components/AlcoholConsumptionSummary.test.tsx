@@ -13,6 +13,7 @@ function hasExactText(expected: string) {
 
 function summary(overrides: Partial<Summary> = {}): Summary {
   return {
+    hasEligibleDrinkingRecordToday: true,
     dailyStandardDrinks: 1.479375,
     rollingSevenDayStandardDrinks: 2.95875,
     earliestRecordedConsumptionDate: '2026-09-02',
@@ -28,6 +29,7 @@ describe('AlcoholConsumptionSummary', () => {
     render(
       <AlcoholConsumptionSummary
         summary={summary({
+          hasEligibleDrinkingRecordToday: false,
           dailyStandardDrinks: 0,
           rollingSevenDayStandardDrinks: 0,
           earliestRecordedConsumptionDate: null,
@@ -51,6 +53,7 @@ describe('AlcoholConsumptionSummary', () => {
     render(
       <AlcoholConsumptionSummary
         summary={summary({
+          hasEligibleDrinkingRecordToday: false,
           dailyStandardDrinks: 0,
           rollingSevenDayStandardDrinks: 0,
           earliestRecordedConsumptionDate: null,
@@ -96,6 +99,7 @@ describe('AlcoholConsumptionSummary', () => {
     render(
       <AlcoholConsumptionSummary
         summary={summary({
+          hasEligibleDrinkingRecordToday: false,
           dailyStandardDrinks: 0,
           earliestRecordedConsumptionDate: '2026-09-01',
           recordedHistorySpanDays: 2,
