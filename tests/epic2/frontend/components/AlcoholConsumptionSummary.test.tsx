@@ -92,6 +92,27 @@ describe('AlcoholConsumptionSummary', () => {
     expect(screen.queryByText(/complete drinking history/i)).not.toBeInTheDocument()
   })
 
+  it('qualifies a zero Today comparison as recorded data', () => {
+    render(
+      <AlcoholConsumptionSummary
+        summary={summary({
+          dailyStandardDrinks: 0,
+          earliestRecordedConsumptionDate: '2026-09-01',
+          recordedHistorySpanDays: 2,
+        })}
+        guidelines={ALCOHOL_GUIDELINES_RESPONSE}
+        guidelineStatus={'loaded'}
+        onRetryGuidelines={() => undefined}
+      />,
+    )
+
+    expect(
+      screen.getByText(
+        hasExactText('0.0 / 4 standard drinks recorded today'),
+      ),
+    ).toBeInTheDocument()
+  })
+
   it('shows a rolling seven-local-day comparison when the span is available', () => {
     render(
       <AlcoholConsumptionSummary

@@ -11,6 +11,12 @@ function frontendDependencyPath(packageName: string): string {
 
 export default defineConfig(({ mode }) => ({
   plugins: [react()],
+  // Tests exercise the deployed same-origin API contract and must not inherit
+  // a developer's optional standalone FastAPI origin from .env.local.
+  define:
+    mode === 'test'
+      ? { 'import.meta.env.VITE_API_BASE_URL': JSON.stringify('') }
+      : undefined,
   // Root-level tests resolve their frontend-owned packages from frontend/.
   resolve:
     mode === 'test'

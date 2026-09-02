@@ -51,10 +51,12 @@ function GuidelineComparison({
   label,
   total,
   guideline,
+  valueContext,
 }: {
   label: string
   total: number
   guideline: AlcoholGuidelineDto
+  valueContext?: string
 }) {
   const isAbove = total > guideline.thresholdStandardDrinks
 
@@ -69,6 +71,7 @@ function GuidelineComparison({
         <strong>{formatStandardDrinks(total)}</strong>
         {' / '}
         {formatThreshold(guideline.thresholdStandardDrinks)} standard drinks
+        {valueContext && <> {valueContext}</>}
       </p>
       <p className="consumption-comparison__status">
         {guidelineStatusText(total, guideline.thresholdStandardDrinks)}
@@ -117,6 +120,12 @@ export function AlcoholConsumptionSummary({
                 label="Today"
                 total={summary.dailyStandardDrinks}
                 guideline={getGuideline(guidelines, 'DAILY')}
+                valueContext={
+                  // No eligible record today is not confirmation of zero intake.
+                  summary.dailyStandardDrinks === 0
+                    ? 'recorded today'
+                    : undefined
+                }
               />
 
               {summary.recordedHistorySpanStatus ===
