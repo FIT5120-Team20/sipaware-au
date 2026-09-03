@@ -39,6 +39,7 @@ import {
   validateReusableDrinkInput,
 } from '../validation/drinkingRecordValidation'
 import { SavedDrinkPicker } from './SavedDrinkPicker'
+import { SipAwareIcon } from './SipAwareIcon'
 
 interface ManualDrinkFormProps {
   referenceCategories: readonly DrinkReferenceCategory[]
@@ -401,8 +402,8 @@ export function ManualDrinkForm({
   return (
     <section className="manual-drink-card" aria-labelledby="manual-drink-title">
       <div className="section-heading">
-        <p className="section-kicker">Manual drink capture</p>
-        <h2 id="manual-drink-title">What did you drink?</h2>
+        <p className="section-kicker">Record a drink</p>
+        <h2 id="manual-drink-title">Add drink details</h2>
         <p>
           Enter the drink and the serving amount you consumed. All fields are
           required.
@@ -453,31 +454,38 @@ export function ManualDrinkForm({
       />
 
       <form ref={formRef} onSubmit={handleSubmit} noValidate>
-        <div className="form-field">
-          <label htmlFor="drink-type">Drink type</label>
-          <select
-            id="drink-type"
-            name="drinkType"
-            value={values.drinkType}
-            onChange={(event) =>
-              handleDrinkTypeChange(event.target.value as DrinkType | '')
-            }
-            aria-invalid={Boolean(errors.drinkType)}
-            aria-describedby={errors.drinkType ? 'drink-type-error' : undefined}
-            disabled={
-              Boolean(selectedSavedDrink) || availableCategories.length === 0
-            }
-            required
-          >
-            <option value="">Select a drink type</option>
-            {availableCategories.map((category) => (
-              <option key={category.id} value={category.drinkType}>
-                {category.name}
-              </option>
-            ))}
-          </select>
-          <FieldError id="drink-type-error" message={errors.drinkType} />
-        </div>
+        {/* Step wrappers change only visual grouping. The original named
+            controls remain the sole source of form state and validation. */}
+        <section className="form-step" aria-labelledby="drink-choice-title">
+          <h3 id="drink-choice-title">1. What did you drink?</h3>
+          <div className="form-field drink-type-field">
+            <label htmlFor="drink-type">Drink type</label>
+            <select
+              id="drink-type"
+              name="drinkType"
+              value={values.drinkType}
+              onChange={(event) =>
+                handleDrinkTypeChange(event.target.value as DrinkType | '')
+              }
+              aria-invalid={Boolean(errors.drinkType)}
+              aria-describedby={
+                errors.drinkType ? 'drink-type-error' : undefined
+              }
+              disabled={
+                Boolean(selectedSavedDrink) ||
+                availableCategories.length === 0
+              }
+              required
+            >
+              <option value="">Select a drink type</option>
+              {availableCategories.map((category) => (
+                <option key={category.id} value={category.drinkType}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+            <FieldError id="drink-type-error" message={errors.drinkType} />
+          </div>
 
         {selectedCategory &&
           selectedCategory.variants.length > 0 &&
@@ -516,13 +524,18 @@ export function ManualDrinkForm({
             aria-invalid={Boolean(errors.drinkName)}
             aria-describedby={errors.drinkName ? 'drink-name-error' : undefined}
             autoComplete="off"
+            placeholder="e.g. Carlton Draught, house wine, vodka soda"
             readOnly={Boolean(selectedSavedDrink)}
             required
           />
           <FieldError id="drink-name-error" message={errors.drinkName} />
-        </div>
+          </div>
+        </section>
 
-        <div className="form-field">
+        <section className="form-step" aria-labelledby="drink-details-title">
+          <h3 id="drink-details-title">2. Drink details</h3>
+          <div className="form-details-grid">
+            <div className="form-field">
           <label htmlFor="serving-size">Serving size / volume</label>
           <select
             id="serving-size"
@@ -555,28 +568,32 @@ export function ManualDrinkForm({
             id="serving-size-error"
             message={errors.servingSizeSelection}
           />
-        </div>
+            </div>
 
         {isCustomVolume && (
           <div className="form-field">
             <label htmlFor="custom-volume">Custom volume (mL)</label>
-            <input
-              id="custom-volume"
-              name="customVolumeMl"
-              type="number"
-              inputMode="decimal"
-              step="any"
-              readOnly={Boolean(selectedSavedDrink)}
-              value={values.customVolumeMl}
-              onChange={(event) =>
-                updateValue('customVolumeMl', event.target.value)
-              }
-              aria-invalid={Boolean(errors.customVolumeMl)}
-              aria-describedby={
-                errors.customVolumeMl ? 'custom-volume-error' : undefined
-              }
-              required
-            />
+            <div className="input-with-unit">
+              <input
+                id="custom-volume"
+                name="customVolumeMl"
+                type="number"
+                inputMode="decimal"
+                step="any"
+                placeholder="e.g. 375"
+                readOnly={Boolean(selectedSavedDrink)}
+                value={values.customVolumeMl}
+                onChange={(event) =>
+                  updateValue('customVolumeMl', event.target.value)
+                }
+                aria-invalid={Boolean(errors.customVolumeMl)}
+                aria-describedby={
+                  errors.customVolumeMl ? 'custom-volume-error' : undefined
+                }
+                required
+              />
+              <span aria-hidden="true">mL</span>
+            </div>
             <FieldError
               id="custom-volume-error"
               message={errors.customVolumeMl}
@@ -586,31 +603,39 @@ export function ManualDrinkForm({
 
         <div className="form-field">
           <label htmlFor="abv-percent">ABV (%)</label>
-          <input
-            id="abv-percent"
-            name="abvPercent"
-            type="number"
-            inputMode="decimal"
-            step="any"
-            max="100"
-            readOnly={Boolean(selectedSavedDrink)}
-            value={values.abvPercent}
-            onChange={(event) => updateValue('abvPercent', event.target.value)}
-            aria-invalid={Boolean(errors.abvPercent)}
-            aria-describedby={describedBy(
-              'abv-help',
-              'abv-error',
-              Boolean(errors.abvPercent),
-            )}
-            required
-          />
+          <div className="input-with-unit">
+            <input
+              id="abv-percent"
+              name="abvPercent"
+              type="number"
+              inputMode="decimal"
+              step="any"
+              max="100"
+              placeholder="e.g. 4.5"
+              readOnly={Boolean(selectedSavedDrink)}
+              value={values.abvPercent}
+              onChange={(event) => updateValue('abvPercent', event.target.value)}
+              aria-invalid={Boolean(errors.abvPercent)}
+              aria-describedby={describedBy(
+                'abv-help',
+                'abv-error',
+                Boolean(errors.abvPercent),
+              )}
+              required
+            />
+            <span aria-hidden="true">%</span>
+          </div>
           <FieldDescription id="abv-help">
             Enter the alcohol percentage shown on the drink label.
           </FieldDescription>
           <FieldError id="abv-error" message={errors.abvPercent} />
-        </div>
+            </div>
+          </div>
+        </section>
 
-        <div className="form-field">
+        <section className="form-step" aria-labelledby="drink-amount-title">
+          <h3 id="drink-amount-title">3. How much did you have?</h3>
+          <div className="form-field">
           <label htmlFor="amount-consumed">Number of servings consumed</label>
           <input
             id="amount-consumed"
@@ -618,6 +643,7 @@ export function ManualDrinkForm({
             type="number"
             inputMode="decimal"
             step="any"
+            placeholder="e.g. 1.5"
             value={values.amountConsumed}
             onChange={(event) =>
               updateValue('amountConsumed', event.target.value)
@@ -637,10 +663,11 @@ export function ManualDrinkForm({
             id="amount-consumed-error"
             message={errors.amountConsumed}
           />
-        </div>
+          </div>
+        </section>
 
-        <fieldset className="date-time-fields">
-          <legend>When did you drink this?</legend>
+        <fieldset className="date-time-fields form-step">
+          <legend>4. When did you drink this?</legend>
 
           <div className="date-time-grid">
             <div className="form-field">
@@ -682,6 +709,7 @@ export function ManualDrinkForm({
             type="submit"
             disabled={isPersisting}
           >
+            <SipAwareIcon name="check" />
             Save drinking record
           </button>
           {!selectedSavedDrink && (

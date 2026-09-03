@@ -1,70 +1,56 @@
+/* Consumption feedback and support cards share the page-level design tokens. */
 .consumption-summary-card {
-  margin-bottom: 1.5rem;
-  padding: clamp(1.25rem, 4vw, 2rem);
-  border: 1px solid #d8dee3;
-  border-radius: 0.75rem;
-  background: #ffffff;
-  box-shadow: 0 0.75rem 2rem rgb(31 41 51 / 8%);
+  padding: 1.35rem 1.5rem;
+  border: 1px solid var(--colour-border);
+  border-radius: var(--radius-card);
+  background: var(--colour-surface);
+  box-shadow: var(--shadow-card);
 }
 
 .consumption-summary-heading {
-  margin-bottom: 1.25rem;
+  display: flex;
+  margin-bottom: 1rem;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
 }
 
-.driving-safety-card {
-  margin-bottom: 1.5rem;
-  padding: clamp(1.25rem, 4vw, 2rem);
-  border: 1px solid #bcccdc;
-  border-left: 4px solid #486581;
-  border-radius: 0.75rem;
-  color: #243b53;
-  background: #f8fafb;
+.consumption-summary-heading .section-kicker {
+  display: none;
 }
 
-.driving-safety-card h2 {
+.consumption-summary-heading h2 {
   margin: 0;
-  color: #102a43;
-  font-size: 1.625rem;
-  line-height: 1.25;
+  font-size: 1.24rem;
+  line-height: 1.3;
 }
 
-.driving-safety-card p {
-  margin: 0.625rem 0 0;
-  line-height: 1.6;
-}
-
-.driving-safety-lead {
-  font-weight: 700;
+.consumption-summary-heading > p:last-child {
+  margin: 0;
+  font-size: 0.94rem;
+  line-height: 1.45;
+  text-align: right;
 }
 
 .consumption-comparisons {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
 }
 
 .consumption-comparison,
-.consumption-history-message,
-.guideline-load-error,
-.guideline-context {
-  padding: 1rem;
-  border-radius: 0.55rem;
-  line-height: 1.55;
+.consumption-history-message {
+  min-width: 0;
+  padding: 0.5rem 1.15rem;
+  line-height: 1.45;
 }
 
-.consumption-comparison {
-  border: 2px solid #829ab1;
-  background: #f8fafb;
+.consumption-comparison:first-child {
+  padding-left: 0;
 }
 
-.consumption-comparison--not-above {
-  border-color: #2f855a;
-  background: #edfdf4;
-}
-
-.consumption-comparison--above {
-  border-color: #b42318;
-  background: #fff2f0;
+.consumption-comparison + .consumption-comparison,
+.consumption-comparison + .consumption-history-message {
+  border-left: 1px solid var(--colour-border);
 }
 
 .consumption-comparison p,
@@ -77,93 +63,270 @@
 .consumption-comparison p + p,
 .consumption-history-message p + p,
 .guideline-context p + p {
-  margin-top: 0.5rem;
+  margin-top: 0.42rem;
+}
+
+.consumption-comparison__heading {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.consumption-comparison__heading svg {
+  width: 1.2rem;
+  height: 1.2rem;
+  color: var(--colour-teal-700);
 }
 
 .consumption-comparison__label {
-  color: #52616b;
-  font-weight: 700;
+  color: var(--colour-navy-950);
+  font-size: 0.94rem;
+  font-weight: 750;
+  line-height: 1.4;
 }
 
-.consumption-comparison__value {
-  color: #102a43;
+.consumption-comparison__value,
+.consumption-history-message {
+  color: var(--colour-navy-950);
 }
 
-.consumption-comparison__value strong {
-  font-size: 1.75rem;
+.consumption-comparison__value strong,
+.consumption-history-message strong {
+  color: var(--colour-navy-950);
+  font-size: clamp(2rem, 5vw, 2.75rem);
+  font-weight: 650;
+  letter-spacing: -0.045em;
+  line-height: 1.05;
 }
 
 .consumption-comparison__status {
-  font-weight: 700;
+  width: fit-content;
+  padding: 0.24rem 0.48rem;
+  border-radius: 0.32rem;
+  color: var(--colour-success);
+  background: var(--colour-success-soft);
+  font-size: 0.84rem;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.consumption-comparison--above .consumption-comparison__status {
+  color: #84332d;
+  background: var(--colour-danger-soft);
 }
 
 .consumption-history-message {
-  border: 1px solid #bcccdc;
-  color: #334e68;
-  background: #f0f4f8;
+  color: var(--colour-text);
+  font-size: 0.94rem;
+  line-height: 1.5;
+}
+
+.consumption-history-message:only-child {
+  padding: 0.9rem 1rem;
+  border: 1px solid #cfdee5;
+  border-radius: 0.55rem;
+  color: var(--colour-muted);
+  background: #f3f7f8;
+}
+
+.guideline-load-message,
+.guideline-load-error,
+.guideline-context {
+  margin: 0.9rem 0 0;
+  font-size: 0.9rem;
+  line-height: 1.55;
 }
 
 .guideline-load-message {
-  margin: 1rem 0 0;
-  color: #52616b;
+  color: var(--colour-muted);
 }
 
 .guideline-load-error {
-  margin-top: 1rem;
-  border: 2px solid #b42318;
-  color: #7a1911;
-  background: #fff2f0;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid #e3c694;
+  border-left: 4px solid var(--colour-amber-700);
+  border-radius: 0.48rem;
+  color: #70420a;
+  background: var(--colour-amber-100);
 }
 
 .guideline-load-error .secondary-button {
-  margin-top: 0.875rem;
+  min-height: 2.6rem;
+  margin-top: 0.7rem;
+  padding: 0.45rem 0.75rem;
 }
 
 .guideline-context {
-  margin-top: 1rem;
-  border-left: 4px solid #486581;
-  color: #334e68;
-  background: #f8fafb;
+  padding: 0.75rem 0 0.15rem;
+  border-top: 1px solid var(--colour-border);
+  color: var(--colour-muted);
 }
 
 .guideline-context a {
-  color: #0b4f6c;
-  font-weight: 700;
+  color: var(--colour-teal-800);
+  font-weight: 750;
+  overflow-wrap: anywhere;
+}
+
+.support-card__heading {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.support-card__heading h2,
+.support-card__heading h3 {
+  margin: 0;
+  color: var(--colour-navy-950);
+  font-size: 1.18rem;
+  line-height: 1.3;
+}
+
+.support-card__icon {
+  display: grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  place-items: center;
+}
+
+.support-card__icon svg {
+  width: 1.35rem;
+  height: 1.35rem;
+}
+
+.support-card__icon--amber {
+  color: #c46e00;
+  background: var(--colour-amber-100);
+}
+
+.support-card__icon--blue {
+  color: #06748b;
+  background: #d8eef4;
+}
+
+.support-card__icon--green {
+  color: var(--colour-teal-800);
+  background: #dceee5;
+}
+
+.driving-safety-card,
+.related-information {
+  padding: 1rem;
+  border: 1px solid;
+  border-radius: 0.7rem;
+}
+
+.driving-safety-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.8rem;
+  border-color: #b9dae3;
+  color: var(--colour-text);
+  background: var(--colour-blue-100);
+}
+
+.driving-safety-card__content {
+  min-width: 0;
+}
+
+.driving-safety-card h2 {
+  margin: 0;
+  color: var(--colour-navy-950);
+  font-size: 1.18rem;
+  line-height: 1.3;
+}
+
+.driving-safety-card p {
+  margin: 0.38rem 0 0;
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.driving-safety-lead {
+  color: var(--colour-navy-950);
+  font-weight: 750;
+}
+
+.information-topic-link {
+  color: var(--colour-teal-800);
+  font-weight: 750;
+  overflow-wrap: anywhere;
+}
+
+.driving-safety-card .information-topic-link,
+.related-information .information-topic-link {
+  display: flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+}
+
+.driving-safety-card .information-topic-link {
+  width: fit-content;
+  min-height: 2.25rem;
+}
+
+.information-topic-link svg {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
 }
 
 .related-information {
-  margin-top: 1.25rem;
-  padding-top: 1rem;
-  border-top: 1px solid #d8dee3;
-}
-
-.related-information h3 {
-  margin: 0;
-  color: #243b53;
-  font-size: 1.05rem;
+  border-color: #c9ddd4;
+  background: var(--colour-sage-100);
+  scroll-margin-top: 1rem;
 }
 
 .related-information ul {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.65rem 1.25rem;
-  margin: 0.75rem 0 0;
+  display: grid;
+  gap: 0;
+  margin: 0.55rem 0 0 3.2rem;
   padding: 0;
   list-style: none;
 }
 
-.information-topic-link {
-  color: #0b4f6c;
-  font-weight: 700;
+.related-information li + li {
+  border-top: 1px solid rgb(8 101 101 / 10%);
 }
 
-.information-topic-link:focus-visible {
-  outline: 3px solid #8a4b08;
-  outline-offset: 3px;
+.related-information .information-topic-link {
+  font-size: 0.94rem;
+  line-height: 1.45;
 }
 
-@media (max-width: 52rem) {
+@media (max-width: 40rem) {
+  .consumption-summary-card {
+    padding: 1.1rem;
+  }
+
+  .consumption-summary-heading {
+    display: block;
+  }
+
+  .consumption-summary-heading > p:last-child {
+    margin-top: 0.3rem;
+    text-align: left;
+  }
+
   .consumption-comparisons {
     grid-template-columns: 1fr;
+    gap: 0.8rem;
+  }
+
+  .consumption-comparison,
+  .consumption-history-message,
+  .consumption-comparison:first-child {
+    padding: 0;
+  }
+
+  .consumption-comparison + .consumption-comparison,
+  .consumption-comparison + .consumption-history-message {
+    padding-top: 0.8rem;
+    border-top: 1px solid var(--colour-border);
+    border-left: 0;
   }
 }

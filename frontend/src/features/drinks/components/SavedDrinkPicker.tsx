@@ -99,7 +99,10 @@ export function SavedDrinkPicker({
   }
 
   return (
-    <section className="my-drinks-panel" aria-labelledby="my-drinks-title">
+    <section
+      className={`my-drinks-panel${savedDrinks.length === 0 ? ' my-drinks-panel--empty' : ''}`}
+      aria-labelledby="my-drinks-title"
+    >
       <div className="my-drinks-heading">
         <p className="section-kicker">Quick record</p>
         <h3 id="my-drinks-title">My Drinks</h3>

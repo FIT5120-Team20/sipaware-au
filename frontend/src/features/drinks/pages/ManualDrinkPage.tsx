@@ -11,10 +11,12 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { getDrinkOptions } from '../../../services/drinkReferenceApi'
 import { getAlcoholGuidelines } from '../../../services/guidelineReferenceApi'
 import { calculateAlcoholConsumptionSummary } from '../calculations/alcoholConsumptionSummary'
+import { AlcoholLearnMore } from '../components/AlcoholLearnMore'
 import { AlcoholConsumptionSummary } from '../components/AlcoholConsumptionSummary'
 import { DrivingSafetyGuidance } from '../components/DrivingSafetyGuidance'
 import { ManualDrinkForm } from '../components/ManualDrinkForm'
 import { RecentDrinkingRecords } from '../components/RecentDrinkingRecords'
+import { SipAwareHeader } from '../components/SipAwareHeader'
 import { mapDrinkReferenceCategories } from '../config/drinkTypes'
 import { useCurrentLocalDateKey } from '../hooks/useCurrentLocalDateKey'
 import { IndexedDbDrinkingRecordRepository } from '../storage/drinkingRecordRepository'
@@ -230,10 +232,10 @@ export function ManualDrinkPage() {
   }
 
   return (
-    <main className="manual-drink-page">
-      <div className="manual-drink-shell">
+    <div className="manual-drink-page">
+      <SipAwareHeader />
+      <main className="manual-drink-shell">
         <header className="feature-header">
-          <p className="brand-name">SipAware AU</p>
           <h1>Record a drink</h1>
           <p>
             Record what you drank and how much you consumed. Your drinking
@@ -257,19 +259,18 @@ export function ManualDrinkPage() {
         )}
 
         {hydrationStatus === 'ready' && (
-          <>
-            <AlcoholConsumptionSummary
-              summary={consumptionSummary}
-              guidelines={guidelines}
-              guidelineStatus={guidelineStatus}
-              onRetryGuidelines={retryGuidelines}
-            />
-            {/* Driving guidance depends only on shared local record presence,
-                never guideline status, totals, SavedDrinks, or backend data. */}
-            {consumptionSummary.hasEligibleDrinkingRecordToday && (
-              <DrivingSafetyGuidance />
-            )}
-            <div className="manual-drink-layout">
+          <div className="manual-drink-layout">
+            {/* The desktop primary rail mirrors the approved task hierarchy;
+                persistence and calculations stay owned by this page rather
+                than by the new visual containers. */}
+            <div className="manual-drink-primary">
+              <AlcoholConsumptionSummary
+                summary={consumptionSummary}
+                guidelines={guidelines}
+                guidelineStatus={guidelineStatus}
+                onRetryGuidelines={retryGuidelines}
+                showRelatedInformation={false}
+              />
               <ManualDrinkForm
                 referenceCategories={referenceCategories}
                 referenceStatus={referenceStatus}
@@ -280,16 +281,27 @@ export function ManualDrinkPage() {
                 onUpdateSavedDrink={updateSavedDrink}
                 onDeleteSavedDrink={deleteSavedDrink}
               />
+            </div>
+
+            <aside className="manual-drink-sidebar" aria-label="Record support">
               <RecentDrinkingRecords
                 referenceCategories={referenceCategories}
                 records={records}
                 onUpdate={updateRecord}
                 onDelete={deleteRecord}
               />
-            </div>
-          </>
+
+              {/* Driving guidance depends only on shared local record presence,
+                  never guideline status, totals, SavedDrinks, or backend data. */}
+              {consumptionSummary.hasEligibleDrinkingRecordToday && (
+                <DrivingSafetyGuidance />
+              )}
+              <AlcoholLearnMore />
+            </aside>
+          </div>
         )}
-      </div>
-    </main>
+      </main>
+
+    </div>
   )
 }

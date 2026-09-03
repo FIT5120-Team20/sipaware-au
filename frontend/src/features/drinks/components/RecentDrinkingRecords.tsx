@@ -11,6 +11,7 @@ import type { DrinkingRecord } from '../types/drinkingRecord'
 import type { DrinkReferenceCategory } from '../types/drinkReference'
 import { formatConsumedDateTime } from '../utils/formatConsumedDateTime'
 import { DrinkingRecordEditor } from './DrinkingRecordEditor'
+import { SipAwareIcon } from './SipAwareIcon'
 
 interface RecentDrinkingRecordsProps {
   referenceCategories: readonly DrinkReferenceCategory[]
@@ -96,9 +97,13 @@ export function RecentDrinkingRecords({
       className="recent-records-card"
       aria-labelledby="recent-records-title"
     >
-      <div className="section-heading">
-        <p className="section-kicker">Saved on this device</p>
-        <h2 id="recent-records-title">Recent records</h2>
+      <div className="section-heading recent-records-heading">
+        <div className="support-card__heading">
+          <span className="support-card__icon support-card__icon--amber">
+            <SipAwareIcon name="clock" />
+          </span>
+          <h2 id="recent-records-title">Recent records</h2>
+        </div>
         <p>
           View or correct your three most recently saved drinking records.
         </p>
@@ -121,7 +126,10 @@ export function RecentDrinkingRecords({
             <li key={record.id}>
               <article className="recent-record">
                 <div className="recent-record__heading">
-                  <h3>{record.drinkName}</h3>
+                  <h3>
+                    <SipAwareIcon name={record.drinkType} />
+                    <span>{record.drinkName}</span>
+                  </h3>
                   <span>
                     {getDrinkTypeLabel(record.drinkType, referenceCategories)}
                   </span>

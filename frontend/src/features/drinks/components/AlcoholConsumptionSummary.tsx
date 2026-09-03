@@ -11,7 +11,8 @@ import type {
   AlcoholGuidelinesResponseDto,
   GuidelineLoadStatus,
 } from '../types/alcoholGuideline'
-import { AlcoholInformationTopicLink } from './AlcoholInformationTopicLink'
+import { AlcoholLearnMore } from './AlcoholLearnMore'
+import { SipAwareIcon } from './SipAwareIcon'
 import '../alcoholConsumption.css'
 
 interface AlcoholConsumptionSummaryProps {
@@ -19,6 +20,7 @@ interface AlcoholConsumptionSummaryProps {
   guidelines: AlcoholGuidelinesResponseDto | null
   guidelineStatus: GuidelineLoadStatus
   onRetryGuidelines: () => void
+  showRelatedInformation?: boolean
 }
 
 function getGuideline(
@@ -67,7 +69,10 @@ function GuidelineComparison({
         isAbove ? 'above' : 'not-above'
       }`}
     >
-      <p className="consumption-comparison__label">{label}</p>
+      <div className="consumption-comparison__heading">
+        <SipAwareIcon name={label === 'Today' ? 'calendar' : 'chart'} />
+        <p className="consumption-comparison__label">{label}</p>
+      </div>
       <p className="consumption-comparison__value">
         <strong>{formatStandardDrinks(total)}</strong>
         {' / '}
@@ -86,6 +91,7 @@ export function AlcoholConsumptionSummary({
   guidelines,
   guidelineStatus,
   onRetryGuidelines,
+  showRelatedInformation = true,
 }: AlcoholConsumptionSummaryProps) {
   const hasRecordedHistory = summary.recordedHistorySpanStatus !== 'none'
 
@@ -248,29 +254,7 @@ export function AlcoholConsumptionSummary({
         </>
       )}
 
-      <nav
-        className='related-information'
-        aria-label='Related alcohol information'
-      >
-        <h3>Learn more</h3>
-        <ul>
-          <li>
-            <AlcoholInformationTopicLink topicCode='STANDARD_DRINK'>
-              What is a standard drink?
-            </AlcoholInformationTopicLink>
-          </li>
-          <li>
-            <AlcoholInformationTopicLink topicCode='ALCOHOL_GUIDELINES'>
-              About the Australian guidelines
-            </AlcoholInformationTopicLink>
-          </li>
-          <li>
-            <AlcoholInformationTopicLink topicCode='ALCOHOL_AGEING'>
-              Why does age matter?
-            </AlcoholInformationTopicLink>
-          </li>
-        </ul>
-      </nav>
+      {showRelatedInformation && <AlcoholLearnMore />}
     </section>
   )
 }
