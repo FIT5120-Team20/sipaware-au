@@ -38,10 +38,16 @@ import {
   validateManualDrinkInput,
   validateReusableDrinkInput,
 } from '../validation/drinkingRecordValidation'
+import { IcoCalendar, IcoClock, MinusIcon, PlusIcon } from './ReferenceRecordBrowser'
 import { SavedDrinkPicker } from './SavedDrinkPicker'
-import { SipAwareIcon } from './SipAwareIcon'
+import { calculateStandardDrinks } from '../calculations/standardDrinks'
+import { BarcodeScanner } from './BarcodeScanner'
+import { selectBarcodeProduct, type BarcodeLookup, type BarcodeProduct } from '../barcode/barcodeLookup'
 
 interface ManualDrinkFormProps {
+  startInBrowse?: boolean
+  onRecorded?: (record: DrinkingRecord, templateFailed: boolean) => void
+  barcodeLookup?: BarcodeLookup
   referenceCategories: readonly DrinkReferenceCategory[]
   referenceStatus: ReferenceLoadStatus
   onRetryReferenceData: () => void
@@ -141,7 +147,23 @@ export function ManualDrinkForm({
   onSaveSavedDrink,
   onUpdateSavedDrink,
   onDeleteSavedDrink,
+  barcodeLookup,
+  startInBrowse = false,
+  onRecorded,
 }: ManualDrinkFormProps) {
+  const [barcodeOpen, setBarcodeOpen] = useState(false)
+  const [captureView, setCaptureView] = useState<'browse' | 'manual'>(startInBrowse ? 'browse' : 'manual')
+
+  // The reference separates drink selection from occasion entry. Keep the form
+  // mounted so returning from camera/selection never resets Date, Time or amount.
+  function openManualEntry() {
+    if (selectedSavedDrink) clearSavedDrinkSelection()
+    setCaptureView('manual')
+    requestAnimationFrame(() => document.getElementById('drink-type')?.focus())
+  }
+  const [amountMode, setAmountMode] = useState<'serving' | 'ml'>('serving')
+  const [millilitres, setMillilitres] = useState('')
+  const [saveTemplateWithRecord, setSaveTemplateWithRecord] = useState(false)
   const formRef = useRef<HTMLFormElement>(null)
   const [values, setValues] = useState(createInitialManualDrinkFormValues)
   const [errors, setErrors] = useState<ManualDrinkFormErrors>({})
@@ -173,6 +195,34 @@ export function ManualDrinkForm({
   // remain editable because they belong to the new DrinkingRecord, not the template.
   const isCustomVolume =
     values.servingSizeSelection === CUSTOM_SERVING_SIZE
+
+  const servingVolume = Number(isCustomVolume ? values.customVolumeMl : values.servingSizeSelection)
+  // mL is a presentation mode. Convert once at the existing validation boundary;
+  // the persisted record still stores a serving volume and an independent count.
+  const effectiveValues = amountMode === 'ml' ? {
+    ...values, amountConsumed: servingVolume > 0 && millilitres.trim() !== ''
+      ? String(Number(millilitres) / servingVolume) : '',
+  } : values
+  const consumedMl = servingVolume * Number(effectiveValues.amountConsumed)
+  const estimate = calculateStandardDrinks({
+    servingVolumeMl: servingVolume, abvPercent: Number(values.abvPercent),
+    amountConsumed: Number(effectiveValues.amountConsumed),
+  })
+  const estimateAvailable = servingVolume > 0 && Number(values.abvPercent) >= 0 &&
+    values.abvPercent.trim() !== '' && effectiveValues.amountConsumed.trim() !== '' &&
+    Number.isFinite(estimate) && Number(effectiveValues.amountConsumed) > 0
+  function switchAmountMode(mode: 'serving' | 'ml') {
+    if (mode === amountMode) return
+    if (mode === 'ml') setMillilitres(values.amountConsumed.trim() && servingVolume > 0 ? String(consumedMl) : '')
+    else updateValue('amountConsumed', effectiveValues.amountConsumed)
+    setAmountMode(mode)
+  }
+  function adjustAmount(delta: number) {
+    if (amountMode === 'ml') {
+      setMillilitres(String(Math.max(0, Number(millilitres || 0) + delta)))
+      clearErrors('amountConsumed')
+    } else updateValue('amountConsumed', String(Math.max(0, Number(values.amountConsumed || 0) + delta)))
+  }
 
   function clearErrors(...fields: ManualDrinkField[]) {
     setErrors((currentErrors) => {
@@ -265,6 +315,30 @@ export function ManualDrinkForm({
     setSaveStatus(null)
   }
 
+  /** Product selection changes only reusable inputs; consumption remains explicit. */
+  function handleBarcodeProduct(product: BarcodeProduct) {
+    setValues((current) => selectBarcodeProduct(current, product))
+    setSelectedSavedDrinkId(null)
+    setSelectedVariantId(null)
+    clearErrors(...REUSABLE_DRINK_FIELDS)
+    setSaveStatus({ kind: 'success', message: 'Drink details added. Review the volume, servings, Date and Time before saving.' })
+    setBarcodeOpen(false)
+    queueMicrotask(() => {
+      const field = formRef.current?.elements.namedItem('drinkName')
+      if (field instanceof HTMLElement) field.focus()
+    })
+  }
+
+  function returnToManualEntry() {
+    // Release template field locks without discarding the user's current draft.
+    setSelectedSavedDrinkId(null)
+    setBarcodeOpen(false)
+    queueMicrotask(() => {
+      const field = formRef.current?.elements.namedItem('drinkName')
+      if (field instanceof HTMLElement) field.focus()
+    })
+  }
+
   function clearSavedDrinkSelection() {
     // Returning to manual entry releases the template selection and its field
     // locks so reusable attributes can be entered independently again.
@@ -307,7 +381,7 @@ export function ManualDrinkForm({
 
     queueMicrotask(() => {
       const formControl =
-        formRef.current?.elements.namedItem(firstInvalidField)
+        formRef.current?.elements.namedItem(firstInvalidField === 'amountConsumed' && amountMode === 'ml' ? 'consumedMl' : firstInvalidField)
       if (formControl instanceof HTMLElement) {
         formControl.focus()
       }
@@ -323,7 +397,7 @@ export function ManualDrinkForm({
     event.preventDefault()
     setSaveStatus(null)
 
-    const validationResult = validateManualDrinkInput(values)
+    const validationResult = validateManualDrinkInput(effectiveValues)
     if (!validationResult.success) {
       setErrors(validationResult.errors)
       setSaveStatus({
@@ -334,9 +408,10 @@ export function ManualDrinkForm({
       return
     }
 
+    const record = createDrinkingRecord(validationResult.data)
     setIsPersisting(true)
     try {
-      await onSave(createDrinkingRecord(validationResult.data))
+      await onSave(record)
     } catch {
       setIsPersisting(false)
       setSaveStatus({
@@ -347,68 +422,55 @@ export function ManualDrinkForm({
       return
     }
 
+    let templateFailed = false
+    if (saveTemplateWithRecord && !selectedSavedDrink) {
+      // These are separate stores: report a template failure truthfully after
+      // a successful history write instead of retrying/duplicating that record.
+      const reusable = validateReusableDrinkInput(values)
+      if (reusable.success) {
+        try { await onSaveSavedDrink(createSavedDrink(reusable.data)) }
+        catch { templateFailed = true }
+      }
+    }
     setIsPersisting(false)
     setErrors({})
+    setAmountMode('serving')
+    setMillilitres('')
+    setSaveTemplateWithRecord(false)
     setValues(createInitialManualDrinkFormValues())
     setSelectedSavedDrinkId(null)
     setSaveStatus({
-      kind: 'success',
-      message: 'Drinking record saved on this device.',
+      kind: templateFailed ? 'error' : 'success',
+      message: templateFailed ? 'Drinking record saved on this device, but the drink could not be saved to My Drinks. Do not record the same occasion again.' : 'Drinking record saved on this device.',
     })
-  }
-
-  /**
-   * Save only reusable drink attributes as a SavedDrink template.
-   * Occasion-specific servings, date, and time are intentionally excluded.
-   */
-  async function handleSaveForFutureUse() {
-    setSaveStatus(null)
-
-    const validationResult = validateReusableDrinkInput(values)
-    if (!validationResult.success) {
-      setErrors(validationResult.errors)
-      setSaveStatus({
-        kind: 'error',
-        message:
-          'Check the highlighted drink details before saving to My Drinks.',
-      })
-      focusFirstInvalidField(validationResult.errors)
-      return
-    }
-
-    setIsPersisting(true)
-    try {
-      const savedDrink = createSavedDrink(validationResult.data)
-      await onSaveSavedDrink(savedDrink)
-      setSelectedSavedDrinkId(savedDrink.id)
-    } catch {
-      setIsPersisting(false)
-      setSaveStatus({
-        kind: 'error',
-        message:
-          'This drink could not be saved to My Drinks on this device. Your entries have been kept so you can try again.',
-      })
-      return
-    }
-
-    setIsPersisting(false)
-    setErrors({})
-    setSaveStatus({
-      kind: 'success',
-      message: 'Drink saved to My Drinks on this device.',
-    })
+    // Navigate only after both independent writes settle so a template failure
+    // remains visible on the result screen and cannot invite a duplicate record.
+    onRecorded?.(record, templateFailed)
   }
 
   return (
-    <section className="manual-drink-card" aria-labelledby="manual-drink-title">
-      <div className="section-heading">
-        <p className="section-kicker">Record a drink</p>
-        <h2 id="manual-drink-title">Add drink details</h2>
-        <p>
-          Enter the drink and the serving amount you consumed. All fields are
-          required.
-        </p>
+    <section className={"manual-drink-card prototype-capture prototype-capture--" + captureView} aria-label="Drink capture">
+      <div hidden={captureView !== 'manual'} className="prototype-form-heading">
+        {startInBrowse && <button type="button" className="prototype-back" onClick={() => setCaptureView('browse')}><span aria-hidden="true">‹</span> Back to Record</button>}
+        <h1 id="manual-drink-title">{selectedSavedDrink ? 'Record Consumption' : 'Record a Drink'}</h1>
+        <p>{selectedSavedDrink ? 'Tell us how much you drank.' : 'Enter the drink details and how much you drank.'}</p>
+        {/* Reuse the prototype scan card presentation, but retain US3.1's real
+            local barcode decoder. The prototype's simulated label OCR is excluded. */}
+        <div className="prototype-scan-card">
+          <div className="prototype-scan-card-title">
+            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 20 20" fill="none">
+              <path d="M7 2H4a2 2 0 0 0-2 2v3M13 2h3a2 2 0 0 1 2 2v3M7 18H4a2 2 0 0 1-2-2v-3M13 18h3a2 2 0 0 0 2-2v-3" stroke="#647280" strokeWidth="1.6" strokeLinecap="round" />
+              <circle cx="10" cy="10" r="2.5" stroke="#647280" strokeWidth="1.6" />
+            </svg>
+            <h2>Scan drink barcode</h2>
+          </div>
+          <p>Use your camera or choose a photo to read a barcode on this device. Product lookup is temporarily unavailable; you can still enter the drink details manually.</p>
+          <button type="button" disabled={isPersisting} onClick={() => setBarcodeOpen(true)}>Scan Barcode</button>
+        </div>
       </div>
+      {barcodeOpen && <BarcodeScanner onBack={() => setBarcodeOpen(false)}
+        onUseDrink={(product) => { setCaptureView('manual'); handleBarcodeProduct(product) }}
+        onAddManually={() => { setCaptureView('manual'); returnToManualEntry() }} lookup={barcodeLookup} />}
 
       {saveStatus && (
         <div
@@ -443,21 +505,29 @@ export function ManualDrinkForm({
         </div>
       )}
 
+      <div hidden={startInBrowse && captureView !== 'browse'}>
       <SavedDrinkPicker
+        browserActions={startInBrowse ? { onScan: () => setBarcodeOpen(true), onManual: openManualEntry } : undefined}
         referenceCategories={referenceCategories}
         savedDrinks={savedDrinks}
         selectedSavedDrinkId={selectedSavedDrinkId}
-        onSelect={handleSavedDrinkSelect}
+        onSelect={(drink) => { handleSavedDrinkSelect(drink); setCaptureView('manual') }}
         onClear={clearSavedDrinkSelection}
         onUpdate={handleSavedDrinkUpdate}
         onDelete={handleSavedDrinkDelete}
       />
 
-      <form ref={formRef} onSubmit={handleSubmit} noValidate>
+      </div>
+      <form className="prototype-consumption-form" ref={formRef} onSubmit={handleSubmit} noValidate hidden={captureView !== 'manual'}>
         {/* Step wrappers change only visual grouping. The original named
             controls remain the sole source of form state and validation. */}
+        {startInBrowse && selectedSavedDrink && <div className="prototype-drink-summary">
+          <strong>{selectedSavedDrink.drinkName}</strong><p>{selectedCategory?.name ?? selectedSavedDrink.drinkType} · {values.abvPercent}% ABV · {values.customVolumeMl} mL serving</p>
+          <button type="button" className="text-button" onClick={clearSavedDrinkSelection}>Enter drink manually instead</button>
+        </div>}
+        <div hidden={startInBrowse && Boolean(selectedSavedDrink)}>
         <section className="form-step" aria-labelledby="drink-choice-title">
-          <h3 id="drink-choice-title">1. What did you drink?</h3>
+          <h3 id="drink-choice-title">Drink details</h3>
           <div className="form-field drink-type-field">
             <label htmlFor="drink-type">Drink type</label>
             <select
@@ -533,7 +603,7 @@ export function ManualDrinkForm({
         </section>
 
         <section className="form-step" aria-labelledby="drink-details-title">
-          <h3 id="drink-details-title">2. Drink details</h3>
+          <h3 id="drink-details-title">Serving details</h3>
           <div className="form-details-grid">
             <div className="form-field">
           <label htmlFor="serving-size">Serving size / volume</label>
@@ -633,45 +703,43 @@ export function ManualDrinkForm({
           </div>
         </section>
 
-        <section className="form-step" aria-labelledby="drink-amount-title">
-          <h3 id="drink-amount-title">3. How much did you have?</h3>
-          <div className="form-field">
-          <label htmlFor="amount-consumed">Number of servings consumed</label>
-          <input
-            id="amount-consumed"
-            name="amountConsumed"
-            type="number"
-            inputMode="decimal"
-            step="any"
-            placeholder="e.g. 1.5"
-            value={values.amountConsumed}
-            onChange={(event) =>
-              updateValue('amountConsumed', event.target.value)
-            }
-            aria-invalid={Boolean(errors.amountConsumed)}
-            aria-describedby={describedBy(
-              'amount-consumed-help',
-              'amount-consumed-error',
-              Boolean(errors.amountConsumed),
-            )}
-            required
-          />
-          <FieldDescription id="amount-consumed-help">
-            Enter the number of servings consumed, for example 1.5.
-          </FieldDescription>
-          <FieldError
-            id="amount-consumed-error"
-            message={errors.amountConsumed}
-          />
+        </div>
+        <section className="prototype-consumption" aria-labelledby="drink-amount-title">
+          <h3 id="drink-amount-title">How much did you drink?</h3>
+          <div className="prototype-amount-tabs" aria-label="Amount entry mode">
+            <button type="button" aria-pressed={amountMode === 'serving'} onClick={() => switchAmountMode('serving')}>By serving</button>
+            <button type="button" aria-pressed={amountMode === 'ml'} onClick={() => switchAmountMode('ml')}>By mL</button>
+          </div>
+          <div className="prototype-amount-panel">
+            {amountMode === 'serving' && <p>1 serving = {servingVolume > 0 ? servingVolume : '—'} mL</p>}
+            <div className="prototype-amount-stepper">
+              <button type="button" aria-label={amountMode === 'serving' ? 'Decrease servings' : 'Decrease mL'} onClick={() => adjustAmount(amountMode === 'serving' ? -0.5 : -50)}><MinusIcon /></button>
+              <div>
+                {amountMode === 'serving' ? <input id="amount-consumed" name="amountConsumed" type="number" inputMode="decimal" step="any" placeholder="0.0"
+                  value={values.amountConsumed} onChange={e => updateValue('amountConsumed', e.target.value)}
+                  aria-label="Number of servings consumed" aria-invalid={Boolean(errors.amountConsumed)} aria-describedby="amount-consumed-help amount-consumed-error" required />
+                  : <input id="consumed-ml" name="consumedMl" type="number" inputMode="decimal" step="any" placeholder="0"
+                    value={millilitres} onChange={e => { setMillilitres(e.target.value); clearErrors('amountConsumed'); setSaveStatus(null) }}
+                    aria-label="Amount in mL" aria-invalid={Boolean(errors.amountConsumed)} aria-describedby="amount-consumed-help amount-consumed-error" required />}
+                <span>{amountMode === 'serving' ? 'Servings' : 'mL'}</span>
+              </div>
+              <button type="button" aria-label={amountMode === 'serving' ? 'Increase servings' : 'Increase mL'} onClick={() => adjustAmount(amountMode === 'serving' ? 0.5 : 50)}><PlusIcon /></button>
+            </div>
+            <p className="field-help" id="amount-consumed-help">{amountMode === 'serving' ? 'Enter the number of servings consumed, for example 1.5.' : 'Enter the total volume you consumed in mL.'}</p>
+            <FieldError id="amount-consumed-error" message={errors.amountConsumed} />
+          </div>
+          <div className="prototype-estimate" aria-live="polite">
+            <div><strong>Estimated standard drinks</strong><p>{estimateAvailable ? 'Based on ' + Number(consumedMl.toFixed(2)) + ' mL consumed and ' + values.abvPercent + '% ABV.' : 'Enter the serving size, ABV and amount consumed.'}</p></div>
+            <div><p className="prototype-estimate-value">{estimateAvailable ? estimate.toFixed(1) : '—'}</p><span>standard drinks</span></div>
           </div>
         </section>
 
         <fieldset className="date-time-fields form-step">
-          <legend>4. When did you drink this?</legend>
+          <legend>When did you drink?</legend>
 
           <div className="date-time-grid">
             <div className="form-field">
-              <label htmlFor="consumed-date">Date</label>
+              <label htmlFor="consumed-date"><span aria-hidden="true"><IcoCalendar /></span> Date</label>
               <input
                 id="consumed-date"
                 name="date"
@@ -686,7 +754,7 @@ export function ManualDrinkForm({
             </div>
 
             <div className="form-field">
-              <label htmlFor="consumed-time">Time</label>
+              <label htmlFor="consumed-time"><span aria-hidden="true"><IcoClock /></span> Time</label>
               <input
                 id="consumed-time"
                 name="time"
@@ -703,25 +771,19 @@ export function ManualDrinkForm({
           </div>
         </fieldset>
 
+        {!selectedSavedDrink && <label className="prototype-save-template">
+          <input type="checkbox" checked={saveTemplateWithRecord} onChange={e => setSaveTemplateWithRecord(e.target.checked)} />
+          <span><strong>Save this drink to My Drinks</strong><span>Save these drink details so you can record it faster next time.</span></span>
+        </label>}
         <div className="form-actions">
           <button
             className="primary-button"
             type="submit"
             disabled={isPersisting}
           >
-            <SipAwareIcon name="check" />
-            Save drinking record
+            Record Drink
           </button>
-          {!selectedSavedDrink && (
-            <button
-              className="secondary-button"
-              type="button"
-              onClick={handleSaveForFutureUse}
-              disabled={isPersisting}
-            >
-              Save this drink to My Drinks
-            </button>
-          )}
+
         </div>
       </form>
     </section>

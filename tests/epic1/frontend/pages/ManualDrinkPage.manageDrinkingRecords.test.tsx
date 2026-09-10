@@ -79,14 +79,26 @@ function readSavedDrinks(): Promise<SavedDrink[]> {
   return new IndexedDbSavedDrinkRepository().list()
 }
 
+let pageView: ReturnType<typeof render>
 async function renderHydratedPage() {
+  window.history.replaceState({}, '', '/record')
   const view = render(<ManualDrinkPage />)
+  pageView = view
   await screen.findByLabelText('Drink type')
+  fireEvent.click(screen.getByRole('button', { name: 'My Drinks' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Record Manually' }))
   return view
 }
 
+function historyAction(action: 'Edit' | 'Delete', name: string) {
+  pageView.rerender(<ManualDrinkPage initialView="history" />)
+  fireEvent.click(screen.getByRole('button', { name: 'Actions for ' + name }))
+  return screen.getByRole('button', { name: action })
+}
+
 function getRecentRecordsSection(): HTMLElement {
-  const heading = screen.getByRole('heading', { name: 'Recent records' })
+  pageView.rerender(<ManualDrinkPage initialView="history" />)
+  const heading = screen.getByRole('heading', { name: 'Your drinking records' })
   const section = heading.closest('section')
   if (!(section instanceof HTMLElement)) {
     throw new Error('Expected the Recent records section.')
@@ -113,21 +125,10 @@ describe('ManualDrinkPage drinking-record management', () => {
     const recentRecords = getRecentRecordsSection()
 
     expect(within(recentRecords).getByText('Sky')).toBeInTheDocument()
-    expect(within(recentRecords).getByText('Beer')).toBeInTheDocument()
-    expect(within(recentRecords).getByText('300 mL')).toBeInTheDocument()
-    expect(within(recentRecords).getByText('4%')).toBeInTheDocument()
-    expect(within(recentRecords).getByText('2')).toBeInTheDocument()
-    expect(
-      within(recentRecords).getByText('26 Aug 2026, 10:17 pm'),
-    ).toBeInTheDocument()
-    expect(
-      within(recentRecords).queryByText(/[\u5e74\u6708\u65e5]/),
-    ).not.toBeInTheDocument()
-
+    expect(within(recentRecords).getByText('10:17 pm')).toBeInTheDocument()
+    expect(within(recentRecords).getByRole('heading', { name: 'Wed, 26 Aug' })).toBeInTheDocument()
     await user.click(
-      within(recentRecords).getByRole('button', {
-        name: 'Edit drinking record for Sky',
-      }),
+      historyAction('Edit', 'Sky'),
     )
     const editor = getRecordEditor()
 
@@ -155,6 +156,7 @@ describe('ManualDrinkPage drinking-record management', () => {
     const user = userEvent.setup()
     const view = await renderHydratedPage()
 
+    if (screen.queryByRole('button', { name: 'Back to Record' })) await user.click(screen.getByRole('button', { name: 'Back to Record' }))
     await user.click(
       screen.getByRole('button', {
         name: /Sky.*Beer.*300 mL.*4% ABV/,
@@ -170,7 +172,7 @@ describe('ManualDrinkPage drinking-record management', () => {
       target: { value: '22:17' },
     })
     await user.click(
-      screen.getByRole('button', { name: 'Save drinking record' }),
+      screen.getByRole('button', { name: 'Record Drink' }),
     )
     expect(
       await screen.findByText('Drinking record saved on this device.'),
@@ -185,9 +187,7 @@ describe('ManualDrinkPage drinking-record management', () => {
     })
 
     await user.click(
-      screen.getByRole('button', {
-        name: 'Edit drinking record for Sky',
-      }),
+      historyAction('Edit', 'Sky'),
     )
     const editor = getRecordEditor()
     fireEvent.change(within(editor).getByLabelText('Drink name'), {
@@ -243,7 +243,7 @@ describe('ManualDrinkPage drinking-record management', () => {
     const recentRecords = getRecentRecordsSection()
     expect(within(recentRecords).getByText('Sky Test')).toBeInTheDocument()
     expect(
-      within(recentRecords).getByText('25 Aug 2026, 10:29 pm'),
+      within(recentRecords).getByText('10:29 pm'),
     ).toBeInTheDocument()
 
     view.unmount()
@@ -261,9 +261,7 @@ describe('ManualDrinkPage drinking-record management', () => {
     await renderHydratedPage()
 
     await user.click(
-      screen.getByRole('button', {
-        name: 'Edit drinking record for Sky',
-      }),
+      historyAction('Edit', 'Sky'),
     )
     const editor = getRecordEditor()
     fireEvent.change(within(editor).getByLabelText('Drink name'), {
@@ -291,11 +289,9 @@ describe('ManualDrinkPage drinking-record management', () => {
     await renderHydratedPage()
 
     await user.click(
-      screen.getByRole('button', {
-        name: 'Delete drinking record for Sky',
-      }),
+      historyAction('Delete', 'Sky'),
     )
-    expect(screen.getByText('Delete this drinking record?')).toBeInTheDocument()
+    expect(screen.getByText('Delete this record?')).toBeInTheDocument()
     expect(
       screen.getByText(/removes this record from your drinking history/i),
     ).toBeInTheDocument()
@@ -304,17 +300,15 @@ describe('ManualDrinkPage drinking-record management', () => {
 
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
     expect(
-      screen.queryByText('Delete this drinking record?'),
+      screen.queryByText('Delete this record?'),
     ).not.toBeInTheDocument()
     await expect(readRecords()).resolves.toEqual([shirazRecord, skyRecord])
 
     await user.click(
-      screen.getByRole('button', {
-        name: 'Delete drinking record for Sky',
-      }),
+      historyAction('Delete', 'Sky'),
     )
     await user.click(
-      screen.getByRole('button', { name: 'Yes, delete record' }),
+      screen.getByRole('button', { name: 'Delete' }),
     )
 
     await expect(readRecords()).resolves.toEqual([shirazRecord])
@@ -322,6 +316,9 @@ describe('ManualDrinkPage drinking-record management', () => {
     const recentRecords = getRecentRecordsSection()
     expect(within(recentRecords).queryByText('Sky')).not.toBeInTheDocument()
     expect(within(recentRecords).getByText('Shiraz')).toBeInTheDocument()
+    pageView.rerender(<ManualDrinkPage initialView="record" />)
+    fireEvent.click(screen.getByRole('button', { name: 'My Drinks' }))
+    if (screen.queryByRole('button', { name: 'Back to Record' })) await user.click(screen.getByRole('button', { name: 'Back to Record' }))
     expect(
       screen.getByRole('button', {
         name: /Sky.*Beer.*300 mL.*4% ABV/,

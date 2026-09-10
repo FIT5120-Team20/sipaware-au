@@ -4,7 +4,11 @@
  * Corrections and deletions are delegated to the history repository callbacks;
  * this component never changes My Drinks or talks to IndexedDB directly.
  */
+import { applicationHref } from '../../../app/entryPaths'
 import { useState } from 'react'
+import { calculateStandardDrinks, formatStandardDrinks } from '../calculations/standardDrinks'
+import { DrinkThumb } from './ReferenceRecordBrowser'
+import { ReferenceDialog } from './ReferenceDialog'
 
 import { getDrinkTypeLabel } from '../config/drinkTypes'
 import type { DrinkingRecord } from '../types/drinkingRecord'
@@ -14,6 +18,7 @@ import { DrinkingRecordEditor } from './DrinkingRecordEditor'
 import { SipAwareIcon } from './SipAwareIcon'
 
 interface RecentDrinkingRecordsProps {
+  presentation?: 'default' | 'reference'
   referenceCategories: readonly DrinkReferenceCategory[]
   records: readonly DrinkingRecord[]
   onUpdate: (record: DrinkingRecord) => void | Promise<void>
@@ -31,11 +36,13 @@ function formatRecordedNumber(value: number): string {
 }
 
 export function RecentDrinkingRecords({
+  presentation = 'default',
   referenceCategories,
   records,
   onUpdate,
   onDelete,
 }: RecentDrinkingRecordsProps) {
+  const [openActionsId, setOpenActionsId] = useState<string | null>(null)
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null)
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
   const [deletingRecordId, setDeletingRecordId] = useState<string | null>(null)
@@ -90,6 +97,45 @@ export function RecentDrinkingRecords({
       message:
         'The drinking record was deleted. Your saved drinks in My Drinks were not changed.',
     })
+  }
+
+  if (presentation === 'reference') {
+    const editing = recentRecords.find(record => record.id === editingRecordId)
+    const pending = recentRecords.find(record => record.id === pendingDeleteId)
+    if (editing) return <section className="reference-edit-page">
+      <button className="prototype-back" type="button" onClick={() => setEditingRecordId(null)}>‹ Back to History</button>
+      <h1>Edit Record</h1>
+      <DrinkingRecordEditor key={editing.id} referenceCategories={referenceCategories} record={editing}
+        onSave={saveEditedRecord} onCancel={() => setEditingRecordId(null)} />
+    </section>
+    return <section className="reference-history-records" aria-labelledby="recent-records-title">
+      <h2 id="recent-records-title">Recent records</h2>
+      <p>View or correct your three most recently saved drinking records.</p>
+      {managementStatus && !pending && <p className={'management-notice management-notice--' + managementStatus.kind} role={managementStatus.kind === 'error' ? 'alert' : 'status'}>{managementStatus.message}</p>}
+      {recentRecords.length === 0 ? <div className="reference-history-empty"><h3>No drinking records yet</h3><p>No drinks recorded on this device yet.</p><a href={applicationHref('/record')}>Record a drink</a></div> :
+        <ol className="reference-history-list">{recentRecords.map(record => <li key={record.id}>
+          <article className="reference-history-row">
+            <div className="reference-history-time"><time dateTime={record.consumedAt}>{formatConsumedDateTime(record)}</time></div>
+            <div className="reference-history-drink"><DrinkThumb type={record.drinkType} /><div><h3>{record.drinkName}</h3>
+              <p>{getDrinkTypeLabel(record.drinkType, referenceCategories)} · {record.abvPercent}% ABV · {record.servingVolumeMl * record.amountConsumed} mL</p>
+              <dl className="reference-sr-only"><dt>Serving volume</dt><dd>{record.servingVolumeMl} mL</dd><dt>ABV</dt><dd>{record.abvPercent}%</dd><dt>Servings consumed</dt><dd>{record.amountConsumed}</dd></dl>
+            </div></div>
+            <div className="reference-history-total"><strong>{formatStandardDrinks(calculateStandardDrinks(record))}</strong><span>standard drinks</span>
+              <button type="button" className="reference-history-more" aria-label={'Actions for ' + record.drinkName} aria-expanded={openActionsId === record.id} onClick={() => setOpenActionsId(openActionsId === record.id ? null : record.id)}>⋯</button>
+              {openActionsId === record.id && <div className="reference-history-menu">
+                <button type="button" aria-label={'Edit drinking record for ' + record.drinkName} onClick={() => { beginEditing(record.id); setOpenActionsId(null) }}>Edit</button>
+                <button type="button" aria-label={'Delete drinking record for ' + record.drinkName} onClick={() => { requestDelete(record.id); setOpenActionsId(null) }}>Delete</button>
+              </div>}
+            </div>
+          </article>
+        </li>)}</ol>}
+      {pending && <ReferenceDialog title="Delete this record?" alert onClose={() => { if (!deletingRecordId) setPendingDeleteId(null) }}>
+        <p>This removes this record from your drinking history. Your saved drinks in My Drinks will not be changed.</p>
+        {managementStatus?.kind === 'error' && <p role="alert" className="management-notice management-notice--error">{managementStatus.message}</p>}
+        <div className="management-actions"><button className="secondary-button" type="button" disabled={Boolean(deletingRecordId)} onClick={() => setPendingDeleteId(null)}>Cancel</button>
+          <button className="danger-button" type="button" disabled={Boolean(deletingRecordId)} onClick={() => confirmDelete(pending)}>Yes, delete record</button></div>
+      </ReferenceDialog>}
+    </section>
   }
 
   return (

@@ -21,6 +21,7 @@ interface AlcoholConsumptionSummaryProps {
   guidelineStatus: GuidelineLoadStatus
   onRetryGuidelines: () => void
   showRelatedInformation?: boolean
+  presentation?: 'default' | 'reference'
 }
 
 function getGuideline(
@@ -79,6 +80,7 @@ function GuidelineComparison({
         {formatThreshold(guideline.thresholdStandardDrinks)} standard drinks
         {valueContext && <> {valueContext}</>}
       </p>
+      <div className="reference-guideline-progress" aria-label={label + ' recorded standard drinks'}><div style={{ width: Math.min(100, total / guideline.thresholdStandardDrinks * 100) + '%' }} /></div>
       <p className="consumption-comparison__status">
         {guidelineStatusText(total, guideline.thresholdStandardDrinks)}
       </p>
@@ -92,12 +94,13 @@ export function AlcoholConsumptionSummary({
   guidelineStatus,
   onRetryGuidelines,
   showRelatedInformation = true,
+  presentation = 'default',
 }: AlcoholConsumptionSummaryProps) {
   const hasRecordedHistory = summary.recordedHistorySpanStatus !== 'none'
 
   return (
     <section
-      className="consumption-summary-card"
+      className={'consumption-summary-card' + (presentation === 'reference' ? ' reference-result-comparisons' : '')}
       aria-labelledby="consumption-summary-title"
     >
       <div className="section-heading consumption-summary-heading">

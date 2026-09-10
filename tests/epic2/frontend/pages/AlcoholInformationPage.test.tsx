@@ -65,7 +65,7 @@ describe('AlcoholInformationPage', () => {
     expect(
       screen.getByRole('heading', {
         level: 1,
-        name: 'Alcohol Guidelines & Legal Information',
+        name: 'Learn',
       }),
     ).toBeInTheDocument()
     await screen.findByText('Verified legal fixture content.')
@@ -73,6 +73,7 @@ describe('AlcoholInformationPage', () => {
     for (const topic of ALCOHOL_INFORMATION_RESPONSE.topics) {
       const heading = screen.getByRole('heading', {
         level: 2,
+        hidden: true,
         name: topic.displayName,
       })
       const section = heading.closest('section')
@@ -83,6 +84,7 @@ describe('AlcoholInformationPage', () => {
     const standardSection = screen
       .getByRole('heading', {
         level: 2,
+        hidden: true,
         name: 'What is a Standard Drink?',
       })
       .closest('section')
@@ -91,18 +93,18 @@ describe('AlcoholInformationPage', () => {
     }
 
     expect(
-      within(standardSection).getByText('Primary source'),
+      within(standardSection).getByText(/Primary source/),
     ).toBeInTheDocument()
     expect(
-      within(standardSection).getByText('Supporting source'),
+      within(standardSection).getByText(/Supporting source/),
     ).toBeInTheDocument()
     expect(
-      within(standardSection).getByText('29 August 2026').closest('p'),
+      within(standardSection).getByText('29 August 2026').closest('small'),
     ).toHaveTextContent(
       'Information last verified 29 August 2026',
     )
-    const links = within(standardSection).getAllByRole('link')
-    expect(links).toHaveLength(2)
+    const links = within(standardSection).getAllByRole('link', { hidden: true })
+    expect(links).toHaveLength(3)
     for (const link of links) {
       expect(link).toHaveAttribute('target', '_blank')
       expect(link).toHaveAttribute('rel', 'noreferrer')
@@ -168,6 +170,7 @@ describe('AlcoholInformationPage', () => {
 
     const heading = await screen.findByRole('heading', {
       level: 2,
+        hidden: true,
       name: 'Alcohol and ageing',
     })
     await waitFor(() => expect(heading).toHaveFocus())
@@ -182,6 +185,7 @@ describe('AlcoholInformationPage', () => {
     render(<AlcoholInformationPage />)
     const heading = await screen.findByRole('heading', {
       level: 2,
+        hidden: true,
       name: 'Alcohol and driving',
     })
 
@@ -204,6 +208,7 @@ describe('AlcoholInformationPage', () => {
 
     const heading = await screen.findByRole('heading', {
       level: 2,
+        hidden: true,
       name: 'What is a Standard Drink?',
     })
 
@@ -227,7 +232,7 @@ describe('AlcoholInformationPage', () => {
     expect(
       screen.getByRole('heading', {
         level: 1,
-        name: 'Alcohol Guidelines & Legal Information',
+        name: 'Learn',
       }),
     ).not.toHaveFocus()
   })

@@ -6,13 +6,16 @@
  * boundary and the separation from historical DrinkingRecords.
  */
 import { useState } from 'react'
+import { ReferenceRecordBrowser, DrinkThumb, IcoChevron } from './ReferenceRecordBrowser'
 
 import { getDrinkTypeLabel } from '../config/drinkTypes'
 import type { DrinkReferenceCategory } from '../types/drinkReference'
 import type { SavedDrink } from '../types/savedDrink'
 import { SavedDrinkEditor } from './SavedDrinkEditor'
+import { ReferenceDialog } from './ReferenceDialog'
 
 interface SavedDrinkPickerProps {
+  browserActions?: { onScan: () => void; onManual: () => void }
   referenceCategories: readonly DrinkReferenceCategory[]
   savedDrinks: readonly SavedDrink[]
   selectedSavedDrinkId: string | null
@@ -27,6 +30,7 @@ type ManagementStatus =
   | null
 
 export function SavedDrinkPicker({
+  browserActions,
   referenceCategories,
   savedDrinks,
   selectedSavedDrinkId,
@@ -98,37 +102,9 @@ export function SavedDrinkPicker({
     })
   }
 
-  return (
-    <section
-      className={`my-drinks-panel${savedDrinks.length === 0 ? ' my-drinks-panel--empty' : ''}`}
-      aria-labelledby="my-drinks-title"
-    >
-      <div className="my-drinks-heading">
-        <p className="section-kicker">Quick record</p>
-        <h3 id="my-drinks-title">My Drinks</h3>
-        <p>
-          Choose a saved drink to load its reusable details, then enter this
-          occasion&apos;s servings, date and time.
-        </p>
-      </div>
-
-      {managementStatus && (
-        <div
-          className={`management-notice management-notice--${managementStatus.kind}`}
-          role={managementStatus.kind === 'error' ? 'alert' : 'status'}
-        >
-          {managementStatus.message}
-        </div>
-      )}
-
-      {savedDrinks.length === 0 ? (
-        <p className="empty-state">
-          No saved drinks yet. Enter drink details below and choose Save this
-          drink to My Drinks.
-        </p>
-      ) : (
+  const renderCards = (drinks: readonly SavedDrink[]) => (
         <ul className="saved-drinks-list">
-          {savedDrinks.map((savedDrink) => (
+          {drinks.map((savedDrink) => (
             <li key={savedDrink.id}>
               <article className="saved-drink-item">
                 <button
@@ -137,7 +113,8 @@ export function SavedDrinkPicker({
                   aria-pressed={savedDrink.id === selectedSavedDrinkId}
                   onClick={() => onSelect(savedDrink)}
                 >
-                  <strong>{savedDrink.drinkName}</strong>
+                  <DrinkThumb type={savedDrink.drinkType} />
+                  <span className="prototype-card-copy"><strong>{savedDrink.drinkName}</strong>
                   <span>
                     {getDrinkTypeLabel(
                       savedDrink.drinkType,
@@ -146,7 +123,7 @@ export function SavedDrinkPicker({
                     -{' '}
                     {savedDrink.servingVolumeMl} mL - {savedDrink.abvPercent}%
                     {' '}ABV
-                  </span>
+                  </span></span><IcoChevron />
                 </button>
 
                 <div className="saved-drink-actions">
@@ -164,11 +141,11 @@ export function SavedDrinkPicker({
                     aria-label={`Delete ${savedDrink.drinkName} from My Drinks`}
                     onClick={() => requestDelete(savedDrink.id)}
                   >
-                    Delete from My Drinks
+                    Delete
                   </button>
                 </div>
 
-                {editingSavedDrinkId === savedDrink.id && (
+                {!browserActions && editingSavedDrinkId === savedDrink.id && (
                   <SavedDrinkEditor
                     referenceCategories={referenceCategories}
                     savedDrink={savedDrink}
@@ -177,7 +154,7 @@ export function SavedDrinkPicker({
                   />
                 )}
 
-                {pendingDeleteId === savedDrink.id && (
+                {!browserActions && pendingDeleteId === savedDrink.id && (
                   <div className="delete-confirmation" role="alert">
                     <p>
                       <strong>
@@ -208,9 +185,53 @@ export function SavedDrinkPicker({
             </li>
           ))}
         </ul>
+  )
+
+  const editing = savedDrinks.find(drink => drink.id === editingSavedDrinkId)
+  const pending = savedDrinks.find(drink => drink.id === pendingDeleteId)
+  return (
+    <section
+      className={`my-drinks-panel${savedDrinks.length === 0 ? ' my-drinks-panel--empty' : ''}`}
+      aria-labelledby="my-drinks-title"
+    >
+      {!browserActions && <div className="my-drinks-heading">
+        <p className="section-kicker">Quick record</p>
+        <h3 id="my-drinks-title">My Drinks</h3>
+        <p>
+          Choose a saved drink to load its reusable details, then enter this
+          occasion&apos;s servings, date and time.
+        </p>
+      </div>}
+
+      {managementStatus && !(browserActions && pending) && (
+        <div
+          className={`management-notice management-notice--${managementStatus.kind}`}
+          role={managementStatus.kind === 'error' ? 'alert' : 'status'}
+        >
+          {managementStatus.message}
+        </div>
       )}
 
-      {selectedSavedDrink && (
+      {browserActions && editing && <section className="reference-edit-page">
+        <button className="prototype-back" type="button" onClick={() => setEditingSavedDrinkId(null)}>‹ Back to My Drinks</button>
+        <h1>Edit Drink</h1><SavedDrinkEditor key={editing.id} referenceCategories={referenceCategories} savedDrink={editing} onSave={saveEditedDrink} onCancel={() => setEditingSavedDrinkId(null)} />
+      </section>}
+      {browserActions && pending && <ReferenceDialog title="Delete this drink?" alert onClose={() => { if (!deletingSavedDrinkId) setPendingDeleteId(null) }}>
+        <p>{pending.drinkName} will be removed from My Drinks. Your previous drinking records will be kept.</p>
+        {managementStatus?.kind === 'error' && <p role="alert" className="management-notice management-notice--error">{managementStatus.message}</p>}
+        <div className="management-actions"><button type="button" className="secondary-button" disabled={Boolean(deletingSavedDrinkId)} onClick={() => setPendingDeleteId(null)}>Keep {pending.drinkName}</button>
+          <button type="button" className="danger-button" disabled={Boolean(deletingSavedDrinkId)} onClick={() => confirmDelete(pending)}>Yes, delete {pending.drinkName} from My Drinks</button></div>
+      </ReferenceDialog>}
+      {browserActions ? <div hidden={Boolean(editing)}><ReferenceRecordBrowser savedDrinks={savedDrinks} onScan={browserActions.onScan} onManual={browserActions.onManual}>{renderCards}</ReferenceRecordBrowser></div> : savedDrinks.length === 0 ? (
+        <p className="empty-state">
+          No saved drinks yet. Enter drink details and choose Save this
+          drink to My Drinks.
+        </p>
+      ) : (
+        renderCards(savedDrinks)
+      )}
+
+      {selectedSavedDrink && !browserActions && (
         <div className="selected-drink-notice" role="status">
           <p>
             <strong>Using {selectedSavedDrink.drinkName} from My Drinks.</strong>{' '}

@@ -31,7 +31,15 @@ function publicReferenceResponse(input: RequestInfo | URL): Response {
   })
 }
 
+// jsdom does not implement native dialog methods. Keep this DOM-only shim in
+// tests; real focus trapping, Escape and backdrop behavior are covered in Chromium.
+if (!HTMLDialogElement.prototype.showModal) {
+  HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', '') }
+  HTMLDialogElement.prototype.close = function () { this.removeAttribute('open') }
+}
+
 beforeEach(() => {
+  window.history.replaceState({}, '', '/record')
   // Page tests receive the same public reference contract by default. Tests of
   // loading and failure states replace this mock explicitly.
   vi.stubGlobal(

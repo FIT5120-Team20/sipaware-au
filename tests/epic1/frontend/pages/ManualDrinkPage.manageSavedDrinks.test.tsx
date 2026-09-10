@@ -67,6 +67,7 @@ function readHistory(): Promise<DrinkingRecord[]> {
 async function renderHydratedPage() {
   const view = render(<ManualDrinkPage />)
   await screen.findByLabelText('Drink type')
+  fireEvent.click(screen.getByRole('button', { name: 'My Drinks' }))
   return view
 }
 
@@ -80,6 +81,9 @@ function getEditor(name: string): HTMLFormElement {
 }
 
 async function editSkyToLarge(user: ReturnType<typeof userEvent.setup>) {
+  const back = screen.queryByRole('button', { name: 'Back to Record' })
+  if (back) await user.click(back)
+  await user.click(screen.getByRole('button', { name: 'My Drinks' }))
   await user.click(screen.getByRole('button', { name: 'Edit Sky' }))
   const editor = getEditor('Sky')
 
@@ -167,7 +171,8 @@ describe('ManualDrinkPage My Drinks management', () => {
     const user = userEvent.setup()
     await renderHydratedPage()
 
-    await user.click(screen.getByRole('button', { name: 'Edit Sky' }))
+    await user.click(screen.getByRole('button', { name: 'My Drinks' }))
+  await user.click(screen.getByRole('button', { name: 'Edit Sky' }))
     const editor = getEditor('Sky')
     fireEvent.change(within(editor).getByLabelText('Edit drink name'), {
       target: { value: '   ' },
@@ -195,15 +200,15 @@ describe('ManualDrinkPage My Drinks management', () => {
     await user.click(
       screen.getByRole('button', { name: 'Delete Sky from My Drinks' }),
     )
-    expect(screen.getByText('Delete Sky from My Drinks?')).toBeInTheDocument()
+    expect(screen.getByText('Delete this drink?')).toBeInTheDocument()
     expect(
-      screen.getByText('This will not delete past drinking records.'),
+      screen.getByText('Sky will be removed from My Drinks. Your previous drinking records will be kept.'),
     ).toBeInTheDocument()
     await expect(readSavedDrinks()).resolves.toEqual([savedShiraz, savedSky])
 
     await user.click(screen.getByRole('button', { name: 'Keep Sky' }))
     expect(
-      screen.queryByText('Delete Sky from My Drinks?'),
+      screen.queryByText('Delete this drink?'),
     ).not.toBeInTheDocument()
     await expect(readSavedDrinks()).resolves.toEqual([savedShiraz, savedSky])
 
@@ -233,7 +238,7 @@ describe('ManualDrinkPage My Drinks management', () => {
   it('keeps a history snapshot unchanged through saved-drink edit and deletion', async () => {
     await storeSavedDrinks([savedSky])
     const user = userEvent.setup()
-    await renderHydratedPage()
+    const view = await renderHydratedPage()
 
     await user.click(
       screen.getByRole('button', {
@@ -250,7 +255,7 @@ describe('ManualDrinkPage My Drinks management', () => {
       target: { value: '19:30' },
     })
     await user.click(
-      screen.getByRole('button', { name: 'Save drinking record' }),
+      screen.getByRole('button', { name: 'Record Drink' }),
     )
     const historySnapshot = await readHistory()
     expect(historySnapshot[0]).toMatchObject({
@@ -259,6 +264,7 @@ describe('ManualDrinkPage My Drinks management', () => {
       abvPercent: 4,
     })
 
+    await user.click(await screen.findByRole('button', { name: 'Done' }))
     await editSkyToLarge(user)
     await expect(readHistory()).resolves.toEqual(historySnapshot)
 
@@ -275,8 +281,9 @@ describe('ManualDrinkPage My Drinks management', () => {
 
     await expect(readSavedDrinks()).resolves.toEqual([])
     await expect(readHistory()).resolves.toEqual(historySnapshot)
+    view.rerender(<ManualDrinkPage initialView="history" />)
     const recentRecordsHeading = screen.getByRole('heading', {
-      name: 'Recent records',
+      name: 'Your drinking records',
     })
     const recentRecordsSection = recentRecordsHeading.closest('section')
     expect(recentRecordsSection).not.toBeNull()

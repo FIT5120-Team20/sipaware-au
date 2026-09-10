@@ -25,6 +25,7 @@ const existingRecord: DrinkingRecord = {
 async function renderHydratedPage() {
   const view = render(<ManualDrinkPage />)
   await screen.findByLabelText('Drink type')
+  fireEvent.click(await screen.findByRole('button', { name: 'Record Manually' }))
   return view
 }
 
@@ -72,7 +73,7 @@ describe('ManualDrinkPage', () => {
       screen.getByText(/number of servings consumed, for example 1\.5/i),
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('button', { name: 'Save drinking record' }),
+      screen.getByRole('button', { name: 'Record Drink' }),
     ).toBeInTheDocument()
   })
 
@@ -152,7 +153,7 @@ describe('ManualDrinkPage', () => {
       target: { value: '500' },
     })
     await user.click(
-      screen.getByRole('button', { name: 'Save drinking record' }),
+      screen.getByRole('button', { name: 'Record Drink' }),
     )
 
     const storedRecords = await new IndexedDbDrinkingRecordRepository().list()
@@ -164,7 +165,7 @@ describe('ManualDrinkPage', () => {
       servingVolumeMl: 500,
     })
     expect(
-      screen.getByText('Drinking record saved on this device.'),
+      await screen.findByText('Drinking record saved on this device.'),
     ).toBeInTheDocument()
   })
 
@@ -174,7 +175,7 @@ describe('ManualDrinkPage', () => {
     const user = await completeValidForm()
 
     await user.click(
-      screen.getByRole('button', { name: 'Save drinking record' }),
+      screen.getByRole('button', { name: 'Record Drink' }),
     )
 
     expect(
@@ -202,16 +203,19 @@ describe('ManualDrinkPage', () => {
     })
     expect(storedRecords[1].id).not.toHaveLength(0)
     expect(Number.isNaN(Date.parse(storedRecords[1].createdAt))).toBe(false)
+    await user.click(screen.getByRole('button', { name: 'Done' }))
+    await user.click(screen.getByRole('button', { name: 'Record Manually' }))
     expect(screen.getByLabelText('Drink name')).toHaveValue('')
     expect(screen.getByLabelText('Drink type')).toHaveValue('')
     expect(screen.getByLabelText('Number of servings consumed')).toHaveValue(
       null,
     )
+    view.rerender(<ManualDrinkPage initialView="history" />)
     expect(screen.getByText('Pale Ale')).toBeInTheDocument()
     expect(screen.getByText('Existing Shiraz')).toBeInTheDocument()
 
     view.unmount()
-    await renderHydratedPage()
+    render(<ManualDrinkPage initialView="history" />)
     expect(await screen.findByText('Pale Ale')).toBeInTheDocument()
     expect(screen.getByText('Existing Shiraz')).toBeInTheDocument()
   })
@@ -233,7 +237,7 @@ describe('ManualDrinkPage', () => {
     })
 
     await user.click(
-      screen.getByRole('button', { name: 'Save drinking record' }),
+      screen.getByRole('button', { name: 'Record Drink' }),
     )
 
     expect(await screen.findByText(/Enter a drink name\./)).toBeInTheDocument()
@@ -264,7 +268,7 @@ describe('ManualDrinkForm save failures', () => {
     const user = await completeValidForm()
 
     await user.click(
-      screen.getByRole('button', { name: 'Save drinking record' }),
+      screen.getByRole('button', { name: 'Record Drink' }),
     )
 
     expect(

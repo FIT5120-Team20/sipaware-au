@@ -6,17 +6,17 @@
  * repositories. Keeping persistence here prevents UI controls from depending
  * directly on IndexedDB and keeps SavedDrink and DrinkingRecord state separate.
  */
+import { applicationHref } from '../../../app/entryPaths'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { getDrinkOptions } from '../../../services/drinkReferenceApi'
 import { getAlcoholGuidelines } from '../../../services/guidelineReferenceApi'
 import { calculateAlcoholConsumptionSummary } from '../calculations/alcoholConsumptionSummary'
-import { AlcoholLearnMore } from '../components/AlcoholLearnMore'
+import { ReferenceRecordResult } from '../components/ReferenceRecordResult'
 import { AlcoholConsumptionSummary } from '../components/AlcoholConsumptionSummary'
 import { DrivingSafetyGuidance } from '../components/DrivingSafetyGuidance'
 import { ManualDrinkForm } from '../components/ManualDrinkForm'
-import { RecentDrinkingRecords } from '../components/RecentDrinkingRecords'
-import { SipAwareHeader } from '../components/SipAwareHeader'
+import { ReferenceHistoryTrends } from '../components/ReferenceHistoryTrends'
 import { mapDrinkReferenceCategories } from '../config/drinkTypes'
 import { useCurrentLocalDateKey } from '../hooks/useCurrentLocalDateKey'
 import { IndexedDbDrinkingRecordRepository } from '../storage/drinkingRecordRepository'
@@ -35,7 +35,9 @@ import '../manualDrink.css'
 
 type HydrationStatus = 'loading' | 'ready' | 'error'
 
-export function ManualDrinkPage() {
+export function ManualDrinkPage({ initialView = 'record' }: { initialView?: 'record' | 'history' }) {
+  const [resultId, setResultId] = useState<string | null>(() => new URLSearchParams(window.location.search).get('record'))
+  const [templateFailed, setTemplateFailed] = useState(false)
   const drinkingRecordRepository = useMemo(
     () => new IndexedDbDrinkingRecordRepository(),
     [],
@@ -65,6 +67,30 @@ export function ManualDrinkPage() {
     () => calculateAlcoholConsumptionSummary(records, currentLocalDateKey),
     [records, currentLocalDateKey],
   )
+
+  const lastRecord = records.find(record => record.id === resultId)
+
+  // URLs identify only committed local records. Reload/back rehydrates the same
+  // source of truth; it never repeats a write or fabricates a successful result.
+  useEffect(() => {
+    const restore = () => { setResultId(new URLSearchParams(window.location.search).get('record')) }
+    window.addEventListener('popstate', restore)
+    return () => window.removeEventListener('popstate', restore)
+  }, [])
+  useEffect(() => {
+    const heading = document.getElementById('record-result-title')
+    if (resultId && heading) { heading.focus(); heading.scrollIntoView?.({ block: 'start' }) }
+  }, [resultId, hydrationStatus])
+  function showRecordedResult(record: DrinkingRecord, failed: boolean) {
+    window.history.pushState({}, '', applicationHref('/record?record=' + encodeURIComponent(record.id)))
+    setTemplateFailed(failed)
+    setResultId(record.id)
+  }
+  function returnToBrowse() {
+    window.history.pushState({}, '', applicationHref('/record'))
+    setResultId(null)
+    setTemplateFailed(false)
+  }
 
   // IndexedDB reads are asynchronous. The feature stays in a loading state
   // until both independent stores have hydrated, avoiding an empty-state flash
@@ -233,16 +259,7 @@ export function ManualDrinkPage() {
 
   return (
     <div className="manual-drink-page">
-      <SipAwareHeader />
       <main className="manual-drink-shell">
-        <header className="feature-header">
-          <h1>Record a drink</h1>
-          <p>
-            Record what you drank and how much you consumed. Your drinking
-            records are saved only in this browser on this device.
-          </p>
-        </header>
-
         {hydrationStatus === 'loading' && (
           <section className="manual-drink-card" role="status">
             Loading drinks saved on this device...
@@ -259,46 +276,31 @@ export function ManualDrinkPage() {
         )}
 
         {hydrationStatus === 'ready' && (
-          <div className="manual-drink-layout">
-            {/* The desktop primary rail mirrors the approved task hierarchy;
-                persistence and calculations stay owned by this page rather
-                than by the new visual containers. */}
-            <div className="manual-drink-primary">
-              <AlcoholConsumptionSummary
-                summary={consumptionSummary}
-                guidelines={guidelines}
-                guidelineStatus={guidelineStatus}
-                onRetryGuidelines={retryGuidelines}
-                showRelatedInformation={false}
-              />
-              <ManualDrinkForm
-                referenceCategories={referenceCategories}
-                referenceStatus={referenceStatus}
-                onRetryReferenceData={retryReferenceData}
-                savedDrinks={savedDrinks}
-                onSave={saveRecord}
-                onSaveSavedDrink={saveDrinkForFutureUse}
-                onUpdateSavedDrink={updateSavedDrink}
-                onDeleteSavedDrink={deleteSavedDrink}
-              />
-            </div>
-
-            <aside className="manual-drink-sidebar" aria-label="Record support">
-              <RecentDrinkingRecords
-                referenceCategories={referenceCategories}
-                records={records}
-                onUpdate={updateRecord}
-                onDelete={deleteRecord}
-              />
-
-              {/* Driving guidance depends only on shared local record presence,
-                  never guideline status, totals, SavedDrinks, or backend data. */}
-              {consumptionSummary.hasEligibleDrinkingRecordToday && (
-                <DrivingSafetyGuidance />
-              )}
-              <AlcoholLearnMore />
-            </aside>
-          </div>
+          initialView === 'history' ? (
+            <ReferenceHistoryTrends records={records} referenceCategories={referenceCategories}
+              onUpdate={updateRecord} onDelete={deleteRecord} guidelines={guidelines} guidelineStatus={guidelineStatus}
+              onRetryGuidelines={retryGuidelines} todayKey={currentLocalDateKey} />
+          ) : resultId ? (
+            lastRecord ? <ReferenceRecordResult record={lastRecord} templateFailed={templateFailed} onDone={returnToBrowse}>
+              <AlcoholConsumptionSummary presentation="reference" summary={consumptionSummary} guidelines={guidelines}
+                guidelineStatus={guidelineStatus} onRetryGuidelines={retryGuidelines} showRelatedInformation={false} />
+              {consumptionSummary.hasEligibleDrinkingRecordToday && <DrivingSafetyGuidance />}
+            </ReferenceRecordResult> : <section className="reference-record-result">
+              <h1>Record unavailable</h1><p>This record is no longer available on this device.</p>
+              <button type="button" className="primary-button" onClick={returnToBrowse}>Back to Record</button>
+            </section>
+          ) : <ManualDrinkForm
+            startInBrowse
+            referenceCategories={referenceCategories}
+            referenceStatus={referenceStatus}
+            onRetryReferenceData={retryReferenceData}
+            savedDrinks={savedDrinks}
+            onSave={saveRecord}
+            onRecorded={showRecordedResult}
+            onSaveSavedDrink={saveDrinkForFutureUse}
+            onUpdateSavedDrink={updateSavedDrink}
+            onDeleteSavedDrink={deleteSavedDrink}
+          />
         )}
       </main>
 

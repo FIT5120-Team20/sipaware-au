@@ -9,14 +9,15 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "lint": "cd .. && eslint frontend tests/epic1/frontend tests/epic2/frontend tests/shared/frontend",
+    "lint": "cd .. && eslint frontend tests/epic1/frontend tests/epic2/frontend tests/epic3/frontend tests/shared/frontend",
     "test": "vitest run",
     "preview": "vite preview"
   },
   "dependencies": {
     "idb": "^8.0.3",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "@zxing/library": "0.21.3"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

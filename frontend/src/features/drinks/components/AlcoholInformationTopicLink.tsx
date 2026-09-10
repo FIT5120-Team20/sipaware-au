@@ -2,8 +2,10 @@
  * Builds a stable, reload-safe topic destination with native anchor semantics.
  *
  * Typed topic codes keep entry-point links aligned with API-backed section IDs
- * without introducing personal state, calculations, or a routing abstraction.
+ * without introducing personal state or calculations. Native anchors retain
+ * their current application mount through the shared path helper.
  */
+import { applicationHref } from '../../../app/entryPaths'
 import type { ReactNode } from 'react'
 
 import type { AlcoholInformationTopicCode } from '../types/alcoholGuideline'
@@ -26,7 +28,7 @@ export function AlcoholInformationTopicLink({
   return (
     <a
       className={classes}
-      href={'/alcohol-guidelines#' + encodeURIComponent(topicCode)}
+      href={applicationHref('/alcohol-guidelines#' + encodeURIComponent(topicCode))}
     >
       {children}
     </a>
