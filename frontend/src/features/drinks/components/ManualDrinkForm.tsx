@@ -152,6 +152,7 @@ export function ManualDrinkForm({
   onRecorded,
 }: ManualDrinkFormProps) {
   const [barcodeOpen, setBarcodeOpen] = useState(false)
+  const [labelScanUnavailable, setLabelScanUnavailable] = useState(false)
   const [captureView, setCaptureView] = useState<'browse' | 'manual'>(startInBrowse ? 'browse' : 'manual')
 
   // The reference separates drink selection from occasion entry. Keep the form
@@ -454,18 +455,21 @@ export function ManualDrinkForm({
         {startInBrowse && <button type="button" className="prototype-back" onClick={() => setCaptureView('browse')}><span aria-hidden="true">‹</span> Back to Record</button>}
         <h1 id="manual-drink-title">{selectedSavedDrink ? 'Record Consumption' : 'Record a Drink'}</h1>
         <p>{selectedSavedDrink ? 'Tell us how much you drank.' : 'Enter the drink details and how much you drank.'}</p>
-        {/* Reuse the prototype scan card presentation, but retain US3.1's real
-            local barcode decoder. The prototype's simulated label OCR is excluded. */}
+        {/* Label scanning is a UI-only placeholder. Barcode capture remains on
+            the Record browser; never substitute it or simulated OCR here. */}
         <div className="prototype-scan-card">
           <div className="prototype-scan-card-title">
             <svg aria-hidden="true" width="18" height="18" viewBox="0 0 20 20" fill="none">
               <path d="M7 2H4a2 2 0 0 0-2 2v3M13 2h3a2 2 0 0 1 2 2v3M7 18H4a2 2 0 0 1-2-2v-3M13 18h3a2 2 0 0 0 2-2v-3" stroke="#647280" strokeWidth="1.6" strokeLinecap="round" />
               <circle cx="10" cy="10" r="2.5" stroke="#647280" strokeWidth="1.6" />
             </svg>
-            <h2>Scan drink barcode</h2>
+            <h2>Scan drink label</h2>
           </div>
-          <p>Use your camera or choose a photo to read a barcode on this device. Product lookup is temporarily unavailable; you can still enter the drink details manually.</p>
-          <button type="button" disabled={isPersisting} onClick={() => setBarcodeOpen(true)}>Scan Barcode</button>
+          <p>Take or upload a photo of the label to help fill in the drink details automatically.</p>
+          <button type="button" disabled={isPersisting} onClick={() => setLabelScanUnavailable(true)}>Scan Label</button>
+          {labelScanUnavailable && <p role="status" style={{ margin: '12px 0 0' }}>
+            Label scanning is not available yet. Please enter the drink details below.
+          </p>}
         </div>
       </div>
       {barcodeOpen && <BarcodeScanner onBack={() => setBarcodeOpen(false)}
