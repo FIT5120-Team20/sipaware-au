@@ -31,6 +31,7 @@ function successfulGuidelineResponse(): Response {
 
 async function renderLoadedPage() {
   render(<ManualDrinkPage />)
+  await userEvent.setup().click(await screen.findByRole('button', { name: 'Record Manually' }))
   const drinkType = await screen.findByLabelText('Drink type')
   await waitFor(() => expect(drinkType).toBeEnabled())
   return drinkType
@@ -62,6 +63,7 @@ describe('ManualDrinkPage public reference loading', () => {
     expect(
       await screen.findByText('Loading current drink reference options...'),
     ).toBeInTheDocument()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'My Drinks' }))
     expect(
       screen.getByRole('button', {
         name: /Browser-local beer.*Beer.*375 mL.*4.5% ABV/,
@@ -97,6 +99,7 @@ describe('ManualDrinkPage public reference loading', () => {
     )
 
     await waitFor(() => expect(screen.getByLabelText('Drink type')).toBeEnabled())
+    await user.click(screen.getByRole('button', { name: 'Record Manually' }))
     expect(drinkOptionAttempts).toBe(2)
     expect(
       within(screen.getByLabelText('Drink type')).getByRole('option', {
@@ -221,6 +224,8 @@ describe('ManualDrinkPage public reference loading', () => {
     const user = userEvent.setup()
     await renderLoadedPage()
 
+    if (screen.queryByRole('button', { name: 'Back to Record' })) await user.click(screen.getByRole('button', { name: 'Back to Record' }))
+    await user.click(screen.getByRole('button', { name: 'My Drinks' }))
     await user.click(
       screen.getByRole('button', {
         name: /Legacy cider.*Cider.*375 mL.*4.9% ABV/,
@@ -229,6 +234,7 @@ describe('ManualDrinkPage public reference loading', () => {
     expect(screen.getByLabelText('Serving size / volume')).toHaveValue('custom')
     expect(screen.getByLabelText('Custom volume (mL)')).toHaveValue(375)
 
+    if (screen.queryByRole('button', { name: 'Back to Record' })) await user.click(screen.getByRole('button', { name: 'Back to Record' }))
     await user.click(
       screen.getByRole('button', {
         name: /Legacy spirits.*Straight Spirits.*60 mL.*40% ABV/,

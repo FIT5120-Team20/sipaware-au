@@ -1,0 +1,505 @@
+/*
+ * ADAPT: alcohol-health-prototype/src/index.css, App.tsx and page layouts at
+ * f5711b15. Preserve its Outfit/DM Serif typography, white surfaces, blue actions,
+ * warm borders and side/bottom navigation without adding Tailwind to SipAware.
+ * Existing feature classes retain their validation semantics and visible advice.
+ */
+@import url('/reference-ui/dm-serif-display.css');
+@import url('/reference-ui/outfit.css');
+
+:root {
+  --colour-navy-950: #1c1c1a;
+  --colour-navy-800: #32312f;
+  --colour-text: #393633;
+  --colour-muted: #56524f;
+  --colour-teal-700: #1a5fcc;
+  --colour-teal-800: #174fab;
+  --colour-teal-100: #e0eeff;
+  --colour-border: #e8e4df;
+  --colour-border-strong: #c8c4be;
+  --colour-background: #fff;
+  --radius-card: 1rem;
+  --radius-control: .8rem;
+  --shadow-card: none;
+  font-family: 'Outfit', 'Segoe UI', sans-serif;
+}
+body { background: #fff; color: #1c1c1a; min-width: 320px; }
+button, input, select, textarea { font-family: inherit; }
+a { color: #1a5fcc; }
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible {
+  outline: 3px solid #bf6900; outline-offset: 3px;
+}
+.reference-app { min-height: 100dvh; }
+.reference-content { min-width: 0; padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
+.reference-navigation { position: fixed; bottom: 0; inset-inline: 0; z-index: 10;
+  background: #fff; border-top: 1px solid #e8e4df; padding: 7px 16px max(8px, env(safe-area-inset-bottom)); }
+.reference-brand, .reference-menu-label { display: none; }
+.reference-nav-items { display: flex; justify-content: space-around; }
+.reference-nav-items a { display: flex; flex: 1; max-width: 100px; min-height: 58px;
+  flex-direction: column; align-items: center; justify-content: center; color: #526374;
+  gap: 2px; text-decoration: none; font-size: 15px; border-radius: 14px; }
+.reference-nav-icon { display: grid; place-items: center; width: 56px; height: 32px; border-radius: 20px; }
+.reference-nav-items a[aria-current="page"] { color: #1a5fcc; font-weight: 700; }
+.reference-nav-items a[aria-current="page"] .reference-nav-icon { background: #e0eeff; }
+.reference-home, .manual-drink-shell, .alcohol-information-shell { width: 100%; max-width: 1200px; margin-inline: auto; padding: 22px 20px; }
+.reference-page-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+.reference-page-heading h1, .feature-header h1, .alcohol-information-header h1 {
+  font-family: 'DM Serif Display', Georgia, serif; font-size: 36px; font-weight: 400; line-height: 1.2; letter-spacing: 0; margin: 0; }
+.reference-help { display: grid; place-items: center; width: 44px; height: 44px; border: 0;
+  border-radius: 50%; color: #1c1c1a; background: #f5f3ef; font-size: 22px; cursor: pointer; }
+.home-story-grid { display: flex; position: relative; gap: 12px; overflow-x: auto;
+  scroll-snap-type: x mandatory; scrollbar-width: thin; padding-bottom: 10px; }
+.home-story { flex: 0 0 min(318px, calc(100vw - 60px)); min-width: 0; border-radius: 16px;
+  display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 3px 10px #00000012; scroll-snap-align: start; background: #edf6f5; }
+.home-story-image { position: relative; height: 212px; flex-shrink: 0; background: #e8e4df; }
+.home-story-image img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.home-story-image > span { position: absolute; top: 12px; left: 12px; border-radius: 20px;
+  padding: 4px 12px; background: #fffffff0; color: #28605c; font-size: 12px;
+  text-transform: uppercase; font-weight: 600; letter-spacing: .05em; }
+/* Shared card height keeps the links aligned when headings wrap differently. */
+.home-story-copy { display: flex; flex: 1; flex-direction: column; gap: 7px; padding: 18px 20px 22px; min-height: 140px; }
+.home-story h2 { font: 400 22px/1.35 'DM Serif Display', Georgia, serif; margin: 0; }
+.home-story-copy a { display: inline-flex; align-items: center; align-self: flex-start; min-height: 44px; margin-top: auto;
+  gap: 8px; font-weight: 600; color: #28605c; text-decoration: none; }
+.home-story--green { background: #28605c; color: #fff; }
+.home-story--peach { background: #fdf3ec; }
+.home-story--peach a { color: #99532b; }
+.home-story--lilac { background: #f3eef9; }
+.home-story--lilac a { color: #6b4c8a; }
+.home-carousel-controls { display: flex; justify-content: center; }
+.home-carousel-controls button { width: 44px; height: 44px; display: grid; place-items: center; border: 0; background: transparent; }
+.home-carousel-controls span { width: 6px; height: 6px; border-radius: 8px; background: #b4aca3; }
+.home-carousel-controls [aria-pressed="true"] span { width: 18px; background: #28605c; }
+.home-features { margin-top: 20px; }
+.home-features h2, .reference-about h2 { font: 400 28px/1.3 'DM Serif Display', Georgia, serif; margin: 0 0 18px; }
+.home-feature-grid { display: grid; gap: 18px; }
+.home-feature-card { display: flex; align-items: center; gap: 14px; color: #1c1c1a; text-decoration: none; padding-block: 10px; min-width: 0; }
+.home-feature-icon { width: 44px; height: 44px; flex: 0 0 44px; display: grid; place-items: center; background: #ddeeff; color: #1b63d4; border-radius: 12px; }
+.home-feature-icon--learn { background: #d8effe; color: #0881cc; }
+.home-feature-card > span:nth-child(2) { flex: 1; min-width: 0; }
+.home-feature-card strong { display: block; font-size: 19px; font-weight: 500; line-height: 1.3; }
+.home-feature-card span span { display: block; color: #56524f; font-size: 17px; line-height: 1.35; margin-top: 4px; }
+.reference-about { max-width: min(520px, calc(100% - 32px)); padding: 28px; border: 1px solid #e8e4df; border-radius: 24px; color: #1c1c1a; }
+.reference-about::backdrop { background: #0007; }
+.reference-about form { margin-top: 24px; }
+.reference-about .primary-button { width: 100%; }
+
+/* Record uses the reference browse/actions surface with the existing validated
+   form mounted behind it, so scanner/back transitions keep the occasion draft. */
+.manual-drink-page { min-height: auto; }
+.feature-header { margin-bottom: 22px; max-width: none; }
+.feature-header > p:last-child { font-size: 17px; max-width: 760px; color: #56524f; }
+.manual-drink-layout { display: grid; grid-template-columns: minmax(0,1fr); gap: 24px; }
+.manual-drink-primary, .manual-drink-sidebar { min-width: 0; gap: 24px; }
+.manual-drink-card { padding: 0; border: 0; background: #fff; }
+.record-capture-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+.record-capture-top h2 { font: 400 28px/1.2 'DM Serif Display', Georgia, serif; margin: 0; }
+.record-entry-actions { display: grid; grid-template-columns: 1fr; gap: 12px; margin-block: 18px; }
+.record-entry-actions button { width: 100%; justify-content: center; min-height: 56px; }
+.record-entry-actions .primary-button { background: #1a5fcc; }
+.reference-category-picker { padding: 16px; background: #f5f6f8; border: 1px solid #e8e4df; border-radius: 16px; margin-bottom: 20px; }
+.reference-category-picker h3 { font-size: 19px; font-weight: 500; margin: 0 0 12px; }
+.reference-category-picker > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.reference-category-picker button { border: 1px solid #e8e4df; border-radius: 12px; padding: 10px 16px; background: #fff; min-height: 44px; color: #1a5fcc; cursor: pointer; }
+.reference-category-picker p { font-size: 16px; color: #56524f; margin-bottom: 0; }
+.manual-drink-card .section-heading h2 { font: 400 28px/1.25 'DM Serif Display', Georgia, serif; }
+.manual-drink-card .form-step { background: #fff; padding: 20px; border: 1px solid #e8e4df; border-radius: 16px; }
+.form-step h3, .form-step legend { font-size: 19px; font-weight: 500; letter-spacing: 0; }
+.manual-drink-card .date-time-fields { padding-top: 12px; }
+.manual-drink-card .date-time-fields legend { padding: 0 8px; }
+.form-field label { font-size: 17px; font-weight: 500; }
+.form-field input, .form-field select { min-height: 52px; background: #faf9f7; border: 1px solid #d8d4cf; }
+.field-description { color: #56524f; font-size: 16px; }
+.primary-button, .secondary-button { min-height: 48px; border-radius: 14px; font-size: 17px; font-weight: 600; }
+.primary-button { background: #1a5fcc; border-color: #1a5fcc; }
+.secondary-button { border-color: #b7cef1; color: #1a5fcc; background: #fff; }
+.my-drinks-panel { padding: 0; background: #fff; border: 0; border-radius: 0; margin-block: 24px; }
+.my-drinks-panel h3 { font: 400 26px/1.3 'DM Serif Display', Georgia, serif; }
+.my-drinks-panel .empty-state { border: 1px solid #e8e4df; border-radius: 16px; background: #f5f6f8; padding: 24px; }
+.saved-drinks-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.saved-drink-item { background: #fff; border: 1px solid #e8e4df; border-radius: 16px; padding: 16px; }
+.saved-drink-button { width: 100%; text-align: left; border: 0; border-radius: 10px; background: #fff; }
+.saved-drink-button strong { font-size: 19px; font-weight: 500; }
+.saved-drink-button span { color: #56524f; font-size: 16px; }
+.saved-drink-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.consumption-summary-card, .recent-records-card, .driving-safety-guidance, .related-information { border: 1px solid #e8e4df; border-radius: 16px; box-shadow: none; }
+.consumption-summary-card { padding: 22px; background: #f5f8fd; }
+.consumption-summary-heading { display: block; }
+.consumption-summary-heading h2 { font: 400 27px/1.25 'DM Serif Display', Georgia, serif; }
+.consumption-comparison__value strong { font-family: 'DM Serif Display', Georgia, serif; font-weight: 400; }
+.consumption-comparison__value { line-height: 1.5; }
+.record-item { border-color: #e8e4df; background: #fff; }
+.section-kicker { color: #526374; font-weight: 600; }
+
+/* Learn adapts the reference topic-card hub while retaining all API content,
+   provenance, legal topic, retry states and reload-safe uppercase topic IDs. */
+.alcohol-information-page { background: #fff; padding: 0; min-height: auto; }
+.alcohol-information-header { margin-bottom: 24px; }
+.alcohol-information-header h1 { font-size: 36px; }
+.alcohol-information-header > p { color: #56524f; max-width: 740px; }
+.alcohol-information-contents { border: 0; padding: 0; background: #fff; }
+.alcohol-information-contents h2 { font: 400 26px/1.3 'DM Serif Display', Georgia, serif; margin-bottom: 16px; }
+.alcohol-information-contents ul { display: grid; grid-template-columns: minmax(0, 1fr); list-style: none; gap: 12px; padding: 0; }
+.alcohol-information-contents a { display: flex; align-items: center; gap: 14px; min-height: 84px;
+  padding: 16px; color: #1c1c1a; font-size: 19px; text-decoration: none; border: 1px solid #e8e4df; border-radius: 16px; }
+.learn-topic-icon { display: grid; place-items: center; border-radius: 12px; width: 44px; height: 44px; flex: 0 0 44px; color: #1a5fcc; background: #ddeeff; }
+.alcohol-information-contents li:nth-child(3n) .learn-topic-icon { background: #eceaff; color: #5b52dc; }
+.alcohol-information-contents a > span:nth-child(2) { flex: 1; }
+.alcohol-information-section { border: 1px solid #e8e4df; border-radius: 16px; padding: 24px; scroll-margin-top: 24px; box-shadow: none; }
+.alcohol-information-section h2 { font: 400 28px/1.3 'DM Serif Display', Georgia, serif; }
+.alcohol-information-content h3 { font-weight: 500; color: #1c1c1a; }
+.alcohol-information-sources { background: #f3f7ff; padding: 16px; border-radius: 12px; }
+.alcohol-information-back-link { display: inline-flex; min-height: 44px; align-items: center; }
+.reference-learn-feature { display: grid; grid-template-columns: minmax(0,1fr); background: #edf6f5; border-radius: 16px; overflow: hidden; margin: 24px 0; }
+.reference-learn-feature img { display: block; width: 100%; height: 180px; object-fit: cover; }
+.reference-learn-feature div { padding: 22px; }
+.reference-learn-feature h2 { font: 400 26px/1.3 'DM Serif Display', Georgia, serif; margin: 0 0 14px; }
+.reference-learn-feature a { min-height: 44px; display: inline-flex; align-items: center; color: #28605c; font-weight: 600; }
+[hidden] { display: none !important; }
+
+@media (min-width: 768px) {
+  .reference-app { display: grid; grid-template-columns: 132px minmax(0, 1fr); }
+  .reference-navigation { top: 0; bottom: auto; left: 0; right: auto; width: 132px; height: 100dvh;
+    border-top: 0; border-right: 1px solid #e8e4df; padding: 24px 12px; overflow-y: auto; }
+  .reference-content { grid-column: 2; padding-bottom: 28px; }
+  .reference-brand { display: block; text-decoration: none; color: #28605c; padding: 4px 10px 24px; font: 400 23px/1.2 'DM Serif Display', Georgia, serif; }
+  .reference-brand span { font-family: 'Outfit', sans-serif; font-size: 13px; display: block; }
+  .reference-menu-label { display: block; color: #687888; padding-inline: 10px; font-size: 14px; }
+  .reference-nav-items { flex-direction: column; gap: 8px; }
+  .reference-nav-items a { flex: auto; max-width: none; width: 100%; min-height: 64px; }
+  .reference-nav-items a[aria-current="page"] { background: #eef4ff; }
+  .reference-nav-items a[aria-current="page"] .reference-nav-icon { background: transparent; }
+  .reference-home, .manual-drink-shell, .alcohol-information-shell { padding: 28px; }
+  .home-story-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; overflow: visible; }
+  .home-story-image { height: 170px; }
+  .home-carousel-controls { display: none; }
+  .home-feature-grid, .saved-drinks-list, .alcohol-information-contents ul { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .home-feature-card { padding: 16px; border: 1px solid #e8e4df; border-radius: 16px; }
+  .record-entry-actions { grid-template-columns: 1fr 1fr; }
+  .reference-learn-feature { grid-template-columns: 1fr 1fr; }
+  .reference-learn-feature img { height: 100%; min-height: 210px; }
+}
+@media (min-width: 1024px) {
+  .reference-app { grid-template-columns: 220px minmax(0,1fr); }
+  .reference-navigation { width: 220px; padding-inline: 18px; }
+  .reference-brand { font-size: 28px; padding-inline: 16px; }
+  .reference-nav-items a { min-height: 54px; flex-direction: row; justify-content: flex-start; padding-inline: 12px; gap: 8px; font-size: 17px; }
+}
+@media (min-width: 1280px) {
+  .home-story-grid { grid-template-columns: repeat(4,minmax(0,1fr)); }
+  .home-story-copy { min-height: 180px; }
+  .manual-drink-layout { grid-template-columns: minmax(0,1fr) 300px; }
+  .saved-drinks-list { grid-template-columns: minmax(0,1fr); }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0s !important; } }
+
+.related-information { background: #f5f8fd; }
+.support-card__icon--green { background: #e0eeff; }
+
+/* RecordPage / AddDrinkPage / LearnHub at f5711b15: utility-to-CSS port.
+   Data acquisition, validation and persistence remain SipAware boundaries. */
+.reference-menu-label { margin: 0 0 18px; color: #1c1c1a; font: 400 25px/1.1 'DM Serif Display', Georgia, serif; }
+.reference-nav-icon { width: 24px; }
+.reference-nav-items a { gap: 12px; }
+.manual-drink-shell { max-width: 1200px; padding: 18px 0 28px; }
+.manual-drink-layout { display: block; }
+.manual-drink-primary { display: block; }
+.prototype-capture { border-radius: 0; }
+.prototype-capture--manual { max-width: 760px; padding: 0 20px; margin: auto; }
+.prototype-record-top { display: flex; justify-content: space-between; gap: 12px; padding: 0 20px 8px; }
+.prototype-record-top h1, .prototype-form-heading h1 { font: 400 34px/1.2 'DM Serif Display', Georgia, serif; margin: 0; }
+.prototype-help { width: 36px; height: 36px; border: 0; border-radius: 50%; background: #f5f3ef; display: grid; place-items: center; cursor: pointer; }
+.prototype-record-controls { padding: 0 16px 12px; }
+.prototype-record-search { display: flex; align-items: center; gap: 8px; background: #f5f6f8; border-radius: 12px; padding: 0 12px; height: 40px; }
+.prototype-record-search input { flex: 1; width: 0; border: 0; background: transparent; font: 400 17px 'Outfit',sans-serif; color: #1c1c1a; padding: 0; min-height: 0; }
+.prototype-record-search input::placeholder { color: #647280; }
+.prototype-record-actions { display: flex; gap: 8px; margin-top: 8px; }
+.prototype-record-actions button { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; height: 56px; padding: 4px 8px; border: 0; border-radius: 12px; color: #1a5fcc; background: #eef4ff; font-size: 17px; font-weight: 600; cursor: pointer; }
+.prototype-record-workspace { display: flex; border: 1px solid #eeedf3; min-height: min(660px,calc(100dvh - 220px)); }
+.prototype-category-rail { flex: 0 0 30%; width: 30%; background: #fafafa; border-right: 1px solid #eeedf3; }
+.prototype-category-rail button { display: block; width: 100%; border: 0; padding: 8px 12px; text-align: left; background: transparent; color: #4a5260; cursor: pointer; font-size: 19px; line-height: 1.35; }
+.prototype-category-rail button span { display: block; padding: 8px; border-radius: 8px; }
+.prototype-category-rail button[aria-pressed="true"] span { color: #1a5fcc; background: #e0eeff; font-weight: 700; }
+.prototype-category-rail hr { border: 0; border-top: 1px solid #eeedf3; margin: 4px 12px; }
+.prototype-record-results { min-width: 0; flex: 1; }
+.prototype-results-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 16px 8px; }
+.prototype-results-header h2 { margin: 0; text-transform: uppercase; font: 700 14px/1.4 'Outfit',sans-serif; letter-spacing: .1em; color: #647280; }
+.prototype-results-header > span { font-size: 14px; color: #647280; }
+.prototype-catalog-status { font-size: 14px; line-height: 1.45; color: #647280; margin: 0 16px 12px; }
+.prototype-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 16px; gap: 12px; text-align: center; }
+.prototype-empty h3 { font: 600 19px/1.35 'Outfit',sans-serif; margin: 0; }
+.prototype-empty p { font-size: 17px; line-height: 1.6; color: #56524f; margin: 0; max-width: 420px; }
+.prototype-empty-icon { width: 56px; height: 56px; background: #e0eeff; border-radius: 50%; display: grid; place-items: center; color: #1a5fcc; }
+.prototype-capture .my-drinks-panel { display: block; margin: 0; }
+.prototype-capture .my-drinks-panel:not(:has(.prototype-record-browser)) { margin: 24px 0; }
+.prototype-record-browser .saved-drinks-list { display: grid; grid-template-columns: minmax(0,1fr); margin: 0; padding: 0 12px 18px; list-style: none; gap: 12px; }
+.prototype-record-browser .saved-drink-item { border: 1px solid #e8e4df; border-radius: 16px; padding: 0; overflow: hidden; }
+.prototype-record-browser .saved-drink-button { display: flex; flex-direction: row; align-items: center; gap: 14px; padding: 16px 12px; border-radius: 0; }
+.prototype-record-browser .saved-drink-button:hover { background: #f7f8fa; }
+.prototype-drink-thumb { width: 56px; height: 56px; flex: 0 0 56px; display: flex; justify-content: center; align-items: center; border-radius: 12px; }
+.prototype-card-copy { flex: 1; min-width: 0; }
+.prototype-card-copy strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 19px; font-weight: 500; line-height: 1.35; }
+.prototype-card-copy > span { display: block; font-size: 16px; line-height: 1.25; color: #56524f; margin-top: 4px; }
+.prototype-record-browser .saved-drink-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 0 12px 12px; margin: -4px 0 0; }
+.prototype-record-browser .saved-drink-actions button { min-height: 44px; padding: 4px 16px; border: 0; border-radius: 12px; background: #eef4ff; color: #1a5fcc; font-size: 15px; font-weight: 600; }
+.prototype-record-browser .saved-drink-actions .danger-button { background: #fff1f1; color: #b42318; }
+.prototype-record-browser .saved-drink-editor, .prototype-record-browser .delete-confirmation { margin: 12px; }
+.prototype-record-help { padding: 24px; margin: 12px 20px; border: 1px solid #e8e4df; border-radius: 16px; }
+.prototype-record-help h2 { font: 400 28px 'DM Serif Display',serif; }
+.prototype-record-feedback { margin: 28px 20px; display: grid; gap: 24px; align-items: start; }
+.prototype-record-feedback .manual-drink-sidebar { display: grid; }
+.prototype-back { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0; border: 0; background: transparent; color: #1a5fcc; text-decoration: none; font-size: 17px; cursor: pointer; }
+.prototype-form-heading { margin-bottom: 24px; }
+.prototype-form-heading p { margin: 4px 0 0; color: #56524f; font-size: 17px; }
+.prototype-consumption-form .form-step { padding: 0; margin-bottom: 24px; border: 0; border-radius: 0; }
+.prototype-consumption-form .form-step h3, .prototype-consumption h3,
+.prototype-consumption-form .date-time-fields legend { text-transform: uppercase; font: 700 16px/1.4 'Outfit',sans-serif; letter-spacing: .1em; color: #647280; margin: 0 0 16px; padding: 0; }
+.prototype-consumption-form .form-field { margin-bottom: 16px; }
+.prototype-consumption-form .form-field input, .prototype-consumption-form .form-field select { background: #f5f6f8; border: 0; border-radius: 12px; font-size: 18px; height: 52px; padding: 0 16px; }
+.prototype-consumption-form .form-details-grid { display: block; }
+.prototype-consumption-form .input-with-unit { border: 0; background: transparent; gap: 12px; }
+.prototype-consumption-form .input-with-unit span { background: #eeedf3; border-radius: 12px; align-self: stretch; display: grid; align-items: center; padding: 0 16px; }
+.prototype-drink-summary { padding: 16px; border-radius: 16px; background: #f5f6f8; margin-bottom: 24px; }
+.prototype-drink-summary strong { font-size: 18px; font-weight: 600; }
+.prototype-drink-summary p { margin: 4px 0 0; font-size: 15px; color: #56524f; }
+.prototype-amount-tabs { display: flex; background: #f5f6f8; border-radius: 12px; padding: 4px; margin-bottom: 16px; }
+.prototype-amount-tabs button { flex: 1; border: 0; border-radius: 8px; min-height: 44px; font-size: 17px; font-weight: 600; color: #4a5260; background: transparent; cursor: pointer; }
+.prototype-amount-tabs [aria-pressed="true"] { color: #1a5fcc; background: #fff; box-shadow: 0 1px 4px #0000001a; }
+.prototype-amount-panel { padding: 20px; border-radius: 16px; background: #f5f6f8; margin-bottom: 24px; }
+.prototype-amount-panel > p { text-align: center; color: #647280; font-size: 16px; margin: 0 0 16px; }
+.prototype-amount-panel > .field-help { margin: 16px 0 0; font-size: 14px; }
+.prototype-amount-stepper { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.prototype-amount-stepper > button { flex: 0 0 48px; width: 48px; height: 48px; border: 0; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px #0002; color: #1a5fcc; font-size: 24px; cursor: pointer; }
+.prototype-amount-stepper > div { flex: 1; min-width: 0; text-align: center; }
+.prototype-amount-stepper input { width: 100%; border: 0; background: transparent; font: 400 46px/1 'DM Serif Display',Georgia,serif; text-align: center; appearance: textfield; color: #1c1c1a; padding: 0; }
+.prototype-amount-stepper input::-webkit-inner-spin-button { appearance: none; }
+.prototype-amount-stepper span { display: block; font-size: 16px; color: #56524f; margin-top: 4px; }
+.prototype-estimate { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px; margin-bottom: 24px; background: #eef4ff; border-radius: 16px; }
+.prototype-estimate strong { font-size: 17px; font-weight: 600; }
+.prototype-estimate p { margin: 4px 0 0; font-size: 16px; color: #56524f; line-height: 1.35; }
+.prototype-estimate > div:last-child { text-align: right; flex-shrink: 0; }
+.prototype-estimate .prototype-estimate-value { display: block; font: 400 32px/1 'DM Serif Display',Georgia,serif; color: #1a5fcc; }
+.prototype-estimate span { display: block; color: #647280; font-size: 15px; margin-top: 4px; }
+.prototype-consumption-form .date-time-grid { display: block; border: 1px solid #e2ddd8; border-radius: 16px; overflow: hidden; }
+.prototype-consumption-form .date-time-grid .form-field { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0; padding: 4px 16px; }
+.prototype-consumption-form .date-time-grid .form-field + .form-field { border-top: 1px solid #e2ddd8; }
+.prototype-consumption-form .date-time-grid label { flex: 1; margin: 0; }
+.prototype-consumption-form .date-time-grid input { width: auto; max-width: 68%; border: 0; color: #1a5fcc; background: #fff; text-align: right; padding: 0; font-size: 17px; }
+.prototype-consumption-form .date-time-grid .field-error { width: 100%; }
+.prototype-save-template { display: flex; align-items: flex-start; gap: 12px; padding: 16px; border: 1px solid #d8e3f2; background: #f8fbff; border-radius: 16px; margin-bottom: 24px; cursor: pointer; }
+.prototype-save-template input { margin-top: 4px; width: 20px; height: 20px; accent-color: #1a5fcc; flex: 0 0 20px; }
+.prototype-save-template strong { font-size: 17px; font-weight: 600; display: block; }
+.prototype-save-template span span { display: block; font-size: 16px; line-height: 1.6; color: #647280; margin-top: 2px; }
+.prototype-consumption-form .form-actions { display: flex; flex-direction: column; gap: 12px; }
+.prototype-consumption-form .form-actions .primary-button { width: 100%; height: 56px; box-shadow: none; }
+
+/* Learn retains the source's 0.95 / 1.05 split and six distinct semantic icons. */
+.alcohol-information-shell { max-width: 1120px; padding: 20px; }
+.alcohol-information-header { margin: 0 0 20px; }
+.alcohol-information-header h1 { font-size: 36px; }
+.alcohol-information-header > p { margin: 4px 0 0; font-size: 18px; line-height: 1.6; max-width: none; }
+.prototype-learn-grid { display: grid; grid-template-columns: minmax(0,1fr); gap: 28px; align-items: start; }
+.prototype-learn-feature { display: block; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 7px #0002; text-decoration: none; color: #1c1c1a; }
+.prototype-learn-image { position: relative; height: 190px; }
+.prototype-learn-image img { width: 100%; height: 100%; display: block; object-fit: cover; }
+.prototype-learn-image::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to top,#3a3080b3,transparent 50%); }
+.prototype-learn-image > span { position: absolute; top: 12px; left: 12px; z-index: 1; padding: 4px 12px; border-radius: 24px; background: #1a5fcc; color: white; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; }
+.prototype-learn-feature-copy { background: #eceaff; padding: 16px 20px 20px; }
+.prototype-learn-feature-copy > p { margin: 0; text-transform: uppercase; letter-spacing: .1em; font-size: 15px; font-weight: 700; color: #5b52dc; }
+.prototype-learn-feature-copy h2 { margin: 6px 0 0; font: 400 25px/1.35 'DM Serif Display',Georgia,serif; color: #1c1c1a; }
+.prototype-learn-feature-copy > span { display: inline-flex; margin-top: 12px; color: #5b52dc; font-size: 17px; font-weight: 600; }
+.prototype-learn-topics h2 { font: 700 15px/1.4 'Outfit',sans-serif; color: #647280; text-transform: uppercase; letter-spacing: .1em; margin: 0 0 12px; }
+.prototype-learn-topics ul { margin: 0; padding: 0; list-style: none; border: 1px solid #e2ddd8; border-radius: 16px; overflow: hidden; }
+.prototype-learn-topics li + li { border-top: 1px solid #e2ddd8; }
+.prototype-learn-topics a { display: flex; align-items: center; gap: 14px; padding: 16px; text-decoration: none; color: #1c1c1a; background: #fff; }
+.prototype-topic-icon { width: 48px; height: 48px; flex: 0 0 48px; border-radius: 12px; display: grid; place-items: center; }
+.prototype-topic-copy { flex: 1; min-width: 0; }
+.prototype-topic-copy strong { display: block; font-size: 19px; font-weight: 500; line-height: 1.25; }
+.prototype-topic-copy > span { display: block; font-size: 16px; color: #56524f; line-height: 1.25; margin-top: 4px; }
+.prototype-learn-trust { display: flex; align-items: center; gap: 12px; padding: 16px; background: #f0f4ff; border-radius: 16px; margin: 24px 0 8px; }
+.prototype-learn-trust > span { flex-shrink: 0; }
+.prototype-learn-trust p { margin: 0; font-size: 17px; line-height: 1.6; }
+.alcohol-information-sections:empty { display: none; }
+.alcohol-information-section { margin-top: 16px; }
+@media(min-width:768px) {
+  .reference-menu-label { padding: 4px 10px 0; margin-bottom: 18px; font-size: 22px; }
+  .prototype-record-top { padding: 0 28px 8px; }
+  .prototype-record-controls { padding-inline: 28px; }
+  .prototype-category-rail { flex: 0 0 160px; width: 160px; }
+  .prototype-record-browser .saved-drinks-list { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .prototype-record-feedback { grid-template-columns: minmax(0,1fr) minmax(260px,.7fr); margin-inline: 28px; }
+  .alcohol-information-shell { padding-inline: 28px; }
+}
+@media(min-width:900px) {
+  /* Fill the desktop topic column height with the image; mobile retains its natural stacked layout. */
+  .prototype-learn-grid { grid-template-columns: minmax(0,.95fr) minmax(0,1.05fr); gap: 24px; align-items: stretch; }
+  .prototype-learn-feature { display: flex; flex-direction: column; min-height: 0; }
+  .prototype-learn-image { flex: 1 1 190px; min-height: 190px; height: auto; }
+  .prototype-learn-image img { position: absolute; inset: 0; object-position: 30% center; }
+  .prototype-learn-feature-copy { flex: 0 0 auto; }
+}
+@media(min-width:1024px) {
+  .reference-menu-label { font-size: 25px; padding-inline: 16px; }
+  .reference-nav-items a { gap: 12px; padding-inline: 16px; }
+  .prototype-category-rail { flex: 0 0 200px; width: 200px; }
+}
+@media(min-width:1280px) {
+  .manual-drink-layout { display: block; }
+  .prototype-record-browser .saved-drinks-list { grid-template-columns: repeat(3,minmax(0,1fr)); }
+}
+@media(max-width:767px) {
+  .prototype-category-rail button { font-size: 17px; padding: 8px 4px; }
+  .prototype-record-browser .saved-drink-button { flex-wrap: wrap; gap: 8px; }
+  .prototype-drink-thumb { width: 40px; height: 40px; flex-basis: 40px; }
+  .prototype-results-header { flex-wrap: wrap; }
+  .prototype-record-browser .saved-drink-actions { flex-wrap: wrap; }
+}
+
+/* Grid auto-minimums must not let long personal names widen the card track. */
+.prototype-record-browser .saved-drinks-list > li { min-width: 0; }
+.prototype-record-browser .saved-drink-item { min-width: 0; grid-template-columns: minmax(0,1fr); }
+.prototype-record-browser .saved-drink-button { min-width: 0; }
+.prototype-record-browser .prototype-card-copy { min-width: 0; }
+.prototype-consumption-form .date-time-grid label { display: flex; align-items: center; gap: 14px; }
+.prototype-amount-stepper > button { display: grid; place-items: center; }
+
+/* Reference RecordResultPage and HistoryTab layouts. Existing I1 calculations,
+   reference provenance and repository boundaries stay in their owning modules. */
+.reference-sr-only { position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0 }
+.reference-record-result { max-width:760px;margin:0 auto;padding:24px 20px 112px }
+.reference-result-heading { display:flex;align-items:center;gap:16px;margin-bottom:28px }
+.reference-result-heading h1 { font:400 31px/1.2 "DM Serif Display",Georgia,serif;margin:0 }
+/* This heading receives programmatic route focus; it is not a keyboard control. */
+#record-result-title:focus { outline:none }
+.reference-result-heading p { font-size:15px;color:#56524f;margin:4px 0 0 }
+.reference-check-badge { width:48px;height:48px;border-radius:50%;background:#dcfce7;display:grid;place-items:center;flex:none }
+.reference-this-drink { border-radius:24px;background:#eef4ff;padding:20px;text-align:center;margin-bottom:20px }
+.reference-this-drink > p:first-child { text-transform:uppercase;font-size:13px;font-weight:700;letter-spacing:.1em;color:#647280 }
+.reference-this-drink strong { display:block;font:58px/1 "DM Serif Display",serif;color:#1a5fcc;margin-top:12px }
+.reference-this-drink > span { display:block;font-size:17px;font-weight:600;margin-top:8px }
+.reference-this-drink > p:last-child { font-size:14px;color:#56524f;margin:8px 0 0 }
+.reference-record-result .consumption-summary-card,.reference-history-summary .consumption-summary-card { padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;margin:0 0 20px }
+.reference-record-result .consumption-summary-heading { position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap }
+.reference-record-result .consumption-comparisons,.reference-history-summary .consumption-comparisons { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:0 }
+.reference-record-result .consumption-comparisons > div,.reference-history-summary .consumption-comparisons > div { min-width:0;padding:16px;border:1px solid #e2ddd8;border-radius:16px;background:white }
+.reference-record-result .consumption-comparison__heading svg { display:none }
+.reference-record-result .consumption-comparison__label { text-transform:uppercase;font-size:13px;letter-spacing:.08em;color:#647280 }
+.reference-record-result .consumption-comparison__value strong { font:34px/1 "DM Serif Display",serif;margin-right:4px }
+.reference-record-result .consumption-history-message strong { margin-right:4px }
+.reference-record-result .consumption-comparison__status { display:block;background:#eef4ff;border-radius:12px;padding:10px 12px;margin-top:12px }
+.reference-record-result .consumption-comparison--above .consumption-comparison__status { background:#fff1f1;color:#b42318 }
+.reference-record-result .guideline-context { background:#f5f6f8;border:0;padding:16px;border-radius:16px;margin-top:20px }
+.reference-record-result .driving-safety-card,.reference-history-summary .driving-safety-card { display:block;border:1px solid #e2ddd8;background:white;border-radius:16px;padding:16px;margin-bottom:20px }
+.reference-record-result .driving-safety-card > .support-card__icon { display:none }
+.reference-record-result .driving-safety-card h2 { font:600 18px Outfit,sans-serif }
+.reference-result-links { margin:0 0 24px }
+.reference-result-links h3 { margin:0 0 12px;text-transform:uppercase;letter-spacing:.1em;font:700 13px Outfit,sans-serif;color:#647280 }
+.reference-result-links > div { border:1px solid #e2ddd8;border-radius:16px;overflow:hidden }
+.reference-result-links a { min-height:56px;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 16px;text-decoration:none;color:#1c1c1a;font-size:16px;border-bottom:1px solid #e2ddd8 }
+.reference-result-links a:last-child { border-bottom:0 }
+.reference-done { width:100%;height:56px;border-radius:16px }
+.reference-flow-dialog { width:min(680px,calc(100vw - 24px));max-height:88dvh;margin:auto auto 0;border:0;border-radius:24px 24px 0 0;background:white;padding:0;color:#1c1c1a;overflow-y:auto }
+.reference-flow-dialog::backdrop { background:rgba(0,0,0,.45) }
+.reference-flow-dialog-body { padding:28px 24px 32px }
+.reference-flow-dialog h2 { font:30px/1.2 "DM Serif Display",serif;margin:0 0 20px }
+.reference-flow-dialog p { font-size:16px;line-height:1.65 }
+.reference-flow-dialog .primary-button { width:100%;min-height:56px;margin-top:24px }
+.reference-sheet-handle { width:40px;height:4px;border-radius:99px;background:#d8d4cf;margin:0 auto 24px }
+.reference-history-page { max-width:1080px;padding:24px 28px 112px;margin:0 auto }
+.reference-history-page > header h1 { font:400 36px/1.2 "DM Serif Display",Georgia,serif;margin:0 }
+.reference-history-page > header p { margin:8px 0 24px;color:#647280 }
+.reference-history-tabs { display:flex;gap:4px;border-bottom:1px solid #e2ddd8;margin:0 0 28px }
+.reference-history-tabs button { border:0;border-bottom:3px solid transparent;background:transparent;padding:14px 24px;font-size:17px;font-weight:600;color:#647280 }
+.reference-history-tabs button[aria-pressed=true] { border-bottom-color:#1a5fcc;color:#1a5fcc }
+.reference-history-records > h2 { font-size:25px;margin:0 0 8px }
+.reference-history-records > p { color:#647280;margin:0 0 24px }
+.reference-history-list { list-style:none;margin:0;padding:0 }
+.reference-history-list > li { border-bottom:1px solid #e2ddd8 }
+.reference-history-row { display:grid;grid-template-columns:130px minmax(0,1fr) 130px;gap:20px;align-items:center;padding:22px 0 }
+.reference-history-time { color:#647280;font-size:14px;line-height:1.5 }
+.reference-history-drink { min-width:0;display:flex;align-items:center;gap:14px }
+.reference-history-drink h3 { font-size:19px;margin:0;overflow-wrap:anywhere }
+.reference-history-drink p { color:#647280;font-size:14px;margin:6px 0 0 }
+.reference-history-total { position:relative;text-align:right;padding-right:32px;min-width:0 }
+.reference-history-total strong { font:30px/1 "DM Serif Display",serif }
+.reference-history-total > span { display:block;font-size:12px;color:#647280 }
+.reference-history-more { position:absolute;right:0;top:0;width:32px;min-height:44px;border:0;background:transparent;color:#647280;font-size:24px }
+.reference-history-menu { position:absolute;right:0;top:44px;z-index:3;padding:8px;background:white;border:1px solid #e2ddd8;border-radius:12px;box-shadow:0 6px 20px #0002;display:grid;min-width:130px }
+.reference-history-menu button { min-height:44px;text-align:left;background:white;border:0;padding:8px 14px;border-radius:8px;color:#1a5fcc }
+.reference-history-menu button:last-child { color:#b42318 }
+.reference-history-empty { border:1px solid #e2ddd8;border-radius:18px;padding:40px 24px;text-align:center }
+.reference-edit-page { max-width:760px;padding:16px 20px 100px;margin:0 auto }
+.reference-edit-page h1 { font:34px/1.2 "DM Serif Display",serif;margin:18px 0 28px }
+.reference-edit-page :is(.drinking-record-editor,.saved-drink-editor) { border:0;background:transparent;padding:0;display:grid;grid-template-columns:1fr;gap:24px }
+.reference-edit-page :is(.drinking-record-editor,.saved-drink-editor) > div:first-child h4 { position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0) }
+.reference-edit-page .form-field input,.reference-edit-page .form-field select { background:#f5f6f8;border:0;border-radius:12px;min-height:52px }
+.reference-edit-page .management-actions { margin-top:24px;display:grid;grid-template-columns:1fr }
+.reference-edit-page .management-actions button { min-height:56px;border-radius:16px }
+.prototype-record-search > button { border:0;background:transparent;min-width:32px;min-height:32px;color:#647280;font-size:22px }
+@media(max-width:767px) {
+ .reference-record-result { padding:20px 20px 108px }
+ .reference-record-result .consumption-comparisons,.reference-history-summary .consumption-comparisons { grid-template-columns:1fr }
+ .reference-history-page { padding:20px 20px 108px }
+ .reference-history-row { grid-template-columns:minmax(0,1fr) 98px;gap:12px }
+ .reference-history-time { grid-column:1/-1;font-size:13px }
+ .reference-history-drink .prototype-drink-thumb { width:40px;height:40px }
+ .reference-history-drink { gap:10px }
+ .reference-history-drink h3 { font-size:17px }
+ .reference-history-total { padding-right:30px }
+ .reference-history-total strong { font-size:27px }
+ .reference-history-total > span { font-size:11px }
+ .reference-edit-page { padding:12px 20px 108px }
+ .reference-history-page .reference-edit-page { padding-inline:0 }
+}
+
+/* RecordResultPage GuidelineCard structure: original domain comparisons stay intact. */
+.reference-guideline-progress { display:none; }
+.reference-result-comparisons.consumption-summary-card { padding:0; border:0; background:transparent; }
+.reference-result-comparisons .consumption-summary-heading { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; }
+.reference-result-comparisons .consumption-comparisons { gap:16px; margin:0; }
+.reference-result-comparisons .consumption-comparison { padding:16px; border:1px solid #e2ddd8; border-radius:16px; background:#fff; }
+.reference-result-comparisons .consumption-comparison__heading svg { display:none; }
+.reference-result-comparisons .consumption-comparison__label { text-transform:uppercase; font-size:13px; font-weight:700; color:#647280; letter-spacing:1.3px; }
+.reference-result-comparisons .consumption-comparison__value { margin-top:8px; color:#647280; font-size:16px; line-height:1.2; }
+.reference-result-comparisons .consumption-comparison__value strong { font:400 34px/1 'DM Serif Display',serif; color:#1c1c1a; }
+.reference-result-comparisons .reference-guideline-progress { display:block; height:10px; border-radius:100px; overflow:hidden; margin-top:16px; background:#eef0f3; }
+.reference-result-comparisons .reference-guideline-progress > div { height:100%; background:#1a5fcc; border-radius:100px; }
+.reference-result-comparisons .consumption-comparison__status { display:block; padding:10px 12px; font-size:14px; border-radius:12px; background:#eef4ff; color:#1a5fcc; margin-top:12px; }
+.reference-result-comparisons .consumption-comparison--above .consumption-comparison__status { color:#b42318; background:#fff1f1; }
+.reference-result-comparisons .consumption-history-message { background:#f5f6f8; border-radius:16px; padding:16px; margin:0; font-size:14px; }
+.reference-result-comparisons .guideline-context { background:#f5f6f8; border:0; border-radius:16px; padding:16px; margin-top:20px; font-size:13px; }
+.reference-record-result .driving-safety-card { border:1px solid #e2ddd8; border-radius:16px; padding:16px; background:#fff; }
+.reference-record-result .driving-safety-card .section-icon { display:none; }
+
+.reference-edit-page .drinking-record-editor > div:first-child { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); }
+.reference-edit-amount h3 { font:700 16px/1.5 Outfit,sans-serif; text-transform:uppercase; letter-spacing:1.5px; color:#647280; margin:8px 0 16px; }
+.reference-edit-amount .prototype-amount-tabs { display:flex; background:#f5f6f8; padding:4px; border-radius:12px; margin-bottom:16px; }
+.reference-edit-amount .prototype-amount-tabs button { border:0; border-radius:8px; flex:1; min-height:44px; background:transparent; color:#4a5260; font-size:17px; font-weight:600; }
+.reference-edit-amount .prototype-amount-tabs button[aria-pressed=true] { background:white; color:#1a5fcc; box-shadow:0 1px 4px #0000001a; }
+.reference-edit-amount .prototype-amount-box { border-radius:16px; background:#f5f6f8; padding:20px; text-align:center; }
+.reference-edit-amount .prototype-amount-box > p { color:#647280; margin:0 0 16px; }
+.reference-edit-amount .prototype-amount-stepper { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.reference-edit-amount .prototype-amount-stepper > button { flex-shrink:0; width:48px; height:48px; border:0; border-radius:100%; background:white; color:#1a5fcc; font-size:24px; box-shadow:0 1px 2px #00000015; }
+.reference-edit-amount .prototype-amount-stepper > div { min-width:0; flex:1; }
+.reference-edit-amount .prototype-amount-stepper input { width:100%; border:0; background:transparent; text-align:center; font:400 46px/1 'DM Serif Display',serif; color:#1c1c1a; padding:0; }
+.reference-edit-amount .prototype-amount-stepper p { margin:4px 0; color:#56524f; }
+.reference-edit-estimate { display:flex; justify-content:space-between; gap:16px; align-items:center; border-radius:16px; padding:16px; background:#eef4ff; margin-top:24px; }
+.reference-edit-estimate > strong { font:400 32px/1 'DM Serif Display',serif; color:#1a5fcc; }
+.reference-edit-estimate p { font-size:16px; margin:4px 0 0; color:#56524f; }
+.reference-history-edit .date-time-fields { border:0; padding:0; }
+.reference-history-edit .date-time-fields legend { text-transform:uppercase; color:#647280; letter-spacing:1.5px; font-size:16px; font-weight:700; margin-bottom:12px; }
+.reference-history-edit .date-time-grid { display:grid; grid-template-columns:1fr; gap:0; border:1px solid #e2ddd8; border-radius:16px; overflow:hidden; }
+.reference-history-edit .date-time-grid .form-field { display:grid; grid-template-columns:60px minmax(0,1fr); align-items:center; padding:8px 16px; gap:8px; }
+.reference-history-edit .date-time-grid .form-field + .form-field { border-top:1px solid #e2ddd8; }
+.reference-history-edit .date-time-grid input { background:#fff; color:#1a5fcc; border:0; min-width:0; text-align:right; }
+.reference-history-edit .date-time-grid .field-error { grid-column:1/-1; }
+
+/* AddDrinkPage scan-card geometry with the existing local barcode action. */
+.prototype-scan-card { margin: 16px 0 24px; padding: 20px; background: #f5f6f8; border-radius: 16px; }
+.prototype-scan-card-title { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.prototype-scan-card-title svg { flex-shrink: 0; }
+.prototype-scan-card-title h2 { margin: 0; font: 600 19px/1.4 Outfit, sans-serif; color: #1c1c1a; }
+.prototype-scan-card > p { margin: 0 0 16px; font-size: 17px; line-height: 1.6; color: #56524f; }
+.prototype-scan-card > button { width: 100%; min-height: 52px; padding: 10px 16px; border: 1px solid #c9d7eb; border-radius: 12px; color: #1a5fcc; background: white; font-size: 17px; font-weight: 600; }
+.prototype-scan-card > button:active { background: #f8fbff; }
+.prototype-scan-card > button:disabled { color: #6f7f95; background: #eef2f7; cursor: wait; }

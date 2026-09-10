@@ -5,6 +5,7 @@
  * to the parent; cancelling emits nothing, and SavedDrink templates are outside
  * this component's data flow.
  */
+import { calculateStandardDrinks } from '../calculations/standardDrinks'
 import { type FormEvent, useId, useRef, useState } from 'react'
 
 import {
@@ -32,6 +33,7 @@ interface DrinkingRecordEditorProps {
   record: DrinkingRecord
   onSave: (record: DrinkingRecord) => void | Promise<void>
   onCancel: () => void
+  presentation?: 'default' | 'reference'
 }
 
 const EDIT_FIELD_FOCUS_ORDER: readonly ManualDrinkField[] = [
@@ -80,7 +82,9 @@ export function DrinkingRecordEditor({
   record,
   onSave,
   onCancel,
+  presentation = 'default',
 }: DrinkingRecordEditorProps) {
+  const [mode, setMode] = useState<'serving' | 'ml'>('serving')
   const formId = useId()
   const formRef = useRef<HTMLFormElement>(null)
   const [values, setValues] = useState<ManualDrinkFormValues>(() =>
@@ -225,6 +229,19 @@ export function DrinkingRecordEditor({
     setIsSaving(false)
   }
 
+  // The reference amount switch only changes input units. Validation and the
+  // historical snapshot continue to use serving volume × number of servings.
+  const servingMl = Number(isCustomVolume ? values.customVolumeMl : values.servingSizeSelection)
+  const amount = Number(values.amountConsumed)
+  const volumeReady = Number.isFinite(servingMl) && servingMl > 0
+  const amountReady = values.amountConsumed.trim() !== '' && Number.isFinite(amount)
+  const displayedAmount = mode === 'ml' && volumeReady && amountReady ? String(Number((amount * servingMl).toPrecision(12))) : values.amountConsumed
+  const preview = validateManualDrinkInput(values)
+  const adjustAmount = (delta: number) => {
+    const current = Number(displayedAmount)
+    const next = Math.max(0, (Number.isFinite(current) ? current : 0) + delta)
+    updateValue('amountConsumed', String(mode === 'ml' && volumeReady ? next / servingMl : next))
+  }
   const fieldId = (field: string) => `${formId}-${field}`
 
   return (
@@ -399,7 +416,30 @@ export function DrinkingRecordEditor({
         <FieldError id={fieldId('abv-error')} message={errors.abvPercent} />
       </div>
 
-      <div className="form-field">
+      {presentation === 'reference' ? <div className="reference-edit-amount">
+        <h3>How much did you drink?</h3>
+        <div className="prototype-amount-tabs">
+          <button type="button" aria-pressed={mode === 'serving'} onClick={() => setMode('serving')}>By serving</button>
+          <button type="button" disabled={!volumeReady} aria-pressed={mode === 'ml'} onClick={() => setMode('ml')}>By mL</button>
+        </div>
+        <div className="prototype-amount-box">
+          <p>{volumeReady ? '1 serving = ' + servingMl + ' mL' : 'Choose a serving volume above'}</p>
+          <div className="prototype-amount-stepper">
+            <button type="button" aria-label="Decrease amount" onClick={() => adjustAmount(mode === 'ml' ? -50 : -.5)}>−</button>
+            <div><label className="reference-sr-only" htmlFor={fieldId('amount-consumed')}>{mode === 'ml' ? 'Volume consumed (mL)' : 'Number of servings consumed'}</label>
+              <input id={fieldId('amount-consumed')} name="amountConsumed" type="number" step="any" inputMode="decimal"
+                value={displayedAmount} aria-invalid={Boolean(errors.amountConsumed)} aria-describedby={errors.amountConsumed ? fieldId('amount-error') : undefined}
+                onChange={event => updateValue('amountConsumed', mode === 'ml' && volumeReady && event.target.value !== '' ? String(Number(event.target.value) / servingMl) : event.target.value)} required />
+              <p>{mode === 'ml' ? 'mL' : 'Servings'}</p>
+            </div>
+            <button type="button" aria-label="Increase amount" onClick={() => adjustAmount(mode === 'ml' ? 50 : .5)}>+</button>
+          </div>
+          <FieldError id={fieldId('amount-error')} message={errors.amountConsumed} />
+        </div>
+        <div className="reference-edit-estimate"><div><strong>Estimated standard drinks</strong><p>{preview.success ? 'Based on ' + Number((preview.data.servingVolumeMl * preview.data.amountConsumed).toPrecision(12)) + ' mL consumed and ' + preview.data.abvPercent + '% ABV.' : 'Complete valid drink details to see an estimate.'}</p></div>
+          <strong>{preview.success ? calculateStandardDrinks(preview.data).toFixed(1) : '—'}</strong>
+        </div>
+      </div> : <>      <div className="form-field">
         <label htmlFor={fieldId('amount-consumed')}>
           Number of servings consumed
         </label>
@@ -424,6 +464,8 @@ export function DrinkingRecordEditor({
           message={errors.amountConsumed}
         />
       </div>
+
+</>}
 
       <fieldset className="date-time-fields">
         <legend>When was this drink consumed?</legend>

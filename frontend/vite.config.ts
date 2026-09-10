@@ -50,6 +50,7 @@ export default defineConfig(({ mode }) => ({
     include: [
       '../tests/epic1/frontend/**/*.test.{ts,tsx}',
       '../tests/epic2/frontend/**/*.test.{ts,tsx}',
+      '../tests/epic3/frontend/**/*.test.{ts,tsx}',
     ],
     environment: 'jsdom',
     environmentOptions: {

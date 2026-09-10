@@ -43,21 +43,31 @@ function recordForLocalDate(
   }
 }
 
+let pageView: ReturnType<typeof render>
+let pageKey = 0
 async function renderHydratedPage() {
-  render(<ManualDrinkPage />)
-  await screen.findByRole('heading', { name: 'Standard drink summary' })
-  await waitFor(() => expect(screen.getByLabelText('Drink type')).toBeEnabled())
+ const records = await new IndexedDbDrinkingRecordRepository().list()
+ window.history.replaceState({}, '', records.length ? '/record?record=' + records[0].id : '/trends#trends')
+ pageView = render(<ManualDrinkPage key={++pageKey} initialView={records.length ? 'record' : 'history'} />)
+ await screen.findByRole('heading', { name: records.length ? 'Drink recorded' : 'Your drinking dashboard' })
 }
-
-function getSummarySection(): HTMLElement {
-  const heading = screen.getByRole('heading', {
-    name: 'Standard drink summary',
-  })
-  const section = heading.closest('section')
-  if (!(section instanceof HTMLElement)) {
-    throw new Error('Expected the standard drink summary section.')
-  }
-  return section
+async function historyAction(action: 'Edit' | 'Delete', name: string) {
+ window.history.replaceState({}, '', '/trends#history')
+ pageView.rerender(<ManualDrinkPage key={++pageKey} initialView="history" />)
+ fireEvent.click(await screen.findByRole('button', { name: 'Actions for ' + name }))
+ return screen.getByRole('button', { name: action })
+}
+async function openRecordForm() {
+ window.history.replaceState({}, '', '/record')
+ pageView.rerender(<ManualDrinkPage key={++pageKey} initialView="record" />)
+ fireEvent.click(await screen.findByRole('button', { name: 'Record Manually' }))
+ await waitFor(() => expect(screen.getByLabelText('Drink type')).toBeEnabled())
+}
+async function getSummarySection(): Promise<HTMLElement> {
+ const records = await new IndexedDbDrinkingRecordRepository().list()
+ window.history.replaceState({}, '', records.length ? '/record?record=' + records[0].id : '/trends#trends')
+ pageView.rerender(<ManualDrinkPage key={++pageKey} initialView={records.length ? 'record' : 'history'} />)
+ return await screen.findByRole('region', { name: records.length ? 'Standard drink summary' : 'Your drinking dashboard' })
 }
 
 describe('ManualDrinkPage alcohol consumption integration', () => {
@@ -118,15 +128,13 @@ describe('ManualDrinkPage alcohol consumption integration', () => {
     expect(ALCOHOL_INFORMATION_TOPIC_CODES).toContain('ALCOHOL_DRIVING')
 
     expect(
-      within(getSummarySection()).getByText(
+      within(await getSummarySection()).getByText(
         hasExactText('1.5 / 4 standard drinks'),
       ),
     ).toBeInTheDocument()
 
     await user.click(
-      screen.getByRole('button', {
-        name: 'Edit drinking record for Current beer',
-      }),
+      await historyAction('Edit', 'Current beer'),
     )
     const editorHeading = screen.getByRole('heading', {
       name: 'Edit drinking record',
@@ -142,7 +150,7 @@ describe('ManualDrinkPage alcohol consumption integration', () => {
     await user.click(within(editor).getByRole('button', { name: 'Save changes' }))
 
     expect(
-      await within(getSummarySection()).findByText(
+      await within(await getSummarySection()).findByText(
         hasExactText('3.0 / 4 standard drinks'),
       ),
     ).toBeInTheDocument()
@@ -151,16 +159,14 @@ describe('ManualDrinkPage alcohol consumption integration', () => {
     ).toHaveLength(1)
 
     await user.click(
-      screen.getByRole('button', {
-        name: 'Delete drinking record for Current beer',
-      }),
+      await historyAction('Delete', 'Current beer'),
     )
     await user.click(
-      screen.getByRole('button', { name: 'Yes, delete record' }),
+      screen.getByRole('button', { name: 'Delete' }),
     )
     expect(
-      await within(getSummarySection()).findByText(
-        /No current or past drinking history/i,
+      await within(await getSummarySection()).findByText(
+        /No trend data yet/i,
       ),
     ).toBeInTheDocument()
     await waitFor(() =>
@@ -169,6 +175,7 @@ describe('ManualDrinkPage alcohol consumption integration', () => {
       ).not.toBeInTheDocument(),
     )
 
+    await openRecordForm()
     await user.selectOptions(screen.getByLabelText('Drink type'), 'other')
     await user.type(screen.getByLabelText('Drink name'), 'New custom drink')
     await user.type(screen.getByLabelText('Custom volume (mL)'), '375')
@@ -181,11 +188,11 @@ describe('ManualDrinkPage alcohol consumption integration', () => {
       target: { value: localDateInputValue() },
     })
     await user.click(
-      screen.getByRole('button', { name: 'Save drinking record' }),
+      screen.getByRole('button', { name: 'Record Drink' }),
     )
 
     expect(
-      await within(getSummarySection()).findByText(
+      await within(await getSummarySection()).findByText(
         hasExactText('1.5 / 4 standard drinks'),
       ),
     ).toBeInTheDocument()
@@ -209,10 +216,13 @@ describe('ManualDrinkPage alcohol consumption integration', () => {
     await renderHydratedPage()
 
     expect(
-      within(getSummarySection()).getByText(
-        /No current or past drinking history/i,
+      within(await getSummarySection()).getByText(
+        /No trend data yet/i,
       ),
     ).toBeInTheDocument()
+    await openRecordForm()
+    fireEvent.click(screen.getByRole('button', { name: 'Back to Record' }))
+    fireEvent.click(screen.getByRole('button', { name: 'My Drinks' }))
     expect(
       screen.getByRole('button', { name: /Saved wine.*150 mL.*13.5% ABV/ }),
     ).toBeInTheDocument()
@@ -235,10 +245,13 @@ describe('ManualDrinkPage alcohol consumption integration', () => {
     await renderHydratedPage()
 
     expect(
-      within(getSummarySection()).getByText(
+      within(await getSummarySection()).getByText(
         /1 record is excluded because its date is in the future/i,
       ),
     ).toBeInTheDocument()
+    window.history.replaceState({}, '', '/trends#history')
+    pageView.rerender(<ManualDrinkPage key={++pageKey} initialView="history" />)
+    await screen.findByRole('heading', { name: 'Your drinking records' })
     expect(screen.getByText('Future beer')).toBeInTheDocument()
     await expect(repository.list()).resolves.toEqual([futureRecord])
     expect(
@@ -259,9 +272,7 @@ describe('ManualDrinkPage alcohol consumption integration', () => {
     const yesterday = new Date()
     yesterday.setDate(yesterday.getDate() - 1)
     await user.click(
-      screen.getByRole('button', {
-        name: 'Edit drinking record for Date edit beer',
-      }),
+      await historyAction('Edit', 'Date edit beer'),
     )
     let editorHeading = screen.getByRole('heading', {
       name: 'Edit drinking record',
@@ -274,6 +285,7 @@ describe('ManualDrinkPage alcohol consumption integration', () => {
       target: { value: localDateInputValue(yesterday) },
     })
     await user.click(within(editor).getByRole('button', { name: 'Save changes' }))
+    await getSummarySection()
     await waitFor(() =>
       expect(
         screen.queryByRole('heading', { name: 'Driving safety' }),
@@ -281,9 +293,7 @@ describe('ManualDrinkPage alcohol consumption integration', () => {
     )
 
     await user.click(
-      screen.getByRole('button', {
-        name: 'Edit drinking record for Date edit beer',
-      }),
+      await historyAction('Edit', 'Date edit beer'),
     )
     editorHeading = screen.getByRole('heading', {
       name: 'Edit drinking record',
@@ -296,6 +306,7 @@ describe('ManualDrinkPage alcohol consumption integration', () => {
       target: { value: localDateInputValue() },
     })
     await user.click(within(editor).getByRole('button', { name: 'Save changes' }))
+    await getSummarySection()
     expect(
       await screen.findByRole('heading', { name: 'Driving safety' }),
     ).toBeInTheDocument()
@@ -317,14 +328,13 @@ describe('ManualDrinkPage alcohol consumption integration', () => {
     ).toHaveLength(1)
 
     await user.click(
-      screen.getByRole('button', {
-        name: 'Delete drinking record for First today beer',
-      }),
+      await historyAction('Delete', 'First today beer'),
     )
-    await user.click(screen.getByRole('button', { name: 'Yes, delete record' }))
+    await user.click(screen.getByRole('button', { name: 'Delete' }))
     await waitFor(() =>
       expect(screen.queryByText('First today beer')).not.toBeInTheDocument(),
     )
+    await getSummarySection()
     expect(
       screen.getAllByRole('heading', { name: 'Driving safety' }),
     ).toHaveLength(1)

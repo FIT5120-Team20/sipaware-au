@@ -26,7 +26,7 @@ afterEach(() => {
 })
 
 describe('App alcohol-information navigation', () => {
-  it('selects the existing Record a drink page at the root path', async () => {
+  it('selects the reference homepage at the root path', async () => {
     window.history.replaceState({}, '', '/')
 
     render(<App />)
@@ -34,12 +34,12 @@ describe('App alcohol-information navigation', () => {
     expect(
       await screen.findByRole('heading', {
         level: 1,
-        name: 'Record a drink',
+        name: 'Home',
       }),
     ).toBeInTheDocument()
     expect(
       screen.queryByRole('heading', {
-        name: 'Alcohol Guidelines & Legal Information',
+        name: 'Learn',
       }),
     ).not.toBeInTheDocument()
   })
@@ -53,7 +53,7 @@ describe('App alcohol-information navigation', () => {
     expect(
       screen.getByRole('heading', {
         level: 1,
-        name: 'Alcohol Guidelines & Legal Information',
+        name: 'Learn',
       }),
     ).toBeInTheDocument()
     expect(
@@ -94,6 +94,6 @@ describe('App alcohol-information navigation', () => {
     ).toBeInTheDocument()
     expect(
       screen.getByRole('link', { name: 'Record a drink' }),
-    ).toHaveAttribute('href', '/')
+    ).toHaveAttribute('href', '/record')
   })
 })

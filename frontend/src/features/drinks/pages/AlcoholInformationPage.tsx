@@ -5,10 +5,12 @@
  * There is deliberately no hard-coded health or legal fallback: a failed or
  * malformed response stays visibly unavailable until a successful retry.
  */
+import { applicationHref } from '../../../app/entryPaths'
 import { useEffect, useState } from 'react'
 
 import { getAlcoholInformation } from '../../../services/alcoholInformationApi'
 import '../alcoholInformation.css'
+import { ReferenceLearnHub, BackArrow } from '../components/ReferenceLearnHub'
 import { AlcoholInformationSection } from '../components/AlcoholInformationSection'
 import type { AlcoholInformationResponseDto } from '../types/alcoholInformation'
 import {
@@ -98,7 +100,8 @@ export function AlcoholInformationPage() {
     }
 
     section.scrollIntoView()
-    heading.focus()
+    window.scrollTo?.({ top: 0 })
+    heading.focus({ preventScroll: true })
   }, [hashTarget.topicCode, information, status])
 
   const requestedTopicIsMissing =
@@ -110,18 +113,11 @@ export function AlcoholInformationPage() {
 
   return (
     <main className='alcohol-information-page'>
-      <div className='alcohol-information-shell'>
-        <a className='alcohol-information-back-link' href='/'>
-          Record a drink
-        </a>
-
-        <header className='alcohol-information-header'>
-          <p className='brand-name'>SipAware AU</p>
-          <h1>Alcohol Guidelines &amp; Legal Information</h1>
-          <p>
-            Explore verified public information and its trusted Australian
-            sources.
-          </p>
+      <div className={'alcohol-information-shell' + (hashTarget.topicCode ? ' reference-reading-shell' : '')}>
+        {hashTarget.topicCode && <a className="prototype-back" href={applicationHref('/alcohol-guidelines')}><BackArrow /> Back to Learn</a>}
+        <header className='alcohol-information-header' hidden={hashTarget.topicCode !== null}>
+          <h1>Learn</h1>
+          <p>Clear, trusted information about alcohol, ageing and Australian guidelines.</p>
         </header>
 
         {hashTarget.value !== null && hashTarget.topicCode === null && (
@@ -152,21 +148,9 @@ export function AlcoholInformationPage() {
 
         {status === 'loaded' && information && (
           <>
-            <nav
-              className='alcohol-information-contents'
-              aria-label='Alcohol information topics'
-            >
-              <h2>On this page</h2>
-              <ul>
-                {information.topics.map((topic) => (
-                  <li key={topic.topicCode}>
-                    <a href={'#' + encodeURIComponent(topic.topicCode)}>
-                      {topic.displayName}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </nav>
+            <div hidden={hashTarget.topicCode !== null && !requestedTopicIsMissing}>
+              <ReferenceLearnHub topics={information.topics} />
+            </div>
 
             {requestedTopicIsMissing && (
               <p className='alcohol-information-target-message'>
@@ -176,11 +160,11 @@ export function AlcoholInformationPage() {
             )}
 
             <div className='alcohol-information-sections'>
-              {information.topics.map((topic) => (
-                <AlcoholInformationSection
-                  key={topic.topicCode}
-                  topic={topic}
-                />
+              {information.topics.map(topic => (
+                <div key={topic.topicCode} hidden={hashTarget.value === null ||
+                  (hashTarget.topicCode !== null && !requestedTopicIsMissing && topic.topicCode !== hashTarget.topicCode)}>
+                  <AlcoholInformationSection topic={topic} />
+                </div>
               ))}
             </div>
           </>

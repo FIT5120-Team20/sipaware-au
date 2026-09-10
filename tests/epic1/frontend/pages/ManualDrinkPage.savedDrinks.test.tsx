@@ -73,27 +73,27 @@ async function storeSavedDrinks(savedDrinks: readonly SavedDrink[]) {
   }
 }
 
-async function renderHydratedPage() {
+async function renderHydratedPage(manual = true) {
   const view = render(<ManualDrinkPage />)
   await screen.findByLabelText('Drink type')
+  if (manual) fireEvent.click(await screen.findByRole('button', { name: 'Record Manually' }))
+  else fireEvent.click(screen.getByRole('button', { name: 'My Drinks' }))
   return view
 }
 
 describe('ManualDrinkPage saved drinks', () => {
-  it('saves only reusable drink data, preserves existing data, and reloads it', async () => {
+  it('saves reusable fields only when checked, preserves old records, and reloads My Drinks', async () => {
     await storeSavedDrinks([existingSavedDrink])
     await new IndexedDbDrinkingRecordRepository().add(existingRecord)
     const view = await renderHydratedPage()
     const user = await enterReusableDrinkDetails()
 
-    await user.click(
-      screen.getByRole('button', {
-        name: 'Save this drink to My Drinks',
-      }),
-    )
+    await user.click(screen.getByRole('checkbox', { name: /Save this drink to My Drinks/ }))
+    fireEvent.change(screen.getByLabelText('Number of servings consumed'), { target: { value: '1' } })
+    await user.click(screen.getByRole('button', { name: 'Record Drink' }))
 
     expect(
-      await screen.findByText('Drink saved to My Drinks on this device.'),
+      await screen.findByText('Drinking record saved on this device.'),
     ).toBeInTheDocument()
     const savedDrinks = await new IndexedDbSavedDrinkRepository().list()
 
@@ -111,12 +111,14 @@ describe('ManualDrinkPage saved drinks', () => {
     expect(savedDrinks[1]).not.toHaveProperty('consumedAt')
     expect(savedDrinks[1]).not.toHaveProperty('date')
     expect(savedDrinks[1]).not.toHaveProperty('time')
-    await expect(
-      new IndexedDbDrinkingRecordRepository().list(),
-    ).resolves.toEqual([existingRecord])
+    const history = await new IndexedDbDrinkingRecordRepository().list()
+    expect(history).toHaveLength(2)
+    expect(history[0]).toEqual(existingRecord)
+    expect(history[1]).toMatchObject({ drinkName: 'Pale Ale', amountConsumed: 1 })
 
     view.unmount()
-    await renderHydratedPage()
+    window.history.replaceState({}, '', '/record')
+    await renderHydratedPage(false)
     expect(
       screen.getByRole('button', {
         name: /Pale Ale.*Beer.*375 mL.*4.5% ABV/,
@@ -132,7 +134,7 @@ describe('ManualDrinkPage saved drinks', () => {
   it('loads a saved drink and leaves only current occasion details to enter', async () => {
     await storeSavedDrinks([savedCarltonDraught])
     const user = userEvent.setup()
-    await renderHydratedPage()
+    await renderHydratedPage(false)
 
     await user.click(
       screen.getByRole('button', {
@@ -140,9 +142,8 @@ describe('ManualDrinkPage saved drinks', () => {
       }),
     )
 
-    expect(screen.getByRole('status')).toHaveTextContent(
-      'Using Carlton Draught from My Drinks. The saved details are filled in below and your saved drink will remain unchanged.',
-    )
+    expect(screen.getByRole('heading', { name: 'Record Consumption' })).toBeInTheDocument()
+    expect(screen.getByText(/375 mL serving/)).toBeInTheDocument()
     expect(screen.getByLabelText('Drink type')).toHaveValue('beer')
     expect(screen.getByLabelText('Drink type')).toBeDisabled()
     expect(screen.getByLabelText('Drink name')).toHaveValue('Carlton Draught')
@@ -184,7 +185,7 @@ describe('ManualDrinkPage saved drinks', () => {
     await storeSavedDrinks([savedCarltonDraught])
     await new IndexedDbDrinkingRecordRepository().add(existingRecord)
     const user = userEvent.setup()
-    await renderHydratedPage()
+    const view = await renderHydratedPage(false)
 
     await user.click(
       screen.getByRole('button', {
@@ -201,7 +202,7 @@ describe('ManualDrinkPage saved drinks', () => {
       target: { value: '22:17' },
     })
     await user.click(
-      screen.getByRole('button', { name: 'Save drinking record' }),
+      screen.getByRole('button', { name: 'Record Drink' }),
     )
 
     expect(
@@ -229,8 +230,9 @@ describe('ManualDrinkPage saved drinks', () => {
       savedCarltonDraught,
     ])
 
+    view.rerender(<ManualDrinkPage initialView="history" />)
     const recentRecordsHeading = screen.getByRole('heading', {
-      name: 'Recent records',
+      name: 'Your drinking records',
     })
     const recentRecordsSection = recentRecordsHeading.closest('section')
     expect(recentRecordsSection).not.toBeNull()
@@ -245,7 +247,7 @@ describe('ManualDrinkPage saved drinks', () => {
     await storeSavedDrinks([savedCarltonDraught])
     await new IndexedDbDrinkingRecordRepository().add(existingRecord)
     const user = userEvent.setup()
-    await renderHydratedPage()
+    await renderHydratedPage(false)
 
     await user.click(
       screen.getByRole('button', {
@@ -253,7 +255,7 @@ describe('ManualDrinkPage saved drinks', () => {
       }),
     )
     await user.click(
-      screen.getByRole('button', { name: 'Save drinking record' }),
+      screen.getByRole('button', { name: 'Record Drink' }),
     )
 
     expect(
@@ -272,14 +274,12 @@ describe('ManualDrinkPage saved drinks', () => {
     const user = userEvent.setup()
     await renderHydratedPage()
 
-    await user.click(
-      screen.getByRole('button', {
-        name: 'Save this drink to My Drinks',
-      }),
-    )
+    await user.click(screen.getByRole('checkbox', { name: /Save this drink to My Drinks/ }))
+    fireEvent.change(screen.getByLabelText('Number of servings consumed'), { target: { value: '1' } })
+    await user.click(screen.getByRole('button', { name: 'Record Drink' }))
 
     expect(
-      await screen.findByText('Check the highlighted drink details before saving to My Drinks.'),
+      await screen.findByText('Check the highlighted fields before saving this record.'),
     ).toBeInTheDocument()
     expect(screen.getByText('Select a drink type.')).toBeInTheDocument()
     expect(screen.getByLabelText('Drink type')).toHaveFocus()
@@ -293,7 +293,7 @@ describe('ManualDrinkPage saved drinks', () => {
 })
 
 describe('ManualDrinkForm saved-drink failures', () => {
-  it('keeps drink details and shows an error when saved-drink storage fails', async () => {
+  it('reports a template failure after saving history and clears the consumed amount to avoid duplication', async () => {
     render(
       <ManualDrinkForm
         referenceCategories={DRINK_REFERENCE_CATEGORIES}
@@ -310,16 +310,14 @@ describe('ManualDrinkForm saved-drink failures', () => {
     )
     const user = await enterReusableDrinkDetails()
 
-    await user.click(
-      screen.getByRole('button', {
-        name: 'Save this drink to My Drinks',
-      }),
-    )
+    await user.click(screen.getByRole('checkbox', { name: /Save this drink to My Drinks/ }))
+    fireEvent.change(screen.getByLabelText('Number of servings consumed'), { target: { value: '1' } })
+    await user.click(screen.getByRole('button', { name: 'Record Drink' }))
 
     expect(
-      await screen.findByText(/could not be saved to My Drinks on this device/i),
+      await screen.findByText(/Drinking record saved on this device, but the drink could not be saved to My Drinks/i),
     ).toBeInTheDocument()
-    expect(screen.getByLabelText('Drink name')).toHaveValue('  Pale Ale  ')
+    expect(screen.getByLabelText('Number of servings consumed')).toHaveValue(null)
     expect(
       screen.queryByText('Drink saved to My Drinks on this device.'),
     ).not.toBeInTheDocument()
