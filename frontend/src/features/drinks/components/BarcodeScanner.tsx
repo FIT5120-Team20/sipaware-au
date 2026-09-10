@@ -138,7 +138,12 @@ export function BarcodeScanner({
   const live = view.kind === 'scanner'
   return (
     <dialog ref={dialog} className={`barcode-dialog${live ? ' barcode-dialog--camera' : ''}`}
-      aria-label="Scan Barcode" onCancel={(event) => { event.preventDefault(); back() }}>
+      aria-label="Scan Barcode" onCancel={(event) => {
+        // File-picker cancellation bubbles; only the dialog's own cancel means Back.
+        if (event.target !== event.currentTarget) return
+        event.preventDefault()
+        back()
+      }}>
       <div className="barcode-shell">
         <header className="barcode-topbar">
           <button className="barcode-back" type="button" onClick={back}
