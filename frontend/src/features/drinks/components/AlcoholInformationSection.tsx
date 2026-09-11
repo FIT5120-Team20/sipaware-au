@@ -1,12 +1,13 @@
 /**
  * ADAPT: pinned LearnPage.TopicDetail uses a reading column, hero, numbered
- * points, source panel and resource rows. Only presentation is borrowed:
+ * points (adapted to knowledge icons), source panel and resource rows. Only presentation is borrowed:
  * information and source links remain API-backed. Verification metadata stays
  * in the data contract; the reading view deliberately omits its date.
  * Real anchors replace the prototype's inert resource buttons.
  */
 import type { AlcoholInformationTopicDto } from '../types/alcoholInformation'
 import type { AlcoholInformationTopicCode } from '../types/alcoholGuideline'
+import { SipAwareIcon } from './SipAwareIcon'
 import '../referenceArticle.css'
 function ExternalLink() {
   return (
@@ -60,9 +61,9 @@ export function AlcoholInformationSection({ topic }: { topic: AlcoholInformation
   <img className="reference-topic-hero" src={'/reference-ui/' + view.image} alt={view.title} draggable={false} />
   <div className="reference-topic-key-info">
    <h3>{view.section}</h3>
-   <div className="reference-topic-points">{topic.content.map((content,index) =>
+   <div className="reference-topic-points">{topic.content.map(content =>
     <article key={content.id} className="reference-topic-point">
-     <span className="reference-topic-number" aria-hidden="true">{index + 1}</span>
+     <span className="reference-topic-number" aria-hidden="true"><SipAwareIcon name="learn" width={20} height={20} /></span>
      <div><h4>{content.title}</h4><p>{content.bodyText}</p>
      </div>
     </article>
