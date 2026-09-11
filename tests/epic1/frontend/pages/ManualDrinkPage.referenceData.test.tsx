@@ -78,6 +78,9 @@ describe('ManualDrinkPage public reference loading', () => {
         return successfulGuidelineResponse()
       }
 
+      // Catalog traffic is independent of retrying the reference-options request.
+      if (String(input).includes('/api/drinks/catalog?')) return new Response('{}', { status: 503 })
+
       drinkOptionAttempts += 1
       if (drinkOptionAttempts === 1) {
         throw new Error('Reference service unavailable')

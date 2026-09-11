@@ -3,7 +3,7 @@
  *
  * Native dialog makes the underlying form inert while keeping unsaved inputs.
  * Back/Escape goes from results to scanner, then from scanner to Record.
- * The default lookup reports the deferred catalog honestly. Presentation adapts
+ * The default lookup queries the real catalog with decoded text only. UI adapts
  * the approved prototype f5711b15a939d635a2019562389b32b4ced4a6ef; no mock catalog,
  * persistence code or prototype control is imported.
  */
@@ -202,8 +202,10 @@ export function BarcodeScanner({
             {view.kind === 'match' && <>
               <span className="barcode-result-symbol" aria-hidden="true">✓</span>
               <h3>{view.product.drinkName}</h3>
-              <p>{getDrinkTypeLabel(view.product.drinkType)} · {view.product.abvPercent}% ABV · {view.product.volumeMl} mL</p>
-              <p className="barcode-provenance">Source: {view.product.sourceName}</p>
+              <p>{getDrinkTypeLabel(view.product.drinkType)} · {view.product.abvPercent}% ABV · {view.product.volumeMl} mL per container</p>
+              {view.product.packQuantity > 1 && <p>This barcode is for a pack of {view.product.packQuantity} containers
+                ({view.product.totalPackageVolumeMl} mL total). Enter how many you drank in the next step.</p>}
+              <p className="barcode-provenance">Source: <a href={view.product.sourceUrl} target="_blank" rel="noopener noreferrer">{view.product.sourceName}</a></p>
               <p>Check this is your drink. You can review and edit the details before saving a record.</p>
               <div className="barcode-actions">
                 <button type="button" className="barcode-primary" onClick={() => {
@@ -235,7 +237,7 @@ export function BarcodeScanner({
                 ? 'We couldn’t look up this drink' : 'Barcode scanning is unavailable'}</h3>
               {view.kind === 'unavailable' && <p className="barcode-value">{view.barcode}</p>}
               <p>{view.kind === 'unavailable'
-                ? 'Drink lookup is not available yet. You can add this drink manually.'
+                ? 'Drink lookup is temporarily unavailable. You can add this drink manually.'
                 : 'Please try again or add this drink manually. No matching result has been confirmed.'}</p>
               <div className="barcode-actions">
                 <button type="button" className="barcode-primary" onClick={addManually}>Add Drink Manually</button>

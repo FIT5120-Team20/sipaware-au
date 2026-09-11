@@ -72,7 +72,7 @@ describe('reference flow boundaries', () => {
   it('keeps template deletion errors inside the active reference confirmation', async () => {
     const drink = { id:'synthetic-template', drinkType:'beer' as const, drinkName:'Synthetic template', servingVolumeMl:330, abvPercent:5, createdAt:new Date().toISOString(),updatedAt:new Date().toISOString() }
     render(<SavedDrinkPicker referenceCategories={DRINK_REFERENCE_CATEGORIES} savedDrinks={[drink]} selectedSavedDrinkId={null}
-      browserActions={{onScan:()=>undefined,onManual:()=>undefined}} onSelect={()=>undefined} onClear={()=>undefined} onUpdate={()=>undefined} onDelete={async()=>{throw new Error('synthetic denial')}} />)
+      browserActions={{onScan:()=>undefined,onManual:()=>undefined,onProduct:()=>undefined}} onSelect={()=>undefined} onClear={()=>undefined} onUpdate={()=>undefined} onDelete={async()=>{throw new Error('synthetic denial')}} />)
     fireEvent.click(screen.getByRole('button', { name:'My Drinks' }))
     fireEvent.click(screen.getByRole('button', { name:'Delete Synthetic template from My Drinks' }))
     fireEvent.click(screen.getByRole('button', { name:'Yes, delete Synthetic template from My Drinks' }))

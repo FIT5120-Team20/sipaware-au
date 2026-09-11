@@ -2,9 +2,9 @@
  * Local 1D barcode decoding from camera/image pixels. No frame, photo or history
  * leaves the browser. ZXing is loaded only when scanning is requested.
  *
- * EAN/UPC, Code 128 and ITF are provisional capture formats, not claims about an
- * absent product catalog. DS must confirm accepted formats and exact strings
- * before a server adapter is enabled. QR codes and label OCR are not supported.
+ * EAN-13/EAN-8, UPC-E, Code 128 and ITF decode locally. Pass returned text
+ * unchanged to the exact DS lookup: never infer UPC/EAN aliases or strip zeros.
+ * A readable code need not exist in the catalog. QR and label OCR are unsupported.
  */
 import {
   BarcodeFormat, BinaryBitmap, DecodeHintType, HybridBinarizer,
@@ -15,8 +15,10 @@ import {
 export interface DecodedBarcode { value: string; format: string }
 export type DecodeFrame = (source: HTMLVideoElement | HTMLImageElement | HTMLCanvasElement) => Promise<DecodedBarcode | null>
 
+// Disallow ZXing’s implicit EAN-13-to-UPC-A shortening: a leading zero is
+// part of the exact catalog key. No padding or alias lookup is performed.
 const formats = [
-  BarcodeFormat.EAN_13, BarcodeFormat.EAN_8, BarcodeFormat.UPC_A,
+  BarcodeFormat.EAN_13, BarcodeFormat.EAN_8,
   BarcodeFormat.UPC_E, BarcodeFormat.CODE_128, BarcodeFormat.ITF,
 ]
 

@@ -1,11 +1,8 @@
 /**
- * Frontend-only product-selection boundary for assisted capture.
- *
- * DS has not supplied a catalog or API contract. The production adapter therefore
- * performs no request and reports unavailable. These UI types are not a proposed
- * database schema; a later approved FastAPI adapter must map and validate its DTO.
- * Neither this boundary nor selecting a product creates personal browser records.
+ * Exact catalog boundary: only the decoded text leaves this device. Neither
+ * lookup nor product confirmation saves personal templates or drinking records.
  */
+import { buildApiUrl } from '../../../services/apiBaseUrl'
 import { isDrinkType } from '../config/drinkTypes'
 import type { DrinkType } from '../types/drinkingRecord'
 import type { ManualDrinkFormValues } from '../types/manualDrinkForm'
@@ -19,6 +16,9 @@ export interface BarcodeProduct {
   volumeMl: number
   abvPercent: number
   sourceName: string
+  sourceUrl: string
+  packQuantity: number
+  totalPackageVolumeMl: number
 }
 
 export type BarcodeLookupResult =
@@ -26,19 +26,48 @@ export type BarcodeLookupResult =
   | { kind: 'not-found' }
   | { kind: 'unavailable' }
 
-/** A future adapter receives only the decoded string and cancellation signal. */
+/** The API receives only the decoded string; camera pixels remain local. */
 export type BarcodeLookup = (
   barcode: string,
   signal: AbortSignal,
 ) => Promise<unknown>
 
-export const lookupBarcode: BarcodeLookup = async (_barcode, signal) => {
+export const lookupBarcode: BarcodeLookup = async (barcode, signal) => {
   signal.throwIfAborted()
-  return { kind: 'unavailable' }
+  const owner = new AbortController()
+  const cancel = () => owner.abort(signal.reason)
+  signal.addEventListener('abort', cancel, { once: true })
+  // Bound the wait, including body reading. Back/unmount also cancels the request.
+  const timeout = setTimeout(() => owner.abort(), 12000)
+  try {
+    const query = new URLSearchParams({ barcode })
+    const response = await fetch(buildApiUrl(`/api/drinks/barcode?${query}`), {
+      method: 'GET', credentials: 'omit', headers: { Accept: 'application/json' },
+      signal: owner.signal, cache: 'no-store',
+    })
+    if (!response.ok) return { kind: 'unavailable' }
+    const result = validateLookupResult(await response.json(), barcode)
+    signal.throwIfAborted()
+    return result
+  } catch {
+    signal.throwIfAborted()
+    return { kind: 'unavailable' }
+  } finally {
+    clearTimeout(timeout)
+    signal.removeEventListener('abort', cancel)
+  }
 }
 
 function object(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function sourceUrl(value: unknown): value is string {
+  if (typeof value !== 'string') return false
+  try {
+    const url = new URL(value)
+    return (url.protocol === 'https:' || url.protocol === 'http:') && !url.username && !url.password
+  } catch { return false }
 }
 
 function nonempty(value: unknown, max: number): value is string {
@@ -48,7 +77,7 @@ function nonempty(value: unknown, max: number): value is string {
 /**
  * Reject malformed responses and approximate matches before showing a product.
  * Barcode strings are compared byte-for-byte: leading zeros and their meaning
- * belong to the future approved catalog contract, not to UI normalization.
+ * follow the DS contract; UPC/EAN aliases are not inferred.
  */
 export function validateLookupResult(
   value: unknown,
@@ -61,19 +90,29 @@ export function validateLookupResult(
   if (
     value.kind !== 'match' || !object(product) ||
     !nonempty(product.productId, 200) || !nonempty(product.drinkName, 200) ||
-    !nonempty(product.sourceName, 300) || product.barcode !== barcode ||
+    !nonempty(product.sourceName, 300) || !sourceUrl(product.sourceUrl) || product.barcode !== barcode ||
+    typeof product.packQuantity !== 'number' || !Number.isSafeInteger(product.packQuantity) ||
+    product.packQuantity < 1 || product.packQuantity > 100000 ||
+    typeof product.totalPackageVolumeMl !== 'number' || !Number.isFinite(product.totalPackageVolumeMl) ||
+    product.totalPackageVolumeMl <= 0 ||
     !isDrinkType(product.drinkType) ||
     typeof product.volumeMl !== 'number' || !Number.isFinite(product.volumeMl) ||
     product.volumeMl <= 0 || product.volumeMl > 100000 ||
     typeof product.abvPercent !== 'number' || !Number.isFinite(product.abvPercent) ||
     product.abvPercent < 0 || product.abvPercent > 100
   ) throw new Error('Invalid barcode product')
+  const expected = product.volumeMl * product.packQuantity
+  if (Math.abs(product.totalPackageVolumeMl - expected) > Math.max(0.000001, expected * 1e-9)) {
+    throw new Error('Invalid barcode package')
+  }
   return {
     kind: 'match',
     product: {
       productId: product.productId, barcode, drinkName: product.drinkName,
       drinkType: product.drinkType, volumeMl: product.volumeMl,
       abvPercent: product.abvPercent, sourceName: product.sourceName,
+      sourceUrl: product.sourceUrl, packQuantity: product.packQuantity,
+      totalPackageVolumeMl: product.totalPackageVolumeMl,
     },
   }
 }
@@ -81,7 +120,8 @@ export function validateLookupResult(
 /**
  * Copy only reviewed reusable attributes. Explicit servings, Date and Time stay
  * exactly as entered; the existing form still validates and explicitly saves.
- * The supplied package volume becomes editable Custom volume, never a guessed
+ * The single-container volume becomes editable Custom volume, never the whole
+ * sales pack or a guessed
  * standard serving. No template or historical record is modified here.
  */
 export function selectBarcodeProduct(

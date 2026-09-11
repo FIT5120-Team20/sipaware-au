@@ -42,6 +42,7 @@ import { IcoCalendar, IcoClock, MinusIcon, PlusIcon } from './ReferenceRecordBro
 import { SavedDrinkPicker } from './SavedDrinkPicker'
 import { calculateStandardDrinks } from '../calculations/standardDrinks'
 import { BarcodeScanner } from './BarcodeScanner'
+import { selectCatalogProduct, type CatalogProduct } from '../catalog/catalogApi'
 import { selectBarcodeProduct, type BarcodeLookup, type BarcodeProduct } from '../barcode/barcodeLookup'
 
 interface ManualDrinkFormProps {
@@ -330,6 +331,19 @@ export function ManualDrinkForm({
     })
   }
 
+  function handleCatalogProduct(product: CatalogProduct) {
+    setValues(current => selectCatalogProduct(current, product))
+    setSelectedSavedDrinkId(null)
+    setSelectedVariantId(null)
+    clearErrors(...REUSABLE_DRINK_FIELDS)
+    setCaptureView('manual')
+    setSaveStatus({ kind: 'success', message: 'Drink details added. Review the volume, servings, Date and Time before saving.' })
+    queueMicrotask(() => {
+      const field = formRef.current?.elements.namedItem('drinkName')
+      if (field instanceof HTMLElement) field.focus()
+    })
+  }
+
   function returnToManualEntry() {
     // Release template field locks without discarding the user's current draft.
     setSelectedSavedDrinkId(null)
@@ -511,7 +525,7 @@ export function ManualDrinkForm({
 
       <div hidden={startInBrowse && captureView !== 'browse'}>
       <SavedDrinkPicker
-        browserActions={startInBrowse ? { onScan: () => setBarcodeOpen(true), onManual: openManualEntry } : undefined}
+        browserActions={startInBrowse ? { onScan: () => setBarcodeOpen(true), onManual: openManualEntry, onProduct: handleCatalogProduct } : undefined}
         referenceCategories={referenceCategories}
         savedDrinks={savedDrinks}
         selectedSavedDrinkId={selectedSavedDrinkId}

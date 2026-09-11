@@ -5,6 +5,7 @@
  * confirmed deletions through callbacks, preserving the page's repository
  * boundary and the separation from historical DrinkingRecords.
  */
+import type { CatalogProduct } from '../catalog/catalogApi'
 import { useState } from 'react'
 import { ReferenceRecordBrowser, DrinkThumb, IcoChevron } from './ReferenceRecordBrowser'
 
@@ -15,7 +16,7 @@ import { SavedDrinkEditor } from './SavedDrinkEditor'
 import { ReferenceDialog } from './ReferenceDialog'
 
 interface SavedDrinkPickerProps {
-  browserActions?: { onScan: () => void; onManual: () => void }
+  browserActions?: { onScan: () => void; onManual: () => void; onProduct: (product: CatalogProduct) => void }
   referenceCategories: readonly DrinkReferenceCategory[]
   savedDrinks: readonly SavedDrink[]
   selectedSavedDrinkId: string | null
@@ -222,7 +223,7 @@ export function SavedDrinkPicker({
         <div className="management-actions"><button type="button" className="secondary-button" disabled={Boolean(deletingSavedDrinkId)} onClick={() => setPendingDeleteId(null)}>Keep {pending.drinkName}</button>
           <button type="button" className="danger-button" disabled={Boolean(deletingSavedDrinkId)} onClick={() => confirmDelete(pending)}>Yes, delete {pending.drinkName} from My Drinks</button></div>
       </ReferenceDialog>}
-      {browserActions ? <div hidden={Boolean(editing)}><ReferenceRecordBrowser savedDrinks={savedDrinks} onScan={browserActions.onScan} onManual={browserActions.onManual}>{renderCards}</ReferenceRecordBrowser></div> : savedDrinks.length === 0 ? (
+      {browserActions ? <div hidden={Boolean(editing)}><ReferenceRecordBrowser savedDrinks={savedDrinks} onScan={browserActions.onScan} onManual={browserActions.onManual} onProduct={browserActions.onProduct}>{renderCards}</ReferenceRecordBrowser></div> : savedDrinks.length === 0 ? (
         <p className="empty-state">
           No saved drinks yet. Enter drink details and choose Save this
           drink to My Drinks.
