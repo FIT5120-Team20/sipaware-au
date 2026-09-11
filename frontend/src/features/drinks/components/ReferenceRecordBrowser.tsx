@@ -2,10 +2,12 @@
  * Port of RecordPage.tsx at f5711b15: search/actions, category rail, card grid
  * and original SVG paths. Utility classes are translated to scoped plain CSS.
  * Catalog categories and My Drinks have separate provenance. DS catalog data
- * is still deferred: neither personal templates nor the prototype's sample
- * products may fill that gap. SavedDrink cards render only under My Drinks.
+ * comes from the public read-only API. Personal templates and prototype samples
+ * never fill catalog results. SavedDrink cards render only under My Drinks.
  */
 import { useState, type ReactNode } from 'react'
+import { CatalogResults } from './CatalogResults'
+import type { CatalogCategory, CatalogProduct } from '../catalog/catalogApi'
 import { ReferenceDialog } from './ReferenceDialog'
 import type { SavedDrink } from '../types/savedDrink'
 import type { DrinkType } from '../types/drinkingRecord'
@@ -61,10 +63,11 @@ export function DrinkThumb({ type }: { type: DrinkType }) {
   return <span className="prototype-drink-thumb" aria-hidden="true" style={{ background: style.bg, color: style.color }}>{style.icon}</span>
 }
 const categories = ['My Drinks', 'All', 'Beer', 'Wine', 'Spirits', 'Cider', 'RTD', 'Other'] as const
-export function ReferenceRecordBrowser({ savedDrinks, onScan, onManual, children }: {
+export function ReferenceRecordBrowser({ savedDrinks, onScan, onManual, onProduct, children }: {
   savedDrinks: readonly SavedDrink[]
   onScan: () => void
   onManual: () => void
+  onProduct: (product: CatalogProduct) => void
   children: (drinks: readonly SavedDrink[]) => ReactNode
 }) {
   const [category, setCategory] = useState<string>('All')
@@ -79,12 +82,12 @@ export function ReferenceRecordBrowser({ savedDrinks, onScan, onManual, children
       <button type="button" className="prototype-help" onClick={() => setShowHelp(!showHelp)} aria-label="How to record a drink" aria-expanded={showHelp}><HelpIcon /></button>
     </div>
     {showHelp && <ReferenceDialog title="How to record a drink" onClose={() => setShowHelp(false)}>
-      <p>All and the drink categories are for the public product catalog. My Drinks shows only drinks you choose to save on this device. Scan Barcode reads a barcode locally with your camera or a photo. Product lookup is temporarily unavailable; use Record Manually to enter the drink details and how much you drank.</p>
+      <p>All and the drink categories are for the public product catalog. My Drinks shows only drinks you choose to save on this device. Scan Barcode reads a barcode locally with your camera or a photo. Choose a catalog drink or barcode match to review its details, then enter how much you drank. Use Record Manually if you cannot find your drink.</p>
       <p>Save a drink to My Drinks for quicker recording next time. View drinking records in Trends → History. Your saved drinks and drinking records stay in this browser on this device.</p>
       <button type="button" className="primary-button" onClick={() => setShowHelp(false)}>Got it</button>
     </ReferenceDialog>}
     <div className="prototype-record-controls">
-      <div className="prototype-record-search"><IcoSearch /><input type="search" aria-label="Search for a drink" placeholder="Search for a drink..." value={query} onChange={e => setQuery(e.target.value)} />{query && <button type="button" aria-label="Clear search" onClick={() => setQuery('')}>×</button>}</div>
+      <div className="prototype-record-search"><IcoSearch /><input type="search" aria-label="Search for a drink" placeholder="Search for a drink..." value={query} maxLength={200} onChange={e => setQuery(e.target.value)} />{query && <button type="button" aria-label="Clear search" onClick={() => setQuery('')}>×</button>}</div>
       <div className="prototype-record-actions">
         <button type="button" onClick={onScan}><IcoBarcode /><span>Scan Barcode</span></button>
         <button type="button" onClick={onManual}><IcoPlus /><span>Record Manually</span></button>
@@ -98,15 +101,13 @@ export function ReferenceRecordBrowser({ savedDrinks, onScan, onManual, children
         </div>)}
       </nav>
       <div className="prototype-record-results">
-        <div className="prototype-results-header"><h2>{category === 'All' ? 'All Drinks' : category}</h2><span>{isMyDrinks ? `${filtered.length} saved ${filtered.length === 1 ? 'drink' : 'drinks'}` : 'Catalog unavailable'}</span></div>
-        {!isMyDrinks ? <div className="prototype-empty" role="status">
-          <h3>Product catalog temporarily unavailable</h3>
-          <p>Public drink listings are not available yet. Choose My Drinks to use a saved drink, or record manually.</p>
-        </div> : filtered.length ? children(filtered) : <div className="prototype-empty">
+        {!isMyDrinks ? <CatalogResults key={`${category}:${query.trim()}`} category={category.toLowerCase() as CatalogCategory} query={query.trim()} onSelect={onProduct} /> : <>
+        <div className="prototype-results-header"><h2>My Drinks</h2><span>{filtered.length} saved {filtered.length === 1 ? 'drink' : 'drinks'}</span></div>
+        {filtered.length ? children(filtered) : <div className="prototype-empty">
           <span className="prototype-empty-icon" aria-hidden="true"><IcoStar /></span>
           <h3>{query.trim() ? 'No saved drinks match your search' : 'No saved drinks yet'}</h3>
           <p>{query.trim() ? 'Try another name or clear your search.' : 'Select Save this drink to My Drinks when recording to keep its details here for next time.'}</p>
-        </div>}
+        </div>}</>}
       </div>
     </div>
   </div>

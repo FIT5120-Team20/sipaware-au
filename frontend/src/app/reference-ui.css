@@ -503,3 +503,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .prototype-scan-card > button { width: 100%; min-height: 52px; padding: 10px 16px; border: 1px solid #c9d7eb; border-radius: 12px; color: #1a5fcc; background: white; font-size: 17px; font-weight: 600; }
 .prototype-scan-card > button:active { background: #f8fbff; }
 .prototype-scan-card > button:disabled { color: #6f7f95; background: #eef2f7; cursor: wait; }
+
+/* Pagination extends the existing prototype card grid without changing its rail. */
+.prototype-catalog-pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px; padding: 8px 12px 20px; }
+.prototype-catalog-pagination > span { font-size: 14px; color: #647280; }

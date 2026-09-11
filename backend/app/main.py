@@ -9,6 +9,8 @@ personal SavedDrink or DrinkingRecord data, which remains in browser IndexedDB.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from .api.catalog import router as catalog_router
+from .api.barcode import router as barcode_router
 from .api.health import router as health_router
 from .api.reference import router as reference_router
 
@@ -36,3 +38,6 @@ app.add_middleware(
 
 app.include_router(health_router)
 app.include_router(reference_router)
+app.include_router(barcode_router)
+
+app.include_router(catalog_router)

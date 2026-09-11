@@ -18,6 +18,7 @@ const code = { value: '000000000001', format: 'EAN_13' }
 const product: BarcodeProduct = {
   productId: 'synthetic-only', barcode: code.value, drinkName: 'Synthetic barcode drink',
   drinkType: 'beer', volumeMl: 330, abvPercent: 5, sourceName: 'Synthetic test source',
+  sourceUrl: 'https://example.org/source', packQuantity: 6, totalPackageVolumeMl: 1980,
 }
 let camera: Parameters<typeof captureCamera>[0]
 beforeEach(() => {
@@ -70,7 +71,7 @@ describe('US 3.1 scanner states with an explicit synthetic lookup', () => {
   it('AC 5: reviews exact synthetic details and Use This Drink selects only once', async () => {
     const c = open(); await detected()
     expect(screen.getByText(product.drinkName)).toBeVisible()
-    expect(screen.getByText('Beer · 5% ABV · 330 mL')).toBeVisible()
+    expect(screen.getByText('Beer · 5% ABV · 330 mL per container')).toBeVisible()
     expect(c.lookup.mock.calls[0][0]).toBe(code.value)
     expect(c.lookup.mock.calls[0]).toHaveLength(2)
     click('Use This Drink'); click('Use This Drink')
@@ -204,6 +205,15 @@ describe('US 3.1 scanner states with an explicit synthetic lookup', () => {
   it('unmount cancels the active operation', () => {
     const c = open(), signal = camera.signal
     c.unmount(); expect(signal.aborted).toBe(true)
+  })
+})
+
+describe('Catalog packaging and provenance', () => {
+  it('shows a multipack separately from the single-container volume', async () => {
+    open(); await detected()
+    expect(screen.getByText(/330 mL per container/)).toBeVisible()
+    expect(screen.getByText(/pack of 6 containers/)).toBeVisible()
+    expect(screen.getByRole('link', { name: product.sourceName })).toHaveAttribute('href', product.sourceUrl)
   })
 })
 

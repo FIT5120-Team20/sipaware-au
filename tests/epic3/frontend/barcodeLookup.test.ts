@@ -2,7 +2,7 @@
  * Synthetic contract tests validate the frontend boundary only.
  * No fixture here claims a real catalog product or database integration result.
  */
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   lookupBarcode, selectBarcodeProduct, validateLookupResult, type BarcodeProduct,
 } from '../../../frontend/src/features/drinks/barcode/barcodeLookup'
@@ -11,13 +11,49 @@ import type { ManualDrinkFormValues } from '../../../frontend/src/features/drink
 const product: BarcodeProduct = {
   productId: 'synthetic-only', barcode: '000000000001', drinkName: 'Synthetic barcode drink',
   drinkType: 'beer', volumeMl: 330, abvPercent: 5, sourceName: 'Synthetic test source',
+  sourceUrl: 'https://example.org/source', packQuantity: 6, totalPackageVolumeMl: 1980,
 }
-describe('US 3.1 frontend lookup boundary; real catalog deferred', () => {
-  it('ordinary runtime is unavailable, never a confirmed miss, and sends no request', async () => {
+describe('US 3.1 exact lookup HTTP boundary', () => {
+  afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers() })
+  it('sends only the exact barcode and validates the returned match', async () => {
+    const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({ kind: 'match', product })))
+    await expect(lookupBarcode(product.barcode, new AbortController().signal)).resolves.toEqual({ kind: 'match', product })
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/drinks/barcode?barcode=000000000001'), {
+      method: 'GET', credentials: 'omit', headers: { Accept: 'application/json' },
+      signal: expect.any(AbortSignal), cache: 'no-store',
+    })
+  })
+  it('returns a confirmed database miss', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({ kind: 'not-found' })))
+    await expect(lookupBarcode('01234567', new AbortController().signal)).resolves.toEqual({ kind: 'not-found' })
+  })
+  it.each(['service', 'network', 'json', 'wrong-product'])('treats %s failure as unavailable, never not-found', async (kind) => {
     const fetch = vi.spyOn(globalThis, 'fetch')
+    if (kind === 'network') fetch.mockRejectedValue(new Error('offline'))
+    else fetch.mockResolvedValue(kind === 'service' ? new Response('{}', { status: 503 })
+      : new Response(kind === 'json' ? 'bad-json' : JSON.stringify({ kind: 'match', product: { ...product, barcode: '1' } })))
     await expect(lookupBarcode(product.barcode, new AbortController().signal)).resolves.toEqual({ kind: 'unavailable' })
-    expect(fetch).not.toHaveBeenCalled()
-    fetch.mockRestore()
+  })
+  it('cancels the in-flight request on Back instead of showing a late result', async () => {
+    let requestSignal: AbortSignal | undefined
+    vi.spyOn(globalThis, 'fetch').mockImplementation((_url, options) => {
+      requestSignal = options?.signal as AbortSignal
+      return new Promise((_resolve, reject) => requestSignal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError'))))
+    })
+    const owner = new AbortController()
+    const pending = lookupBarcode(product.barcode, owner.signal)
+    const assertion = expect(pending).rejects.toThrow()
+    owner.abort(); await assertion
+    expect(requestSignal?.aborted).toBe(true)
+  })
+  it('bounds an unresponsive request and allows manual recovery', async () => {
+    vi.useFakeTimers()
+    vi.spyOn(globalThis, 'fetch').mockImplementation((_url, options) => new Promise((_resolve, reject) => {
+      options?.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')))
+    }))
+    const pending = lookupBarcode(product.barcode, new AbortController().signal)
+    await vi.advanceTimersByTimeAsync(12000)
+    await expect(pending).resolves.toEqual({ kind: 'unavailable' })
   })
   it('honors cancellation without starting a lookup', async () => {
     const owner = new AbortController(); owner.abort()
@@ -36,6 +72,9 @@ describe('US 3.1 frontend lookup boundary; real catalog deferred', () => {
     { barcode: '1' }, { barcode: '000000000002' }, { drinkType: 'invented-category' },
     { volumeMl: 0 }, { volumeMl: Number.NaN }, { abvPercent: 101 }, { abvPercent: Number.POSITIVE_INFINITY },
     { drinkName: '' }, { sourceName: '' }, { productId: '' },
+    { sourceUrl: 'javascript:alert(1)' },
+    { packQuantity: 0 }, { packQuantity: 1.5 }, { totalPackageVolumeMl: 330 },
+    { totalPackageVolumeMl: Number.NaN },
   ])('rejects malformed or approximate synthetic product %j', (change) => {
     expect(() => validateLookupResult({ kind: 'match', product: { ...product, ...change } }, product.barcode)).toThrow()
   })
