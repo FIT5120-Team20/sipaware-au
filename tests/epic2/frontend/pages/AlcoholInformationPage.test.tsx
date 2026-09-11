@@ -55,7 +55,7 @@ describe('AlcoholInformationPage', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('renders six semantic sections, provenance, safe links and AU dates', async () => {
+  it('renders six semantic sections, provenance and safe links without verification dates', async () => {
     vi.mocked(fetch).mockResolvedValueOnce(
       jsonResponse(ALCOHOL_INFORMATION_RESPONSE),
     )
@@ -98,11 +98,7 @@ describe('AlcoholInformationPage', () => {
     expect(
       within(standardSection).getByText(/Supporting source/),
     ).toBeInTheDocument()
-    expect(
-      within(standardSection).getByText('29 August 2026').closest('small'),
-    ).toHaveTextContent(
-      'Information last verified 29 August 2026',
-    )
+    expect(document.body).not.toHaveTextContent(/Information last verified|29 August 2026/)
     const links = within(standardSection).getAllByRole('link', { hidden: true })
     expect(links).toHaveLength(3)
     for (const link of links) {
