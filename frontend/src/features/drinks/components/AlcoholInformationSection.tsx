@@ -1,7 +1,8 @@
 /**
  * ADAPT: pinned LearnPage.TopicDetail uses a reading column, hero, numbered
  * points, source panel and resource rows. Only presentation is borrowed:
- * every information block, verification date and source URL remains API-backed.
+ * information and source links remain API-backed. Verification metadata stays
+ * in the data contract; the reading view deliberately omits its date.
  * Real anchors replace the prototype's inert resource buttons.
  */
 import type { AlcoholInformationTopicDto } from '../types/alcoholInformation'
@@ -46,7 +47,6 @@ const presentation: Record<AlcoholInformationTopicCode, { title: string; image: 
  ALCOHOL_MEDICINES: {title:'Alcohol & Medicines',image:'learn-medicines.svg',section:'Why extra care may be needed with medicines'},
  ALCOHOL_LEGAL: {title:'Alcohol & Legal Information',image:'home-know.svg',section:'What you need to know about alcohol laws'},
 }
-const dateFormatter = new Intl.DateTimeFormat('en-AU', { day:'numeric', month:'long',year:'numeric',timeZone:'UTC' })
 export function AlcoholInformationSection({ topic }: { topic: AlcoholInformationTopicDto }) {
  const view = presentation[topic.topicCode]
  const headingId = 'alcohol-information-heading-' + topic.topicCode
@@ -64,7 +64,6 @@ export function AlcoholInformationSection({ topic }: { topic: AlcoholInformation
     <article key={content.id} className="reference-topic-point">
      <span className="reference-topic-number" aria-hidden="true">{index + 1}</span>
      <div><h4>{content.title}</h4><p>{content.bodyText}</p>
-      <small className="alcohol-information-verified">Information last verified <time dateTime={content.lastVerified}>{dateFormatter.format(new Date(content.lastVerified + 'T00:00:00Z'))}</time></small>
      </div>
     </article>
    )}</div>
