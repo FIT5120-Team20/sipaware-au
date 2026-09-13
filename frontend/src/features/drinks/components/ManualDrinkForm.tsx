@@ -697,13 +697,17 @@ const availableCategories = includePersistedDrinkType(
                 id="custom-volume"
                 name="customVolumeMl"
                 type="number"
+                min="0"
                 inputMode="decimal"
                 step="any"
                 placeholder="e.g. 375"
                 readOnly={Boolean(selectedSavedDrink)}
                 value={values.customVolumeMl}
                 onChange={(event) =>
-                  updateValue('customVolumeMl', event.target.value)
+                  updateValue(
+                    'customVolumeMl',
+                    Number(event.target.value) < 0 ? '0' : event.target.value,
+                  )
                 }
                 aria-invalid={Boolean(errors.customVolumeMl)}
                 aria-describedby={
@@ -727,13 +731,19 @@ const availableCategories = includePersistedDrinkType(
               id="abv-percent"
               name="abvPercent"
               type="number"
+              min="0"
               inputMode="decimal"
               step="any"
               max="100"
               placeholder="e.g. 4.5"
               readOnly={Boolean(selectedSavedDrink)}
               value={values.abvPercent}
-              onChange={(event) => updateValue('abvPercent', event.target.value)}
+              onChange={(event) =>
+                updateValue(
+                  'abvPercent',
+                  Number(event.target.value) < 0 ? '0' : event.target.value,
+                )
+              }
               aria-invalid={Boolean(errors.abvPercent)}
               aria-describedby={describedBy(
                 'abv-help',
