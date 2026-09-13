@@ -8,11 +8,14 @@
 import {
   type FormEvent,
   type ReactNode,
+  useEffect,
   useRef,
   useState,
 } from 'react'
+import { RECORD_HOME_EVENT } from '../../../app/entryPaths'
 
 import {
+  DRINK_TYPE_COMPATIBILITY,
   getApplicableServingSizes,
   getDrinkReferenceCategory,
   includePersistedDrinkType,
@@ -44,6 +47,7 @@ import { calculateStandardDrinks } from '../calculations/standardDrinks'
 import { BarcodeScanner } from './BarcodeScanner'
 import { selectCatalogProduct, type CatalogProduct } from '../catalog/catalogApi'
 import { selectBarcodeProduct, type BarcodeLookup, type BarcodeProduct } from '../barcode/barcodeLookup'
+import { BackArrow } from './ReferenceLearnHub'
 
 interface ManualDrinkFormProps {
   startInBrowse?: boolean
@@ -93,6 +97,15 @@ const REUSABLE_DRINK_FIELDS: readonly ReusableDrinkField[] = [
   'customVolumeMl',
   'abvPercent',
 ]
+const FALLBACK_REFERENCE_CATEGORIES: readonly DrinkReferenceCategory[] =
+  DRINK_TYPE_COMPATIBILITY.map(({ categoryId, value, fallbackLabel }) => ({
+    id: categoryId,
+    name: fallbackLabel,
+    drinkType: value,
+    variants: [],
+    servingSizes: [],
+    abvOptions: [],
+  }))
 
 function padDatePart(value: number): string {
   return String(value).padStart(2, '0')
@@ -155,11 +168,13 @@ export function ManualDrinkForm({
   const [barcodeOpen, setBarcodeOpen] = useState(false)
   const [labelScanUnavailable, setLabelScanUnavailable] = useState(false)
   const [captureView, setCaptureView] = useState<'browse' | 'manual'>(startInBrowse ? 'browse' : 'manual')
+  const [showManualReferenceStatus, setShowManualReferenceStatus] = useState(false)
 
   // The reference separates drink selection from occasion entry. Keep the form
   // mounted so returning from camera/selection never resets Date, Time or amount.
   function openManualEntry() {
     if (selectedSavedDrink) clearSavedDrinkSelection()
+    setShowManualReferenceStatus(true)
     setCaptureView('manual')
     requestAnimationFrame(() => document.getElementById('drink-type')?.focus())
   }
@@ -180,10 +195,28 @@ export function ManualDrinkForm({
   const selectedSavedDrink = savedDrinks.find(
     (savedDrink) => savedDrink.id === selectedSavedDrinkId,
   )
-  const availableCategories = includePersistedDrinkType(
-    referenceCategories,
-    selectedSavedDrink?.drinkType ?? values.drinkType,
-  )
+  useEffect(() => {
+  const returnToRecordHome = () => {
+    setBarcodeOpen(false)
+    setLabelScanUnavailable(false)
+    setShowManualReferenceStatus(false)
+    setSaveStatus(null)
+    setCaptureView('browse')
+  }
+
+  window.addEventListener(RECORD_HOME_EVENT, returnToRecordHome)
+  return () => window.removeEventListener(RECORD_HOME_EVENT, returnToRecordHome)
+}, [])
+
+  const selectableReferenceCategories =
+  referenceStatus === 'loaded'
+    ? referenceCategories
+    : FALLBACK_REFERENCE_CATEGORIES
+
+const availableCategories = includePersistedDrinkType(
+  selectableReferenceCategories,
+  selectedSavedDrink?.drinkType ?? values.drinkType,
+)
   const selectedCategory = getDrinkReferenceCategory(
     availableCategories,
     values.drinkType,
@@ -246,7 +279,7 @@ export function ManualDrinkForm({
   }
 
   function handleDrinkTypeChange(value: DrinkType | '') {
-    const category = getDrinkReferenceCategory(referenceCategories, value)
+    const category = getDrinkReferenceCategory(availableCategories, value)
     const categoryServingSizes = getApplicableServingSizes(category, null)
     const servingSizeSelection =
       category &&
@@ -465,8 +498,8 @@ export function ManualDrinkForm({
 
   return (
     <section className={"manual-drink-card prototype-capture prototype-capture--" + captureView} aria-label="Drink capture">
+  {startInBrowse && captureView === 'manual' && <div className="prototype-sticky-back"><button type="button" className="prototype-back" onClick={() => { setShowManualReferenceStatus(false); setSaveStatus(null); setCaptureView('browse') }}><BackArrow /> Back to Record</button></div>}
       <div hidden={captureView !== 'manual'} className="prototype-form-heading">
-        {startInBrowse && <button type="button" className="prototype-back" onClick={() => setCaptureView('browse')}><span aria-hidden="true">‹</span> Back to Record</button>}
         <h1 id="manual-drink-title">{selectedSavedDrink ? 'Record Consumption' : 'Record a Drink'}</h1>
         <p>{selectedSavedDrink ? 'Tell us how much you drank.' : 'Enter the drink details and how much you drank.'}</p>
         {/* Label scanning is a UI-only placeholder. Barcode capture remains on
@@ -490,7 +523,7 @@ export function ManualDrinkForm({
         onUseDrink={(product) => { setCaptureView('manual'); handleBarcodeProduct(product) }}
         onAddManually={() => { setCaptureView('manual'); returnToManualEntry() }} lookup={barcodeLookup} />}
 
-      {saveStatus && (
+      {captureView === 'manual' && saveStatus && (
         <div
           className={`form-notice form-notice--${saveStatus.kind}`}
           role={saveStatus.kind === 'error' ? 'alert' : 'status'}
@@ -500,18 +533,17 @@ export function ManualDrinkForm({
         </div>
       )}
 
-      {referenceStatus === 'loading' && (
+      {captureView === 'manual' && showManualReferenceStatus && referenceStatus === 'loading' && (
         <div className="form-notice" role="status">
           Loading current drink reference options...
         </div>
       )}
 
-      {referenceStatus === 'failed' && (
+      {captureView === 'manual' && showManualReferenceStatus && referenceStatus === 'failed' && (
         <div className="form-notice form-notice--error" role="alert">
           <p>
-            Drink reference options are temporarily unavailable. Drinks already
-            in My Drinks and your drinking history are still stored on this
-            device and have not been changed.
+            Drink reference options are temporarily unavailable. You can still record
+  this drink by entering a custom serving volume and the ABV shown on its label.
           </p>
           <button
             className="secondary-button"
@@ -540,8 +572,7 @@ export function ManualDrinkForm({
         {/* Step wrappers change only visual grouping. The original named
             controls remain the sole source of form state and validation. */}
         {startInBrowse && selectedSavedDrink && <div className="prototype-drink-summary">
-          <strong>{selectedSavedDrink.drinkName}</strong><p>{selectedCategory?.name ?? selectedSavedDrink.drinkType} · {values.abvPercent}% ABV · {values.customVolumeMl} mL serving</p>
-          <button type="button" className="text-button" onClick={clearSavedDrinkSelection}>Enter drink manually instead</button>
+          <strong>{selectedSavedDrink.drinkName}</strong><p>{selectedCategory?.name ?? selectedSavedDrink.drinkType}<span className="prototype-detail-separator">·</span>{values.abvPercent}% ABV<span className="prototype-detail-separator">·</span>{values.customVolumeMl} mL serving</p>
         </div>}
         <div hidden={startInBrowse && Boolean(selectedSavedDrink)}>
         <section className="form-step" aria-labelledby="drink-choice-title">

@@ -4,7 +4,7 @@
  */
 import { useEffect, useState } from 'react'
 
-import { applicationPath, applicationHref } from './app/entryPaths'
+import { applicationPath, applicationHref, RECORD_HOME_EVENT } from './app/entryPaths'
 import { ManualDrinkPage } from './features/drinks/pages/ManualDrinkPage'
 import { AlcoholInformationPage } from './features/drinks/pages/AlcoholInformationPage'
 import { ReferenceNavigation } from './components/ReferenceNavigation'
@@ -39,6 +39,10 @@ function App() {
 
   if (previousHash !== window.location.hash) {
     window.dispatchEvent(new HashChangeEvent('hashchange'))
+  }
+
+  if (nextPath === '/record') {
+    window.dispatchEvent(new Event(RECORD_HOME_EVENT))
   }
 
   setPath(nextPath)

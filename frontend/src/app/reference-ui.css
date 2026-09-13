@@ -440,6 +440,8 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .prototype-record-feedback { margin: 28px 20px; display: grid; gap: 24px; align-items: start; }
 .prototype-record-feedback .manual-drink-sidebar { display: grid; }
 .prototype-back { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0; border: 0; background: transparent; color: #1a5fcc; text-decoration: none; font-size: 17px; cursor: pointer; }
+.prototype-sticky-back { position:sticky;top:0;z-index:4;display:flex;align-items:center;width:calc(100% + 40px);height:44px;margin:0 -20px;padding:0 20px;background:#fff }
+.prototype-sticky-back .prototype-back { font-size:19px }
 .prototype-form-heading { margin-bottom: 24px; }
 .prototype-form-heading p { margin: 4px 0 0; color: #56524f; font-size: 17px; }
 .prototype-consumption-form .form-step { padding: 0; margin-bottom: 24px; border: 0; border-radius: 0; }
@@ -451,8 +453,9 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .prototype-consumption-form .input-with-unit { border: 0; background: transparent; gap: 12px; }
 .prototype-consumption-form .input-with-unit span { background: #eeedf3; border-radius: 12px; align-self: stretch; display: grid; align-items: center; padding: 0 16px; }
 .prototype-drink-summary { padding: 16px; border-radius: 16px; background: #f5f6f8; margin-bottom: 24px; }
-.prototype-drink-summary strong { font-size: 18px; font-weight: 600; }
-.prototype-drink-summary p { margin: 4px 0 0; font-size: 15px; color: #56524f; }
+.prototype-drink-summary strong { display:block;font-size:22px;line-height:1.35;font-weight:600 }
+.prototype-drink-summary p { margin:6px 0 0;font-size:18px;line-height:1.5;font-weight:500;color:#393633 }
+.prototype-detail-separator { display:inline-block;margin:0 8px;color:#647280 }
 .prototype-amount-tabs { display: flex; background: #f5f6f8; border-radius: 12px; padding: 4px; margin-bottom: 16px; }
 .prototype-amount-tabs button { flex: 1; border: 0; border-radius: 8px; min-height: 44px; font-size: 17px; font-weight: 600; color: #4a5260; background: transparent; cursor: pointer; }
 .prototype-amount-tabs [aria-pressed="true"] { color: #1a5fcc; background: #fff; box-shadow: 0 1px 4px #0000001a; }
