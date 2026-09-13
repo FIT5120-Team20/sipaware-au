@@ -220,8 +220,12 @@ export function SavedDrinkPicker({
       {browserActions && pending && <ReferenceDialog title="Delete this drink?" alert onClose={() => { if (!deletingSavedDrinkId) setPendingDeleteId(null) }}>
         <p>{pending.drinkName} will be removed from My Drinks. Your previous drinking records will be kept.</p>
         {managementStatus?.kind === 'error' && <p role="alert" className="management-notice management-notice--error">{managementStatus.message}</p>}
-        <div className="management-actions"><button type="button" className="secondary-button" disabled={Boolean(deletingSavedDrinkId)} onClick={() => setPendingDeleteId(null)}>Keep {pending.drinkName}</button>
-          <button type="button" className="danger-button" disabled={Boolean(deletingSavedDrinkId)} onClick={() => confirmDelete(pending)}>Yes, delete {pending.drinkName} from My Drinks</button></div>
+        <div className="reference-dialog-actions">
+          <button type="button" disabled={Boolean(deletingSavedDrinkId)}
+           onClick={() => setPendingDeleteId(null)}>Cancel</button>
+          <button type="button" disabled={Boolean(deletingSavedDrinkId)}
+           onClick={() => confirmDelete(pending)}>{deletingSavedDrinkId ? 'Deleting…' : 'Delete'}</button>
+       </div>
       </ReferenceDialog>}
       {browserActions ? <div hidden={Boolean(editing)}><ReferenceRecordBrowser savedDrinks={savedDrinks} onScan={browserActions.onScan} onManual={browserActions.onManual} onProduct={browserActions.onProduct}>{renderCards}</ReferenceRecordBrowser></div> : savedDrinks.length === 0 ? (
         <p className="empty-state">

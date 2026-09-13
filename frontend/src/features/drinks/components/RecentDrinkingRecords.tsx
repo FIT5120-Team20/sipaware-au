@@ -132,8 +132,12 @@ export function RecentDrinkingRecords({
       {pending && <ReferenceDialog title="Delete this record?" alert onClose={() => { if (!deletingRecordId) setPendingDeleteId(null) }}>
         <p>This removes this record from your drinking history. Your saved drinks in My Drinks will not be changed.</p>
         {managementStatus?.kind === 'error' && <p role="alert" className="management-notice management-notice--error">{managementStatus.message}</p>}
-        <div className="management-actions"><button className="secondary-button" type="button" disabled={Boolean(deletingRecordId)} onClick={() => setPendingDeleteId(null)}>Cancel</button>
-          <button className="danger-button" type="button" disabled={Boolean(deletingRecordId)} onClick={() => confirmDelete(pending)}>Yes, delete record</button></div>
+        <div className="reference-dialog-actions">
+         <button type="button" disabled={Boolean(deletingRecordId)}
+          onClick={() => setPendingDeleteId(null)}>Cancel</button>
+         <button type="button" disabled={Boolean(deletingRecordId)}
+          onClick={() => confirmDelete(pending)}>{deletingRecordId ? 'Deleting…' : 'Delete'}</button>
+      </div>
       </ReferenceDialog>}
     </section>
   }

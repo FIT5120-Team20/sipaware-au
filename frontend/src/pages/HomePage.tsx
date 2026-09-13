@@ -5,8 +5,9 @@
  * browsing data to image/font providers. Topic links use the existing API-backed
  * destinations rather than duplicating the prototype's health claims.
  */
+import { useRef, useState } from 'react'
 import { applicationHref } from '../app/entryPaths'
-import { useEffect, useRef, useState } from 'react'
+import { ReferenceDialog } from '../features/drinks/components/ReferenceDialog'
 
 function FiDrink() {
   return (
@@ -59,11 +60,7 @@ const slides = [
 export function HomePage() {
   const [currentSlide, setCurrentSlide] = useState(0)
   const track = useRef<HTMLDivElement>(null)
-  const about = useRef<HTMLDialogElement>(null)
-  useEffect(() => {
-    const dialog = about.current
-    return () => { if (dialog?.open) dialog.close() }
-  }, [])
+const [showAbout, setShowAbout] = useState(false)
   function selectSlide(index: number) {
     const card = track.current?.children[index]
     if (card instanceof HTMLElement && track.current) {
@@ -79,7 +76,7 @@ export function HomePage() {
       <header className="reference-page-heading">
         <h1>Home</h1>
         <button className="reference-help" type="button" aria-label="About this app"
-          onClick={() => about.current?.showModal()}>?</button>
+         aria-expanded={showAbout} onClick={() => setShowAbout(true)}>?</button>
       </header>
       <div className="home-story-grid" ref={track} aria-label="Explore SipAware" onScroll={() => {
         if (track.current && window.innerWidth < 768) {
@@ -128,15 +125,19 @@ export function HomePage() {
           </a>
         </div>
       </section>
-      <dialog ref={about} className="reference-about" aria-labelledby="about-title">
-        <h2 id="about-title">About this website</h2>
-        <p>This website helps you understand your drinking as you get older.</p>
-        <ul><li>Record what you drink</li><li>Learn about standard drinks and Australian guidelines</li>
-          <li>Review the drinks saved on this device</li></ul>
-        <p>Your drinking records stay in this browser on this device.</p>
-        <p>This website provides general health information and does not replace personalised medical advice.</p>
-        <form method="dialog"><button className="primary-button">Got it</button></form>
-      </dialog>
+      {showAbout && <ReferenceDialog title="About this website"
+  onClose={() => setShowAbout(false)}>
+  <p>This website helps you understand your drinking as you get older.</p>
+  <ul className="reference-about-list">
+    <li>Record what you drink</li>
+    <li>Learn about standard drinks and Australian guidelines</li>
+    <li>Review the drinks saved on this device</li>
+  </ul>
+  <p>Your drinking records stay in this browser on this device.</p>
+  <p>This website provides general health information and does not replace personalised medical advice.</p>
+  <button type="button" className="primary-button"
+    onClick={() => setShowAbout(false)}>Got it</button>
+</ReferenceDialog>}
     </main>
   )
 }
