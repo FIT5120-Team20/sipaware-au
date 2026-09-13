@@ -356,7 +356,7 @@ const availableCategories = includePersistedDrinkType(
     setSelectedSavedDrinkId(null)
     setSelectedVariantId(null)
     clearErrors(...REUSABLE_DRINK_FIELDS)
-    setSaveStatus({ kind: 'success', message: 'Drink details added. Review the volume, servings, Date and Time before saving.' })
+    setSaveStatus({ kind:'success',message:'Drink found. Check the serving size and ABV, and correct them if needed.' })
     setBarcodeOpen(false)
     queueMicrotask(() => {
       const field = formRef.current?.elements.namedItem('drinkName')
@@ -370,7 +370,7 @@ const availableCategories = includePersistedDrinkType(
     setSelectedVariantId(null)
     clearErrors(...REUSABLE_DRINK_FIELDS)
     setCaptureView('manual')
-    setSaveStatus({ kind: 'success', message: 'Drink details added. Review the volume, servings, Date and Time before saving.' })
+    setSaveStatus({ kind:'success',message:'Drink selected. Check the serving size and ABV, and correct them if needed.' })
     queueMicrotask(() => {
       const field = formRef.current?.elements.namedItem('drinkName')
       if (field instanceof HTMLElement) field.focus()
@@ -509,7 +509,7 @@ const availableCategories = includePersistedDrinkType(
         <p>{selectedSavedDrink ? 'Tell us how much you drank.' : 'Enter the drink details and how much you drank.'}</p>
         {/* Label scanning is a UI-only placeholder. Barcode capture remains on
             the Record browser; never substitute it or simulated OCR here. */}
-        <div className="prototype-scan-card">
+        {!selectedSavedDrink && <div className="prototype-scan-card">
           <div className="prototype-scan-card-title">
             <svg aria-hidden="true" width="18" height="18" viewBox="0 0 20 20" fill="none">
               <path d="M7 2H4a2 2 0 0 0-2 2v3M13 2h3a2 2 0 0 1 2 2v3M7 18H4a2 2 0 0 1-2-2v-3M13 18h3a2 2 0 0 0 2-2v-3" stroke="#647280" strokeWidth="1.6" strokeLinecap="round" />
@@ -522,7 +522,7 @@ const availableCategories = includePersistedDrinkType(
           {labelScanUnavailable && <p role="status" style={{ margin: '12px 0 0' }}>
             Label scanning is not available yet. Please enter the drink details below.
           </p>}
-        </div>
+        </div>}
       </div>
       {barcodeOpen && <BarcodeScanner onBack={() => setBarcodeOpen(false)}
         onUseDrink={(product) => { setCaptureView('manual'); handleBarcodeProduct(product) }}
