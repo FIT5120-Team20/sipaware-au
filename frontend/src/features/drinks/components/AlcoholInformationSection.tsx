@@ -42,9 +42,9 @@ function InfoCircle() {
 
 const presentation: Record<AlcoholInformationTopicCode, { title: string; image: string; section: string }> = {
  STANDARD_DRINK: {title:'Standard Drinks',image:'home-standard.svg',section:'What you need to know about standard drinks'},
- ALCOHOL_GUIDELINES: {title:'Australian Alcohol Guidelines',image:'learn-guidelines.svg',section:'Understanding the Australian alcohol guidelines'},
+ ALCOHOL_GUIDELINES: {title:'Australian Alcohol Guidelines',image:'learn-guidelines.jpg',section:'Understanding the Australian alcohol guidelines'},
  ALCOHOL_AGEING: {title:'Alcohol & Ageing',image:'home-ageing.svg',section:'Why can alcohol affect you differently as you age?'},
- ALCOHOL_DRIVING: {title:'Alcohol & Driving',image:'learn-driving.svg',section:'What you need to know about alcohol and driving'},
+ ALCOHOL_DRIVING: {title:'Alcohol & Driving',image: 'learn-driving.jpg',section:'What you need to know about alcohol and driving'},
  ALCOHOL_MEDICINES: {title:'Alcohol & Medicines',image:'learn-medicines.svg',section:'Why extra care may be needed with medicines'},
  ALCOHOL_LEGAL: {title:'Alcohol & Legal Information',image:'home-know.svg',section:'What you need to know about alcohol laws'},
 }
@@ -58,7 +58,7 @@ export function AlcoholInformationSection({ topic }: { topic: AlcoholInformation
    <h2 id={headingId} tabIndex={-1} aria-label={topic.displayName}>{view.title}</h2>
    <p>{'Clear, trusted Australian information about ' + view.title.toLowerCase() + '.'}</p>
   </header>
-  <img className="reference-topic-hero" src={'/reference-ui/' + view.image} alt={view.title} draggable={false} />
+  <img className="reference-topic-hero" data-topic={topic.topicCode} src={'/reference-ui/' + view.image} alt={view.title} draggable={false} />
   <div className="reference-topic-key-info">
    <h3>{view.section}</h3>
    <div className="reference-topic-points">{topic.content.map(content =>

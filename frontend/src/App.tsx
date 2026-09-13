@@ -26,24 +26,29 @@ function App() {
   }, [])
 
   function navigate(nextPath: string) {
-    const nextHref = applicationHref(nextPath)
-    const currentHref =
-      window.location.pathname +
-      window.location.search +
-      window.location.hash
+  const nextHref = applicationHref(nextPath)
+  const currentHref =
+    window.location.pathname +
+    window.location.search +
+    window.location.hash
+  const previousHash = window.location.hash
 
-    if (currentHref !== nextHref) {
-      window.history.pushState(null, '', nextHref)
-    }
-
-    setPath(nextPath)
-
-    window.scrollTo({
-      top: 0,
-      left: 0,
-      behavior: 'auto',
-    })
+  if (currentHref !== nextHref) {
+    window.history.pushState(null, '', nextHref)
   }
+
+  if (previousHash !== window.location.hash) {
+    window.dispatchEvent(new HashChangeEvent('hashchange'))
+  }
+
+  setPath(nextPath)
+
+  window.scrollTo({
+    top: 0,
+    left: 0,
+    behavior: 'auto',
+  })
+}
 
   return (
     <div className="reference-app">
