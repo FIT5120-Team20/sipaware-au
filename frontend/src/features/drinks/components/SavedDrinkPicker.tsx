@@ -14,6 +14,7 @@ import type { DrinkReferenceCategory } from '../types/drinkReference'
 import type { SavedDrink } from '../types/savedDrink'
 import { SavedDrinkEditor } from './SavedDrinkEditor'
 import { ReferenceDialog } from './ReferenceDialog'
+import { ReferenceBackBar } from './ReferenceBackBar'
 
 interface SavedDrinkPickerProps {
   browserActions?: { onScan: () => void; onManual: () => void; onProduct: (product: CatalogProduct) => void }
@@ -214,7 +215,7 @@ export function SavedDrinkPicker({
       )}
 
       {browserActions && editing && <section className="reference-edit-page">
-        <button className="prototype-back" type="button" onClick={() => setEditingSavedDrinkId(null)}>‹ Back to My Drinks</button>
+        <ReferenceBackBar label="Back to My Drinks" onClick={() => setEditingSavedDrinkId(null)} />
         <h1>Edit Drink</h1><SavedDrinkEditor key={editing.id} referenceCategories={referenceCategories} savedDrink={editing} onSave={saveEditedDrink} onCancel={() => setEditingSavedDrinkId(null)} />
       </section>}
       {browserActions && pending && <ReferenceDialog title="Delete this drink?" alert onClose={() => { if (!deletingSavedDrinkId) setPendingDeleteId(null) }}>

@@ -10,7 +10,8 @@ import { useEffect, useState } from 'react'
 
 import { getAlcoholInformation } from '../../../services/alcoholInformationApi'
 import '../alcoholInformation.css'
-import { ReferenceLearnHub, BackArrow } from '../components/ReferenceLearnHub'
+import { ReferenceLearnHub } from '../components/ReferenceLearnHub'
+import { ReferenceBackBar } from '../components/ReferenceBackBar'
 import { AlcoholInformationSection } from '../components/AlcoholInformationSection'
 import type { AlcoholInformationResponseDto } from '../types/alcoholInformation'
 import {
@@ -114,7 +115,8 @@ export function AlcoholInformationPage() {
   return (
     <main className='alcohol-information-page'>
       <div className={'alcohol-information-shell' + (hashTarget.topicCode ? ' reference-reading-shell' : '')}>
-        {hashTarget.topicCode && <a className="prototype-back" href={applicationHref('/alcohol-guidelines')}><BackArrow /> Back to Learn</a>}
+        {hashTarget.topicCode &&
+  <ReferenceBackBar label="Back to Learn" href={applicationHref('/alcohol-guidelines')} />}
         <header className='alcohol-information-header' hidden={hashTarget.topicCode !== null}>
           <h1>Learn</h1>
           <p>Clear, trusted information about alcohol, ageing and Australian guidelines.</p>

@@ -16,6 +16,7 @@ import type { DrinkReferenceCategory } from '../types/drinkReference'
 import { formatConsumedDateTime } from '../utils/formatConsumedDateTime'
 import { DrinkingRecordEditor } from './DrinkingRecordEditor'
 import { SipAwareIcon } from './SipAwareIcon'
+import { ReferenceBackBar } from './ReferenceBackBar'
 
 interface RecentDrinkingRecordsProps {
   presentation?: 'default' | 'reference'
@@ -103,7 +104,7 @@ export function RecentDrinkingRecords({
     const editing = recentRecords.find(record => record.id === editingRecordId)
     const pending = recentRecords.find(record => record.id === pendingDeleteId)
     if (editing) return <section className="reference-edit-page">
-      <button className="prototype-back" type="button" onClick={() => setEditingRecordId(null)}>‹ Back to History</button>
+      <ReferenceBackBar label="Back to History" onClick={() => setEditingRecordId(null)} />
       <h1>Edit Record</h1>
       <DrinkingRecordEditor key={editing.id} referenceCategories={referenceCategories} record={editing}
         onSave={saveEditedRecord} onCancel={() => setEditingRecordId(null)} />

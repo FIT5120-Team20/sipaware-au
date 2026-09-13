@@ -47,7 +47,7 @@ import { calculateStandardDrinks } from '../calculations/standardDrinks'
 import { BarcodeScanner } from './BarcodeScanner'
 import { selectCatalogProduct, type CatalogProduct } from '../catalog/catalogApi'
 import { selectBarcodeProduct, type BarcodeLookup, type BarcodeProduct } from '../barcode/barcodeLookup'
-import { BackArrow } from './ReferenceLearnHub'
+import { ReferenceBackBar } from './ReferenceBackBar'
 
 interface ManualDrinkFormProps {
   startInBrowse?: boolean
@@ -498,7 +498,12 @@ const availableCategories = includePersistedDrinkType(
 
   return (
     <section className={"manual-drink-card prototype-capture prototype-capture--" + captureView} aria-label="Drink capture">
-  {startInBrowse && captureView === 'manual' && <div className="prototype-sticky-back"><button type="button" className="prototype-back" onClick={() => { setShowManualReferenceStatus(false); setSaveStatus(null); setCaptureView('browse') }}><BackArrow /> Back to Record</button></div>}
+  {startInBrowse && captureView === 'manual' &&
+  <ReferenceBackBar label="Back to Record" onClick={() => {
+    setShowManualReferenceStatus(false)
+    setSaveStatus(null)
+    setCaptureView('browse')
+  }} />}
       <div hidden={captureView !== 'manual'} className="prototype-form-heading">
         <h1 id="manual-drink-title">{selectedSavedDrink ? 'Record Consumption' : 'Record a Drink'}</h1>
         <p>{selectedSavedDrink ? 'Tell us how much you drank.' : 'Enter the drink details and how much you drank.'}</p>
