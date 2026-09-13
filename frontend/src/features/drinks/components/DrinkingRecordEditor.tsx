@@ -375,11 +375,15 @@ export function DrinkingRecordEditor({
             id={fieldId('custom-volume')}
             name="customVolumeMl"
             type="number"
+            min="0"
             inputMode="decimal"
             step="any"
             value={values.customVolumeMl}
             onChange={(event) =>
-              updateValue('customVolumeMl', event.target.value)
+              updateValue(
+                'customVolumeMl',
+                Number(event.target.value) < 0 ? '0' : event.target.value,
+              )
             }
             aria-invalid={Boolean(errors.customVolumeMl)}
             aria-describedby={
@@ -402,11 +406,17 @@ export function DrinkingRecordEditor({
           id={fieldId('abv-percent')}
           name="abvPercent"
           type="number"
+          min="0"
           inputMode="decimal"
           step="any"
           max="100"
           value={values.abvPercent}
-          onChange={(event) => updateValue('abvPercent', event.target.value)}
+          onChange={(event) =>
+            updateValue(
+              'abvPercent',
+              Number(event.target.value) < 0 ? '0' : event.target.value,
+            )
+          }
           aria-invalid={Boolean(errors.abvPercent)}
           aria-describedby={
             errors.abvPercent ? fieldId('abv-error') : undefined
