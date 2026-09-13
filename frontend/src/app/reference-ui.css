@@ -29,18 +29,80 @@ a { color: #1a5fcc; }
 a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible {
   outline: 3px solid #bf6900; outline-offset: 3px;
 }
-.reference-app { min-height: 100dvh; }
-.reference-content { min-width: 0; padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
-.reference-navigation { position: fixed; bottom: 0; inset-inline: 0; z-index: 10;
-  background: #fff; border-top: 1px solid #e8e4df; padding: 7px 16px max(8px, env(safe-area-inset-bottom)); }
-.reference-brand, .reference-menu-label { display: none; }
-.reference-nav-items { display: flex; justify-content: space-around; }
-.reference-nav-items a { display: flex; flex: 1; max-width: 100px; min-height: 58px;
-  flex-direction: column; align-items: center; justify-content: center; color: #526374;
-  gap: 2px; text-decoration: none; font-size: 15px; border-radius: 14px; }
-.reference-nav-icon { display: grid; place-items: center; width: 56px; height: 32px; border-radius: 20px; }
-.reference-nav-items a[aria-current="page"] { color: #1a5fcc; font-weight: 700; }
-.reference-nav-items a[aria-current="page"] .reference-nav-icon { background: #e0eeff; }
+.reference-app {
+  min-height: 100dvh;
+}
+
+.reference-content {
+  min-width: 0;
+  padding-bottom: calc(88px + env(safe-area-inset-bottom));
+}
+
+.reference-navigation {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 10;
+  background: #ffffff;
+  border-top: 1px solid #e8e4df;
+  padding: 6px 16px max(8px, env(safe-area-inset-bottom));
+}
+
+.reference-brand,
+.reference-menu-label {
+  display: none;
+}
+
+.reference-nav-items {
+  display: flex;
+  justify-content: center;
+}
+
+.reference-nav-items a {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  max-width: 88px;
+  min-width: 0;
+  gap: 0;
+  padding: 0;
+  color: #687888;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: 0.025em;
+  text-decoration: none;
+  transition:
+    color 200ms ease,
+    opacity 150ms ease;
+    -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.reference-nav-items a:active {
+  opacity: 0.6;
+}
+
+.reference-nav-icon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 32px;
+  border-radius: 20px;
+  background: transparent;
+  transition: background-color 200ms ease;
+}
+
+.reference-nav-items a[aria-current="page"] {
+  color: #1a5fcc;
+  font-weight: 700;
+}
+
+.reference-nav-items a[aria-current="page"] .reference-nav-icon {
+  background: #e0eeff;
+}
 .reference-home, .manual-drink-shell, .alcohol-information-shell { width: 100%; max-width: 1200px; margin-inline: auto; padding: 22px 20px; }
 .reference-page-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
 .reference-page-heading h1, .feature-header h1, .alcohol-information-header h1 {
@@ -158,32 +220,119 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 [hidden] { display: none !important; }
 
 @media (min-width: 768px) {
-  .reference-app { display: grid; grid-template-columns: 132px minmax(0, 1fr); }
-  .reference-navigation { top: 0; bottom: auto; left: 0; right: auto; width: 132px; height: 100dvh;
-    border-top: 0; border-right: 1px solid #e8e4df; padding: 24px 12px; overflow-y: auto; }
-  .reference-content { grid-column: 2; padding-bottom: 28px; }
-  .reference-brand { display: block; text-decoration: none; color: #28605c; padding: 4px 10px 24px; font: 400 23px/1.2 'DM Serif Display', Georgia, serif; }
-  .reference-brand span { font-family: 'Outfit', sans-serif; font-size: 13px; display: block; }
-  .reference-menu-label { display: block; color: #687888; padding-inline: 10px; font-size: 14px; }
-  .reference-nav-items { flex-direction: column; gap: 8px; }
-  .reference-nav-items a { flex: auto; max-width: none; width: 100%; min-height: 64px; }
-  .reference-nav-items a[aria-current="page"] { background: #eef4ff; }
-  .reference-nav-items a[aria-current="page"] .reference-nav-icon { background: transparent; }
-  .reference-home, .manual-drink-shell, .alcohol-information-shell { padding: 28px; }
-  .home-story-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; overflow: visible; }
-  .home-story-image { height: 170px; }
-  .home-carousel-controls { display: none; }
-  .home-feature-grid, .saved-drinks-list, .alcohol-information-contents ul { grid-template-columns: repeat(2,minmax(0,1fr)); }
-  .home-feature-card { padding: 16px; border: 1px solid #e8e4df; border-radius: 16px; }
-  .record-entry-actions { grid-template-columns: 1fr 1fr; }
-  .reference-learn-feature { grid-template-columns: 1fr 1fr; }
-  .reference-learn-feature img { height: 100%; min-height: 210px; }
+  .reference-app {
+    display: grid;
+    grid-template-columns: 132px minmax(0, 1fr);
+  }
+
+  .reference-navigation {
+    top: 0;
+    bottom: auto;
+    left: 0;
+    right: auto;
+    width: 132px;
+    height: 100dvh;
+    padding: max(24px, env(safe-area-inset-top)) 12px 24px;
+    overflow-y: auto;
+    background: #ffffff;
+    border-top: 0;
+    border-right: 1px solid #e8e4df;
+  }
+
+  .reference-content {
+    grid-column: 2;
+    padding-bottom: 28px;
+  }
+
+  .reference-brand {
+    display: block;
+    padding: 4px 10px 24px;
+    color: #28605c;
+    font: 400 23px/1.2 "DM Serif Display", Georgia, serif;
+    text-decoration: none;
+  }
+
+  .reference-brand span {
+    display: block;
+    font-family: "Outfit", sans-serif;
+    font-size: 13px;
+  }
+
+  .reference-menu-label {
+    display: block;
+    margin: 0;
+    padding: 4px 10px 18px;
+    color: #1c1c1a;
+    font: 400 22px/1.1 "DM Serif Display", Georgia, serif;
+  }
+
+  .reference-nav-items {
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 8px;
+  }
+
+  .reference-nav-items a {
+    flex: 0 0 auto;
+    flex-direction: column;
+    width: 100%;
+    max-width: none;
+    min-height: 64px;
+    padding: 0;
+    gap: 5px;
+    color: #687888;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: normal;
+    border-radius: 14px;
+  }
+
+  .reference-nav-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 0;
+  }
+
+  .reference-nav-items a[aria-current="page"] {
+    color: #1a5fcc;
+    font-weight: 600;
+    background: #eef4ff;
+  }
+
+  .reference-nav-items a[aria-current="page"] .reference-nav-icon {
+    background: transparent;
+  }
 }
 @media (min-width: 1024px) {
-  .reference-app { grid-template-columns: 220px minmax(0,1fr); }
-  .reference-navigation { width: 220px; padding-inline: 18px; }
-  .reference-brand { font-size: 28px; padding-inline: 16px; }
-  .reference-nav-items a { min-height: 54px; flex-direction: row; justify-content: flex-start; padding-inline: 12px; gap: 8px; font-size: 17px; }
+  .reference-app {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+
+  .reference-navigation {
+    width: 220px;
+    padding-inline: 18px;
+  }
+
+  .reference-brand {
+    padding-inline: 16px;
+    font-size: 28px;
+  }
+
+  .reference-menu-label {
+    padding-inline: 16px;
+    font-size: 25px;
+  }
+
+  .reference-nav-items a {
+    min-height: 54px;
+    flex-direction: row;
+    justify-content: flex-start;
+    padding-inline: 16px;
+    gap: 12px;
+    font-size: 17px;
+  }
 }
 @media (min-width: 1280px) {
   .home-story-grid { grid-template-columns: repeat(4,minmax(0,1fr)); }
@@ -198,9 +347,6 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 
 /* RecordPage / AddDrinkPage / LearnHub at f5711b15: utility-to-CSS port.
    Data acquisition, validation and persistence remain SipAware boundaries. */
-.reference-menu-label { margin: 0 0 18px; color: #1c1c1a; font: 400 25px/1.1 'DM Serif Display', Georgia, serif; }
-.reference-nav-icon { width: 24px; }
-.reference-nav-items a { gap: 12px; }
 .manual-drink-shell { max-width: 1200px; padding: 18px 0 28px; }
 .manual-drink-layout { display: block; }
 .manual-drink-primary { display: block; }
@@ -322,7 +468,6 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .alcohol-information-sections:empty { display: none; }
 .alcohol-information-section { margin-top: 16px; }
 @media(min-width:768px) {
-  .reference-menu-label { padding: 4px 10px 0; margin-bottom: 18px; font-size: 22px; }
   .prototype-record-top { padding: 0 28px 8px; }
   .prototype-record-controls { padding-inline: 28px; }
   .prototype-category-rail { flex: 0 0 160px; width: 160px; }
@@ -339,8 +484,6 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   .prototype-learn-feature-copy { flex: 0 0 auto; }
 }
 @media(min-width:1024px) {
-  .reference-menu-label { font-size: 25px; padding-inline: 16px; }
-  .reference-nav-items a { gap: 12px; padding-inline: 16px; }
   .prototype-category-rail { flex: 0 0 200px; width: 200px; }
 }
 @media(min-width:1280px) {
