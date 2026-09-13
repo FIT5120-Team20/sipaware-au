@@ -22,7 +22,8 @@
 .barcode-topbar h2 { font-size: clamp(24px, 4vw, 32px); line-height: 1.2; margin: 0; }
 .barcode-back { display: flex; align-items: center; gap: 5px; flex-shrink: 0; min-height: 48px; padding: 10px; border: 0; border-radius: 24px; color: inherit; background: #edf1f5; font: inherit; cursor: pointer; }
 .barcode-dialog--camera .barcode-back { background: #2a3035; }
-.barcode-dialog button:focus-visible, .barcode-topbar h2:focus-visible { outline: 3px solid #69bcff; outline-offset: 4px; }
+.barcode-dialog button:focus-visible { outline: 3px solid #69bcff; outline-offset: 4px; }
+.barcode-topbar h2:focus { outline: none; }
 .barcode-file-input { display: none; }
 .barcode-camera-stage { position: relative; flex: 1; min-height: 360px; overflow: hidden; border-radius: 20px; background: #171b1e; }
 .barcode-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
@@ -55,5 +56,8 @@
 .barcode-entry p { margin: 10px 0 0; line-height: 1.5; color: #344963; }
 .barcode-entry button { min-height: 48px; }
 @keyframes barcode-spin { to { transform: rotate(360deg); } }
-@media (min-width: 768px) { .barcode-shell { padding-inline: 36px; } }
+@media (min-width: 768px) {
+  .barcode-shell { padding-inline: 36px; }
+  .barcode-position-guide { margin-top: clamp(330px, 38vh, 420px); }
+}
 @media (prefers-reduced-motion: reduce) { .barcode-spinner { animation: none; } }
