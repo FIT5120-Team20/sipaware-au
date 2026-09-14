@@ -1,6 +1,6 @@
 /** Prototype cards backed by public products; category/query changes discard stale requests. */
 import { useEffect, useState } from 'react'
-import { loadCatalog, type CatalogCategory, type CatalogPage, type CatalogProduct } from '../catalog/catalogApi'
+import { getCachedCatalog, loadCatalog, type CatalogCategory, type CatalogPage, type CatalogProduct } from '../catalog/catalogApi'
 import { getDrinkTypeLabel } from '../config/drinkTypes'
 import { DrinkThumb, IcoChevron } from './ReferenceRecordBrowser'
 
@@ -9,18 +9,28 @@ export function CatalogResults({ category, query, onSelect }: {
 }) {
   const [offset, setOffset] = useState(0)
   const [attempt, setAttempt] = useState(0)
-  const [result, setResult] = useState<{ offset: number; attempt: number; page?: CatalogPage }>({ offset: -1, attempt: -1 })
+    const [result, setResult] = useState<{
+    offset: number
+    attempt: number
+    page?: CatalogPage
+  }>(() => {
+    const cached = getCachedCatalog(category, query, 0)
+    return cached
+      ? { offset: 0, attempt: 0, page: cached }
+      : { offset: -1, attempt: -1 }
+  })
   const ready = result.offset === offset && result.attempt === attempt
   const page = ready ? result.page : undefined
+
   useEffect(() => {
     const owner = new AbortController()
-    // Debounce typing; unmounting when category/query changes also cancels body reading.
     const timer = setTimeout(() => {
       loadCatalog(category, query, offset, owner.signal).then(
         value => { if (!owner.signal.aborted) setResult({ offset, attempt, page: value }) },
         () => { if (!owner.signal.aborted) setResult({ offset, attempt }) },
       )
-    }, 250)
+    }, query ? 250 : 0)
+
     return () => { clearTimeout(timer); owner.abort() }
   }, [category, query, offset, attempt])
   const heading = category === 'all' ? 'All Drinks' : category === 'rtd' ? 'RTD' : category
