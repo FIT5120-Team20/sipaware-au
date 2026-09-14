@@ -15,6 +15,27 @@ export interface CatalogProduct {
   sourceUrl: string
 }
 export interface CatalogPage { products: CatalogProduct[]; total: number; offset: number; limit: number }
+const CATALOG_CACHE_TTL_MS = 5 * 60 * 1000
+const catalogCache = new Map<string, { page: CatalogPage; expiresAt: number }>()
+
+function catalogCacheKey(category: CatalogCategory, query: string, offset: number) {
+  return JSON.stringify([category, query.trim().toLowerCase(), offset])
+}
+
+export function getCachedCatalog(category: CatalogCategory, query: string, offset: number) {
+  const key = catalogCacheKey(category, query, offset)
+  const cached = catalogCache.get(key)
+
+  if (!cached) return undefined
+
+  if (cached.expiresAt <= Date.now()) {
+    catalogCache.delete(key)
+    return undefined
+  }
+
+  return cached.page
+}
+
 const types: Record<CatalogCategory, readonly DrinkType[]> = {
   all: ['beer', 'wine', 'spirits', 'cider', 'rtd-premixed', 'cocktail', 'liqueur', 'other'],
   beer: ['beer'], wine: ['wine'], spirits: ['spirits'], cider: ['cider'],
@@ -56,6 +77,10 @@ export function validateCatalogPage(value: unknown, category: CatalogCategory, o
 }
 export async function loadCatalog(category: CatalogCategory, query: string, offset: number, signal: AbortSignal): Promise<CatalogPage> {
   signal.throwIfAborted()
+
+  const cached = getCachedCatalog(category, query, offset)
+  if (cached) return cached
+
   const owner = new AbortController()
   const cancel = () => owner.abort()
   signal.addEventListener('abort', cancel, { once: true })
@@ -68,6 +93,12 @@ export async function loadCatalog(category: CatalogCategory, query: string, offs
     if (!response.ok) throw new Error('Catalog unavailable')
     const page = validateCatalogPage(await response.json(), category, offset)
     signal.throwIfAborted()
+
+    catalogCache.set(catalogCacheKey(category, query, offset), {
+      page,
+      expiresAt: Date.now() + CATALOG_CACHE_TTL_MS,
+    })
+
     return page
   } finally {
     clearTimeout(timeout)
