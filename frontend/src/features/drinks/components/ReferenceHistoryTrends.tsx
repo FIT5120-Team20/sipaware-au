@@ -13,7 +13,7 @@ import type { DrinkReferenceCategory } from '../types/drinkReference'
 import type { AlcoholGuidelinesResponseDto, GuidelineLoadStatus } from '../types/alcoholGuideline'
 import { DrinkingRecordEditor } from './DrinkingRecordEditor'
 import { ReferenceDialog } from './ReferenceDialog'
-import { BackArrow } from './ReferenceLearnHub'
+import { ReferenceBackBar } from './ReferenceBackBar'
 import '../referenceHistory.css'
 
 type HistoryTrendsTab = 'history' | 'trends' | 'report'
@@ -691,7 +691,7 @@ export function ReferenceHistoryTrends({ records, referenceCategories, onUpdate,
  const weekly = guidelineStatus === 'loaded' ? guidelines?.guidelines.find(g => g.guidelineType === 'WEEKLY')?.thresholdStandardDrinks ?? null : null
  const source = guidelines?.guidelines.find(g => g.guidelineType === 'DAILY')?.source
  if (editingRecord) return <section className="reference-history-edit reference-edit-page">
-  <button type="button" className="prototype-back" onClick={() => setEditingId(null)}><BackArrow /> Back to History</button>
+  <ReferenceBackBar label="Back to History" onClick={() => setEditingId(null)} />
   <h1>Edit Record</h1><p>Update this drinking record.</p>
   <DrinkingRecordEditor presentation="reference" record={editingRecord} referenceCategories={referenceCategories}
    onSave={async updated => { await onUpdate(updated); setNotice('The drinking record for ' + updated.drinkName + ' was updated.'); setEditingId(null) }} onCancel={() => setEditingId(null)} />

@@ -56,14 +56,6 @@ function IcoCar({ color }: { color: string }) {
 
 // ── UI chrome icons ────────────────────────────────────────
 
-export function BackArrow() {
-  return (
-    <svg width="9" height="15" viewBox="0 0 9 15" fill="none">
-      <path d="M7.5 1.5L1.5 7.5L7.5 13.5" stroke="#1A5FCC" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
 function ChevronRight() {
   return (
     <svg width="7" height="12" viewBox="0 0 7 12" fill="none">

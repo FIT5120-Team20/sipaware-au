@@ -16,6 +16,7 @@ import type { DrinkReferenceCategory } from '../types/drinkReference'
 import { formatConsumedDateTime } from '../utils/formatConsumedDateTime'
 import { DrinkingRecordEditor } from './DrinkingRecordEditor'
 import { SipAwareIcon } from './SipAwareIcon'
+import { ReferenceBackBar } from './ReferenceBackBar'
 
 interface RecentDrinkingRecordsProps {
   presentation?: 'default' | 'reference'
@@ -103,7 +104,7 @@ export function RecentDrinkingRecords({
     const editing = recentRecords.find(record => record.id === editingRecordId)
     const pending = recentRecords.find(record => record.id === pendingDeleteId)
     if (editing) return <section className="reference-edit-page">
-      <button className="prototype-back" type="button" onClick={() => setEditingRecordId(null)}>‹ Back to History</button>
+      <ReferenceBackBar label="Back to History" onClick={() => setEditingRecordId(null)} />
       <h1>Edit Record</h1>
       <DrinkingRecordEditor key={editing.id} referenceCategories={referenceCategories} record={editing}
         onSave={saveEditedRecord} onCancel={() => setEditingRecordId(null)} />
@@ -132,8 +133,12 @@ export function RecentDrinkingRecords({
       {pending && <ReferenceDialog title="Delete this record?" alert onClose={() => { if (!deletingRecordId) setPendingDeleteId(null) }}>
         <p>This removes this record from your drinking history. Your saved drinks in My Drinks will not be changed.</p>
         {managementStatus?.kind === 'error' && <p role="alert" className="management-notice management-notice--error">{managementStatus.message}</p>}
-        <div className="management-actions"><button className="secondary-button" type="button" disabled={Boolean(deletingRecordId)} onClick={() => setPendingDeleteId(null)}>Cancel</button>
-          <button className="danger-button" type="button" disabled={Boolean(deletingRecordId)} onClick={() => confirmDelete(pending)}>Yes, delete record</button></div>
+        <div className="reference-dialog-actions">
+         <button type="button" disabled={Boolean(deletingRecordId)}
+          onClick={() => setPendingDeleteId(null)}>Cancel</button>
+         <button type="button" disabled={Boolean(deletingRecordId)}
+          onClick={() => confirmDelete(pending)}>{deletingRecordId ? 'Deleting…' : 'Delete'}</button>
+      </div>
       </ReferenceDialog>}
     </section>
   }

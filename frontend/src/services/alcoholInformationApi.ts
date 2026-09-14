@@ -171,6 +171,14 @@ function isAlcoholInformationResponse(
 export async function getAlcoholInformation(
   signal?: AbortSignal,
 ): Promise<AlcoholInformationResponseDto> {
+    if (
+    import.meta.env.MODE === 'development' &&
+    import.meta.env.VITE_USE_MOCK_ALCOHOL_INFORMATION === 'true'
+  ) {
+    const { ALCOHOL_INFORMATION_PREVIEW } =
+      await import('../dev/alcoholInformationPreview')
+    return structuredClone(ALCOHOL_INFORMATION_PREVIEW)
+  }
   const response = await fetch(
     buildApiUrl('/api/reference/alcohol-information'),
     {

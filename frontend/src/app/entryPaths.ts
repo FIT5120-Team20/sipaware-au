@@ -3,6 +3,7 @@
  * Only application navigation is prefixed; API/source URLs and browser storage
  * retain their existing contracts. A frozen hostname is a separate deployment.
  */
+export const RECORD_HOME_EVENT = 'sipaware:record-home'
 const ENTRY_PATH = '/iteration1'
 const APP_ROUTES = new Set(['/', '/record', '/trends', '/alcohol-guidelines'])
 

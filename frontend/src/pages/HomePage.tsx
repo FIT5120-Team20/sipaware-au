@@ -5,9 +5,35 @@
  * browsing data to image/font providers. Topic links use the existing API-backed
  * destinations rather than duplicating the prototype's health claims.
  */
+import { useRef, useState } from 'react'
 import { applicationHref } from '../app/entryPaths'
-import { useEffect, useRef, useState } from 'react'
-import { SipAwareIcon } from '../features/drinks/components/SipAwareIcon'
+import { ReferenceDialog } from '../features/drinks/components/ReferenceDialog'
+
+function FiDrink() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M6 3H18L16.5 19H7.5L6 3Z" stroke="#1B63D4" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M10 19H14M12 14V19" stroke="#1B63D4" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function FiBook() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 5C9.2 3.8 6.5 4.2 3 6.2V19.2C6.5 17.2 9.2 17.6 12 18.8C14.8 17.6 17.5 17.2 21 19.2V6.2C17.5 4.2 14.8 3.8 12 5Z" stroke="#0881CC" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M12 5V18.8" stroke="#0881CC" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function Chevron() {
+  return (
+    <svg width="7" height="12" viewBox="0 0 7 12" fill="none" aria-hidden="true">
+      <path d="M1 1l5 5-5 5" stroke="#8A8682" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
 
 function FiTrend() {
   return (
@@ -34,11 +60,7 @@ const slides = [
 export function HomePage() {
   const [currentSlide, setCurrentSlide] = useState(0)
   const track = useRef<HTMLDivElement>(null)
-  const about = useRef<HTMLDialogElement>(null)
-  useEffect(() => {
-    const dialog = about.current
-    return () => { if (dialog?.open) dialog.close() }
-  }, [])
+const [showAbout, setShowAbout] = useState(false)
   function selectSlide(index: number) {
     const card = track.current?.children[index]
     if (card instanceof HTMLElement && track.current) {
@@ -54,7 +76,7 @@ export function HomePage() {
       <header className="reference-page-heading">
         <h1>Home</h1>
         <button className="reference-help" type="button" aria-label="About this app"
-          onClick={() => about.current?.showModal()}>?</button>
+         aria-expanded={showAbout} onClick={() => setShowAbout(true)}>?</button>
       </header>
       <div className="home-story-grid" ref={track} aria-label="Explore SipAware" onScroll={() => {
         if (track.current && window.innerWidth < 768) {
@@ -87,31 +109,35 @@ export function HomePage() {
         <h2 id="home-features-title">What you can do here</h2>
         <div className="home-feature-grid">
           <a href={applicationHref('/record')} className="home-feature-card">
-            <span className="home-feature-icon"><SipAwareIcon name="record" /></span>
+            <span className="home-feature-icon"><FiDrink /></span>
             <span><strong>Record your drinks</strong><span>Understand what you’re drinking</span></span>
-            <span aria-hidden="true">›</span>
+            <Chevron />
           </a>
           <a href={applicationHref('/alcohol-guidelines')} className="home-feature-card">
-            <span className="home-feature-icon home-feature-icon--learn"><SipAwareIcon name="learn" /></span>
+            <span className="home-feature-icon home-feature-icon--learn"><FiBook /></span>
             <span><strong>Learn about alcohol</strong><span>Alcohol, ageing and guidelines</span></span>
-            <span aria-hidden="true">›</span>
+            <Chevron />
           </a>
           <a href={applicationHref('/trends')} className="home-feature-card">
-            <span className="home-feature-icon"><FiTrend /></span>
+            <span className="home-feature-icon home-feature-icon--trend"><FiTrend /></span>
             <span><strong>Understand your patterns</strong><span>Review your drinking over time</span></span>
-            <span aria-hidden="true">›</span>
+            <Chevron />
           </a>
         </div>
       </section>
-      <dialog ref={about} className="reference-about" aria-labelledby="about-title">
-        <h2 id="about-title">About this website</h2>
-        <p>This website helps you understand your drinking as you get older.</p>
-        <ul><li>Record what you drink</li><li>Learn about standard drinks and Australian guidelines</li>
-          <li>Review the drinks saved on this device</li></ul>
-        <p>Your drinking records stay in this browser on this device.</p>
-        <p>This website provides general health information and does not replace personalised medical advice.</p>
-        <form method="dialog"><button className="primary-button">Got it</button></form>
-      </dialog>
+      {showAbout && <ReferenceDialog title="About this website"
+  onClose={() => setShowAbout(false)}>
+  <p>This website helps you understand your drinking as you get older.</p>
+  <ul className="reference-about-list">
+    <li>Record what you drink</li>
+    <li>Learn about standard drinks and Australian guidelines</li>
+    <li>Review the drinks saved on this device</li>
+  </ul>
+  <p>Your drinking records stay in this browser on this device.</p>
+  <p>This website provides general health information and does not replace personalised medical advice.</p>
+  <button type="button" className="primary-button"
+    onClick={() => setShowAbout(false)}>Got it</button>
+</ReferenceDialog>}
     </main>
   )
 }

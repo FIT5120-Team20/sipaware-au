@@ -6,7 +6,7 @@
  * repositories. Keeping persistence here prevents UI controls from depending
  * directly on IndexedDB and keeps SavedDrink and DrinkingRecord state separate.
  */
-import { applicationHref } from '../../../app/entryPaths'
+import { applicationHref, RECORD_HOME_EVENT } from '../../../app/entryPaths'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { getDrinkOptions } from '../../../services/drinkReferenceApi'
@@ -36,6 +36,7 @@ import '../manualDrink.css'
 type HydrationStatus = 'loading' | 'ready' | 'error'
 
 export function ManualDrinkPage({ initialView = 'record' }: { initialView?: 'record' | 'history' }) {
+
   const [resultId, setResultId] = useState<string | null>(() => new URLSearchParams(window.location.search).get('record'))
   const [templateFailed, setTemplateFailed] = useState(false)
   const drinkingRecordRepository = useMemo(
@@ -73,10 +74,23 @@ export function ManualDrinkPage({ initialView = 'record' }: { initialView?: 'rec
   // URLs identify only committed local records. Reload/back rehydrates the same
   // source of truth; it never repeats a write or fabricates a successful result.
   useEffect(() => {
-    const restore = () => { setResultId(new URLSearchParams(window.location.search).get('record')) }
-    window.addEventListener('popstate', restore)
-    return () => window.removeEventListener('popstate', restore)
-  }, [])
+  const restore = () => {
+    setResultId(new URLSearchParams(window.location.search).get('record'))
+  }
+  const returnToRecordHome = () => {
+    setResultId(null)
+    setTemplateFailed(false)
+  }
+
+  window.addEventListener('popstate', restore)
+  window.addEventListener(RECORD_HOME_EVENT, returnToRecordHome)
+
+  return () => {
+    window.removeEventListener('popstate', restore)
+    window.removeEventListener(RECORD_HOME_EVENT, returnToRecordHome)
+  }
+}, [])
+  
   useEffect(() => {
     const heading = document.getElementById('record-result-title')
     if (resultId && heading) { heading.focus(); heading.scrollIntoView?.({ block: 'start' }) }

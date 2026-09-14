@@ -21,6 +21,7 @@
   --radius-card: 1rem;
   --radius-control: .8rem;
   --shadow-card: none;
+  --page-top-spacing: 12px;
   font-family: 'Outfit', 'Segoe UI', sans-serif;
 }
 body { background: #fff; color: #1c1c1a; min-width: 320px; }
@@ -29,26 +30,98 @@ a { color: #1a5fcc; }
 a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible {
   outline: 3px solid #bf6900; outline-offset: 3px;
 }
-.reference-app { min-height: 100dvh; }
-.reference-content { min-width: 0; padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
-.reference-navigation { position: fixed; bottom: 0; inset-inline: 0; z-index: 10;
-  background: #fff; border-top: 1px solid #e8e4df; padding: 7px 16px max(8px, env(safe-area-inset-bottom)); }
-.reference-brand, .reference-menu-label { display: none; }
-.reference-nav-items { display: flex; justify-content: space-around; }
-.reference-nav-items a { display: flex; flex: 1; max-width: 100px; min-height: 58px;
-  flex-direction: column; align-items: center; justify-content: center; color: #526374;
-  gap: 2px; text-decoration: none; font-size: 15px; border-radius: 14px; }
-.reference-nav-icon { display: grid; place-items: center; width: 56px; height: 32px; border-radius: 20px; }
-.reference-nav-items a[aria-current="page"] { color: #1a5fcc; font-weight: 700; }
-.reference-nav-items a[aria-current="page"] .reference-nav-icon { background: #e0eeff; }
-.reference-home, .manual-drink-shell, .alcohol-information-shell { width: 100%; max-width: 1200px; margin-inline: auto; padding: 22px 20px; }
+.reference-app {
+  min-height: 100dvh;
+}
+
+.reference-content {
+  min-width: 0;
+  padding-bottom: calc(88px + env(safe-area-inset-bottom));
+}
+
+.reference-navigation {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 10;
+  background: #ffffff;
+  border-top: 1px solid #e8e4df;
+  padding: 6px 16px max(8px, env(safe-area-inset-bottom));
+}
+
+.reference-brand,
+.reference-menu-label {
+  display: none;
+}
+
+.reference-nav-items {
+  display: flex;
+  justify-content: center;
+}
+
+.reference-nav-items a {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  max-width: 88px;
+  min-width: 0;
+  gap: 0;
+  padding: 0;
+  color: #687888;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: 0.025em;
+  text-decoration: none;
+  transition:
+    color 200ms ease,
+    opacity 150ms ease;
+    -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.reference-nav-items a:active {
+  opacity: 0.6;
+}
+
+.reference-nav-icon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 32px;
+  border-radius: 20px;
+  background: transparent;
+  transition: background-color 200ms ease;
+}
+
+.reference-nav-items a[aria-current="page"] {
+  color: #1a5fcc;
+  font-weight: 700;
+}
+
+.reference-nav-items a[aria-current="page"] .reference-nav-icon {
+  background: #e0eeff;
+}
+.reference-home, .manual-drink-shell, .alcohol-information-shell { width: 100%; max-width: 1200px; margin-inline: auto; padding: var(--page-top-spacing) 20px 22px; }
 .reference-page-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
 .reference-page-heading h1, .feature-header h1, .alcohol-information-header h1 {
   font-family: 'DM Serif Display', Georgia, serif; font-size: 36px; font-weight: 400; line-height: 1.2; letter-spacing: 0; margin: 0; }
 .reference-help { display: grid; place-items: center; width: 44px; height: 44px; border: 0;
   border-radius: 50%; color: #1c1c1a; background: #f5f3ef; font-size: 22px; cursor: pointer; }
 .home-story-grid { display: flex; position: relative; gap: 12px; overflow-x: auto;
-  scroll-snap-type: x mandatory; scrollbar-width: thin; padding-bottom: 10px; }
+  overscroll-behavior-inline: contain;
+  scroll-behavior: smooth;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 0;
+}
+
+.home-story-grid::-webkit-scrollbar {
+  display: none; }
 .home-story { flex: 0 0 min(318px, calc(100vw - 60px)); min-width: 0; border-radius: 16px;
   display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 3px 10px #00000012; scroll-snap-align: start; background: #edf6f5; }
 .home-story-image { position: relative; height: 212px; flex-shrink: 0; background: #e8e4df; }
@@ -56,8 +129,8 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .home-story-image > span { position: absolute; top: 12px; left: 12px; border-radius: 20px;
   padding: 4px 12px; background: #fffffff0; color: #28605c; font-size: 12px;
   text-transform: uppercase; font-weight: 600; letter-spacing: .05em; }
-/* Shared card height keeps the links aligned when headings wrap differently. */
-.home-story-copy { display: flex; flex: 1; flex-direction: column; gap: 7px; padding: 18px 20px 22px; min-height: 140px; }
+/* Match the prototype card height while allowing longer content to expand. */
+.home-story-copy { display: flex; flex: 1; flex-direction: column; gap: 7px; padding: 18px 20px 22px; min-height: 108px; }
 .home-story h2 { font: 400 22px/1.35 'DM Serif Display', Georgia, serif; margin: 0; }
 .home-story-copy a { display: inline-flex; align-items: center; align-self: flex-start; min-height: 44px; margin-top: auto;
   gap: 8px; font-weight: 600; color: #28605c; text-decoration: none; }
@@ -68,21 +141,20 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .home-story--lilac a { color: #6b4c8a; }
 .home-carousel-controls { display: flex; justify-content: center; }
 .home-carousel-controls button { width: 44px; height: 44px; display: grid; place-items: center; border: 0; background: transparent; }
-.home-carousel-controls span { width: 6px; height: 6px; border-radius: 8px; background: #b4aca3; }
+.home-carousel-controls span { width: 6px; height: 6px; border-radius: 8px; background: #b4aca3;transition:
+    width 200ms ease,
+    background-color 200ms ease; }
 .home-carousel-controls [aria-pressed="true"] span { width: 18px; background: #28605c; }
 .home-features { margin-top: 20px; }
-.home-features h2, .reference-about h2 { font: 400 28px/1.3 'DM Serif Display', Georgia, serif; margin: 0 0 18px; }
+.home-features h2 { font: 400 28px/1.3 'DM Serif Display', Georgia, serif; margin: 0 0 18px; }
 .home-feature-grid { display: grid; gap: 18px; }
 .home-feature-card { display: flex; align-items: center; gap: 14px; color: #1c1c1a; text-decoration: none; padding-block: 10px; min-width: 0; }
 .home-feature-icon { width: 44px; height: 44px; flex: 0 0 44px; display: grid; place-items: center; background: #ddeeff; color: #1b63d4; border-radius: 12px; }
 .home-feature-icon--learn { background: #d8effe; color: #0881cc; }
+.home-feature-icon--trend { background:#eceaff; color:#5b52dc; }
 .home-feature-card > span:nth-child(2) { flex: 1; min-width: 0; }
 .home-feature-card strong { display: block; font-size: 19px; font-weight: 500; line-height: 1.3; }
 .home-feature-card span span { display: block; color: #56524f; font-size: 17px; line-height: 1.35; margin-top: 4px; }
-.reference-about { max-width: min(520px, calc(100% - 32px)); padding: 28px; border: 1px solid #e8e4df; border-radius: 24px; color: #1c1c1a; }
-.reference-about::backdrop { background: #0007; }
-.reference-about form { margin-top: 24px; }
-.reference-about .primary-button { width: 100%; }
 
 /* Record uses the reference browse/actions surface with the existing validated
    form mounted behind it, so scanner/back transitions keep the occasion draft. */
@@ -158,36 +230,154 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 [hidden] { display: none !important; }
 
 @media (min-width: 768px) {
-  .reference-app { display: grid; grid-template-columns: 132px minmax(0, 1fr); }
-  .reference-navigation { top: 0; bottom: auto; left: 0; right: auto; width: 132px; height: 100dvh;
-    border-top: 0; border-right: 1px solid #e8e4df; padding: 24px 12px; overflow-y: auto; }
-  .reference-content { grid-column: 2; padding-bottom: 28px; }
-  .reference-brand { display: block; text-decoration: none; color: #28605c; padding: 4px 10px 24px; font: 400 23px/1.2 'DM Serif Display', Georgia, serif; }
-  .reference-brand span { font-family: 'Outfit', sans-serif; font-size: 13px; display: block; }
-  .reference-menu-label { display: block; color: #687888; padding-inline: 10px; font-size: 14px; }
-  .reference-nav-items { flex-direction: column; gap: 8px; }
-  .reference-nav-items a { flex: auto; max-width: none; width: 100%; min-height: 64px; }
-  .reference-nav-items a[aria-current="page"] { background: #eef4ff; }
-  .reference-nav-items a[aria-current="page"] .reference-nav-icon { background: transparent; }
-  .reference-home, .manual-drink-shell, .alcohol-information-shell { padding: 28px; }
-  .home-story-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; overflow: visible; }
-  .home-story-image { height: 170px; }
-  .home-carousel-controls { display: none; }
-  .home-feature-grid, .saved-drinks-list, .alcohol-information-contents ul { grid-template-columns: repeat(2,minmax(0,1fr)); }
-  .home-feature-card { padding: 16px; border: 1px solid #e8e4df; border-radius: 16px; }
-  .record-entry-actions { grid-template-columns: 1fr 1fr; }
-  .reference-learn-feature { grid-template-columns: 1fr 1fr; }
-  .reference-learn-feature img { height: 100%; min-height: 210px; }
+  :root {
+    --page-top-spacing: 20px;
+  }
+
+  .reference-app {
+    display: grid;
+    grid-template-columns: 132px minmax(0, 1fr);
+  }
+
+  .reference-navigation {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  top: 0;
+  bottom: auto;
+  left: 0;
+  right: auto;
+  width: 132px;
+  height: 100dvh;
+  padding: max(24px, env(safe-area-inset-top)) 12px 24px;
+  overflow-y: auto;
+  background: #ffffff;
+  border-top: 0;
+  border-right: 1px solid #e8e4df;
+}
+
+  .reference-content {
+    grid-column: 2;
+    padding-bottom: 28px;
+  }
+
+  .reference-brand {
+    display: block;
+    padding: 4px 10px 24px;
+    color: #28605c;
+    font: 400 23px/1.2 "DM Serif Display", Georgia, serif;
+    text-decoration: none;
+  }
+
+  .reference-brand span {
+    display: block;
+    font-family: "Outfit", sans-serif;
+    font-size: 13px;
+  }
+
+  .reference-menu-label {
+    display: block;
+    margin: 0;
+    padding: 4px 10px 18px;
+    color: #1c1c1a;
+    font: 400 22px/1.1 "DM Serif Display", Georgia, serif;
+  }
+
+  .reference-nav-items {
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 8px;
+  }
+
+  .reference-nav-items a {
+    flex: 0 0 auto;
+    flex-direction: column;
+    width: 100%;
+    max-width: none;
+    min-height: 64px;
+    padding: 0;
+    gap: 5px;
+    color: #687888;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: normal;
+    border-radius: 14px;
+  }
+
+  .reference-nav-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 0;
+  }
+
+  .reference-nav-items a[aria-current="page"] {
+    color: #1a5fcc;
+    font-weight: 600;
+    background: #eef4ff;
+  }
+
+  .reference-nav-items a[aria-current="page"] .reference-nav-icon {
+    background: transparent;
+  }
+  .home-story-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  overflow-x: visible;
+  scroll-snap-type: none;
+  padding: 0px 0px 10px;
+}
+
+.home-story-image {
+  height: 170px;
+}
+
+.home-story-copy {
+  min-height: 0;
+}
+
+.home-carousel-controls {
+  display: none;
+}
+.home-feature-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.home-feature-card { padding:16px;border:1px solid #e8e4df;border-radius:16px; }
 }
 @media (min-width: 1024px) {
-  .reference-app { grid-template-columns: 220px minmax(0,1fr); }
-  .reference-navigation { width: 220px; padding-inline: 18px; }
-  .reference-brand { font-size: 28px; padding-inline: 16px; }
-  .reference-nav-items a { min-height: 54px; flex-direction: row; justify-content: flex-start; padding-inline: 12px; gap: 8px; font-size: 17px; }
+  .home-story-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+  .reference-app {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+
+  .reference-navigation {
+    width: 220px;
+    padding-inline: 18px;
+  }
+
+  .reference-brand {
+    padding-inline: 16px;
+    font-size: 28px;
+  }
+
+  .reference-menu-label {
+    padding-inline: 16px;
+    font-size: 25px;
+  }
+
+  .reference-nav-items a {
+    min-height: 54px;
+    flex-direction: row;
+    justify-content: flex-start;
+    padding-inline: 16px;
+    gap: 12px;
+    font-size: 17px;
+  }
 }
 @media (min-width: 1280px) {
   .home-story-grid { grid-template-columns: repeat(4,minmax(0,1fr)); }
-  .home-story-copy { min-height: 180px; }
   .manual-drink-layout { grid-template-columns: minmax(0,1fr) 300px; }
   .saved-drinks-list { grid-template-columns: minmax(0,1fr); }
 }
@@ -198,10 +388,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 
 /* RecordPage / AddDrinkPage / LearnHub at f5711b15: utility-to-CSS port.
    Data acquisition, validation and persistence remain SipAware boundaries. */
-.reference-menu-label { margin: 0 0 18px; color: #1c1c1a; font: 400 25px/1.1 'DM Serif Display', Georgia, serif; }
-.reference-nav-icon { width: 24px; }
-.reference-nav-items a { gap: 12px; }
-.manual-drink-shell { max-width: 1200px; padding: 18px 0 28px; }
+.manual-drink-shell { max-width: 1200px; padding: var(--page-top-spacing) 0 28px; }
 .manual-drink-layout { display: block; }
 .manual-drink-primary { display: block; }
 .prototype-capture { border-radius: 0; }
@@ -249,6 +436,8 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .prototype-record-feedback { margin: 28px 20px; display: grid; gap: 24px; align-items: start; }
 .prototype-record-feedback .manual-drink-sidebar { display: grid; }
 .prototype-back { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0; border: 0; background: transparent; color: #1a5fcc; text-decoration: none; font-size: 17px; cursor: pointer; }
+.prototype-sticky-back { position:sticky;top:0;z-index:4;display:flex;align-items:center;width:calc(100% + 40px);height:44px;margin:0 -20px;padding:0 20px;background:#fff }
+.prototype-sticky-back .prototype-back { font-size:19px }
 .prototype-form-heading { margin-bottom: 24px; }
 .prototype-form-heading p { margin: 4px 0 0; color: #56524f; font-size: 17px; }
 .prototype-consumption-form .form-step { padding: 0; margin-bottom: 24px; border: 0; border-radius: 0; }
@@ -260,8 +449,9 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .prototype-consumption-form .input-with-unit { border: 0; background: transparent; gap: 12px; }
 .prototype-consumption-form .input-with-unit span { background: #eeedf3; border-radius: 12px; align-self: stretch; display: grid; align-items: center; padding: 0 16px; }
 .prototype-drink-summary { padding: 16px; border-radius: 16px; background: #f5f6f8; margin-bottom: 24px; }
-.prototype-drink-summary strong { font-size: 18px; font-weight: 600; }
-.prototype-drink-summary p { margin: 4px 0 0; font-size: 15px; color: #56524f; }
+.prototype-drink-summary strong { display:block;font-size:22px;line-height:1.35;font-weight:600 }
+.prototype-drink-summary p { margin:6px 0 0;font-size:18px;line-height:1.5;font-weight:500;color:#393633 }
+.prototype-detail-separator { display:inline-block;margin:0 8px;color:#647280 }
 .prototype-amount-tabs { display: flex; background: #f5f6f8; border-radius: 12px; padding: 4px; margin-bottom: 16px; }
 .prototype-amount-tabs button { flex: 1; border: 0; border-radius: 8px; min-height: 44px; font-size: 17px; font-weight: 600; color: #4a5260; background: transparent; cursor: pointer; }
 .prototype-amount-tabs [aria-pressed="true"] { color: #1a5fcc; background: #fff; box-shadow: 0 1px 4px #0000001a; }
@@ -294,7 +484,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .prototype-consumption-form .form-actions .primary-button { width: 100%; height: 56px; box-shadow: none; }
 
 /* Learn retains the source's 0.95 / 1.05 split and six distinct semantic icons. */
-.alcohol-information-shell { max-width: 1120px; padding: 20px; }
+.alcohol-information-shell { max-width: 1120px; padding: var(--page-top-spacing) 20px 20px; }
 .alcohol-information-header { margin: 0 0 20px; }
 .alcohol-information-header h1 { font-size: 36px; }
 .alcohol-information-header > p { margin: 4px 0 0; font-size: 18px; line-height: 1.6; max-width: none; }
@@ -322,7 +512,6 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .alcohol-information-sections:empty { display: none; }
 .alcohol-information-section { margin-top: 16px; }
 @media(min-width:768px) {
-  .reference-menu-label { padding: 4px 10px 0; margin-bottom: 18px; font-size: 22px; }
   .prototype-record-top { padding: 0 28px 8px; }
   .prototype-record-controls { padding-inline: 28px; }
   .prototype-category-rail { flex: 0 0 160px; width: 160px; }
@@ -339,8 +528,6 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   .prototype-learn-feature-copy { flex: 0 0 auto; }
 }
 @media(min-width:1024px) {
-  .reference-menu-label { font-size: 25px; padding-inline: 16px; }
-  .reference-nav-items a { gap: 12px; padding-inline: 16px; }
   .prototype-category-rail { flex: 0 0 200px; width: 200px; }
 }
 @media(min-width:1280px) {
@@ -348,6 +535,10 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   .prototype-record-browser .saved-drinks-list { grid-template-columns: repeat(3,minmax(0,1fr)); }
 }
 @media(max-width:767px) {
+  .home-story h2 { font-size: 19px; }
+  .home-story--green h2 { font-size: 22px; }
+  .home-story-copy { padding-bottom:16px; }
+  .home-features { margin-top:12px; }
   .prototype-category-rail button { font-size: 17px; padding: 8px 4px; }
   .prototype-record-browser .saved-drink-button { flex-wrap: wrap; gap: 8px; }
   .prototype-drink-thumb { width: 40px; height: 40px; flex-basis: 40px; }
@@ -398,10 +589,11 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .reference-result-links a { min-height:56px;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 16px;text-decoration:none;color:#1c1c1a;font-size:16px;border-bottom:1px solid #e2ddd8 }
 .reference-result-links a:last-child { border-bottom:0 }
 .reference-done { width:100%;height:56px;border-radius:16px }
-.reference-flow-dialog { width:min(680px,calc(100vw - 24px));max-height:88dvh;margin:auto auto 0;border:0;border-radius:24px 24px 0 0;background:white;padding:0;color:#1c1c1a;overflow-y:auto }
+.reference-flow-dialog { width:100vw;max-width:none;max-height:88dvh;margin:auto 0 0;border:0;border-radius:24px 24px 0 0;background:white;padding:0;color:#1c1c1a;overflow-y:auto }
 .reference-flow-dialog::backdrop { background:rgba(0,0,0,.45) }
 .reference-flow-dialog-body { padding:28px 24px 32px }
 .reference-flow-dialog h2 { font:30px/1.2 "DM Serif Display",serif;margin:0 0 20px }
+.reference-flow-dialog h2:focus { outline:none }
 .reference-flow-dialog p { font-size:16px;line-height:1.65 }
 .reference-flow-dialog .primary-button { width:100%;min-height:56px;margin-top:24px }
 .reference-sheet-handle { width:40px;height:4px;border-radius:99px;background:#d8d4cf;margin:0 auto 24px }
@@ -507,3 +699,25 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 /* Pagination extends the existing prototype card grid without changing its rail. */
 .prototype-catalog-pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px; padding: 8px 12px 20px; }
 .prototype-catalog-pagination > span { font-size: 14px; color: #647280; }
+.reference-record-help-list { display:grid;gap:16px;list-style:none;margin:0;padding:0 }
+.reference-record-help-list li { display:grid;gap:4px }
+.reference-record-help-list strong { font-size:17px;line-height:1.4 }
+.reference-record-help-list span { color:#56524f;font-size:16px;line-height:1.5 }
+.reference-record-help-note { margin:20px 0 0 }
+
+.reference-dialog-actions { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:24px }
+.reference-dialog-actions button { width:100%;min-height:56px;border:0;border-radius:12px;font-size:17px;font-weight:600;cursor:pointer }
+.reference-dialog-actions button:first-child { color:#1c1c1a;background:#f5f6f8 }
+.reference-dialog-actions button:last-child { color:white;background:#c3261c }
+.reference-dialog-actions button:disabled { opacity:.6;cursor:wait }
+.reference-about-list { display:grid;gap:8px;margin:16px 0;padding-left:24px;font-size:16px;line-height:1.5 }
+
+@media(min-width:768px) {
+  .reference-flow-dialog { width:calc(100vw - 132px);max-width:none;margin:auto 0 0 auto }
+  .reference-flow-dialog::backdrop { background:linear-gradient(to right,transparent 0 132px,rgba(0,0,0,.45) 132px 100%) }
+}
+
+@media(min-width:1024px) {
+  .reference-flow-dialog { width:calc(100vw - 220px) }
+  .reference-flow-dialog::backdrop { background:linear-gradient(to right,transparent 0 220px,rgba(0,0,0,.45) 220px 100%) }
+}

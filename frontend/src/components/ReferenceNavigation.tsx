@@ -46,19 +46,70 @@ function NavTrends({ active }: { active: boolean }) {
 }
 
 
-export function ReferenceNavigation() {
-  const path = applicationPath()
+interface ReferenceNavigationProps {
+  path?: string
+  onNavigate?: (path: string) => void
+}
+
+export function ReferenceNavigation({
+  path = applicationPath(),
+  onNavigate,
+}: ReferenceNavigationProps = {}) {
   const items = [
     { label: 'Home', href: '/', Icon: NavHome },
-    { label: 'Learn', href: '/alcohol-guidelines', Icon: NavLearn },
+    {
+      label: 'Learn',
+      href: '/alcohol-guidelines',
+      Icon: NavLearn,
+    },
     { label: 'Record', href: '/record', Icon: NavRecord },
     { label: 'Trends', href: '/trends', Icon: NavTrends },
   ]
-  return <nav className="reference-navigation" aria-label="Primary navigation">
-    <p className="reference-menu-label">Menu</p>
-    <div className="reference-nav-items">{items.map(({ label, href, Icon }) =>
-      <a key={href} href={applicationHref(href)} aria-current={path === href ? 'page' : undefined}>
-        <span className="reference-nav-icon" aria-hidden="true"><Icon active={path === href} /></span><span>{label}</span>
-      </a>)}</div>
-  </nav>
+
+  return (
+    <nav
+      className="reference-navigation"
+      aria-label="Primary navigation"
+    >
+      <p className="reference-menu-label">Menu</p>
+
+      <div className="reference-nav-items">
+        {items.map(({ label, href, Icon }) => {
+          const active = path === href
+
+          return (
+            <a
+              key={href}
+              href={applicationHref(href)}
+              aria-current={active ? 'page' : undefined}
+              onClick={(event) => {
+                const modifiedClick =
+                  event.button !== 0 ||
+                  event.metaKey ||
+                  event.ctrlKey ||
+                  event.shiftKey ||
+                  event.altKey
+
+                if (modifiedClick || !onNavigate) {
+                  return
+                }
+
+                event.preventDefault()
+                onNavigate(href)
+              }}
+            >
+              <span
+                className="reference-nav-icon"
+                aria-hidden="true"
+              >
+                <Icon active={active} />
+              </span>
+
+              <span>{label}</span>
+            </a>
+          )
+        })}
+      </div>
+    </nav>
+  )
 }

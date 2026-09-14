@@ -45,9 +45,6 @@ export function IcoChevron() {
 function IcoStar() {
   return <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M7 1l1.6 4H13L9.5 7.8 10.8 12 7 9.5 3.2 12l1.3-4.2L1 5h4.4L7 1Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" /></svg>
 }
-function HelpIcon() {
-  return <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="#4A5260" strokeWidth="1.6" /><path d="M7.8 7.2a2.35 2.35 0 0 1 4.55.8c0 1.7-2.35 2-2.35 3.5" stroke="#4A5260" strokeWidth="1.6" strokeLinecap="round" /><circle cx="10" cy="14.6" r="0.9" fill="#4A5260" /></svg>
-}
 
 
 const styles = {
@@ -78,14 +75,24 @@ export function ReferenceRecordBrowser({ savedDrinks, onScan, onManual, onProduc
     drink.drinkName.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())) : []
   return <div className="prototype-record-browser">
     <div className="prototype-record-top">
-      <h1>Record a Drink</h1>
-      <button type="button" className="prototype-help" onClick={() => setShowHelp(!showHelp)} aria-label="How to record a drink" aria-expanded={showHelp}><HelpIcon /></button>
-    </div>
-    {showHelp && <ReferenceDialog title="How to record a drink" onClose={() => setShowHelp(false)}>
-      <p>All and the drink categories are for the public product catalog. My Drinks shows only drinks you choose to save on this device. Scan Barcode reads a barcode locally with your camera or a photo. Choose a catalog drink or barcode match to review its details, then enter how much you drank. Use Record Manually if you cannot find your drink.</p>
-      <p>Save a drink to My Drinks for quicker recording next time. View drinking records in Trends → History. Your saved drinks and drinking records stay in this browser on this device.</p>
-      <button type="button" className="primary-button" onClick={() => setShowHelp(false)}>Got it</button>
-    </ReferenceDialog>}
+  <h1>Record a Drink</h1>
+  <button type="button" className="reference-help" onClick={() => setShowHelp(true)}
+    aria-label="How to record a drink" aria-expanded={showHelp}>?</button>
+</div>
+
+{showHelp && <ReferenceDialog title="How to record a drink" onClose={() => setShowHelp(false)}>
+  <ul className="reference-record-help-list">
+    <li><strong>Search</strong><span>Use the search bar above to enter a drink name, brand, or product and find a matching drink.</span></li>
+    <li><strong>Scan a barcode</strong><span>Tap Scan Barcode to scan the bottle or can and look for a matching product.</span></li>
+    <li><strong>Browse</strong><span>Browse by category, such as Beer, Wine, Spirits, Cider, RTD, or Other, then select the drink you want to record.</span></li>
+    <li><strong>My Drinks</strong><span>Find drinks you have saved before for quicker recording. Drinks can be saved from the database or from manual recording.</span></li>
+    <li><strong>Can't find your drink?</strong><span>Select Record Manually. Enter the drink details and how much you drank in one flow. You can optionally save the drink to My Drinks for next time.</span></li>
+  </ul>
+
+  <p className="reference-record-help-note">After selecting a drink, enter how much you drank and tap Record Drink.</p>
+
+  <button type="button" className="primary-button" onClick={() => setShowHelp(false)}>Got it</button>
+</ReferenceDialog>}
     <div className="prototype-record-controls">
       <div className="prototype-record-search"><IcoSearch /><input type="search" aria-label="Search for a drink" placeholder="Search for a drink..." value={query} maxLength={200} onChange={e => setQuery(e.target.value)} />{query && <button type="button" aria-label="Clear search" onClick={() => setQuery('')}>×</button>}</div>
       <div className="prototype-record-actions">
