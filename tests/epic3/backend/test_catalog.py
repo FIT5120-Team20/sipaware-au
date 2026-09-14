@@ -39,9 +39,10 @@ def test_category_query_is_bounded_and_does_not_join_barcodes(category,ids):
     db=Connection([sample()])
     page=CatalogRepository(db.connect).browse(category, "50%_! ' OR 1=1",24,24)
     sql,params=db.calls[-1]
-    assert params == (ids,"%50!%!_!! ' OR 1=1%","%50!%!_!! ' OR 1=1%",24,24)
+    assert params[6:] == (ids,"%50!%!_!! ' OR 1=1%","%50!%!_!! ' OR 1=1%",24,24)
     assert 'drink_product_barcode' not in sql and 'LIMIT %s OFFSET %s' in sql
-    assert 'ORDER BY lower(p.product_name), p.product_key' in sql
+    assert 'ORDER BY search_rank, lower(p.product_name), p.product_key LIMIT' in sql
+    assert 'ORDER BY p.search_rank, lower(p.product_name), p.product_key' in sql
     assert 'p.is_active = TRUE' in sql
     assert "OR 1=1" not in sql
     assert db.calls[0][0] == 'SET TRANSACTION ISOLATION LEVEL REPEATABLE READ'
@@ -93,3 +94,18 @@ def test_database_failure_is_retryable_not_empty(repository):
 def test_catalog_has_no_write_endpoint(repository):
     assert request(method='POST').status_code==405
     repository.browse.assert_not_called()
+
+
+@pytest.mark.parametrize('query,normalized,exact', [
+    ('  Bacardi  ', 'Bacardi', 'Bacardi'),
+    ('50%_!', '50%_!', '50!%!_!!'),
+    ('   ', '', ''),
+])
+def test_ranking_and_filtering_share_literal_trimmed_search(query, normalized, exact):
+    db = Connection([])
+    CatalogRepository(db.connect).browse('wine', query, 24, 24)
+    _, count_params = db.calls[-2]
+    sql, page_params = db.calls[-1]
+    assert count_params == ([2], '%' + exact + '%', '%' + exact + '%')
+    assert page_params == (normalized, exact, exact, exact + '%', exact + '%', '%' + exact + '%', *count_params, 24, 24)
+    assert "CASE WHEN %s = '' THEN 0" in sql
