@@ -6,6 +6,10 @@
       "framework": "vite",
       "rewrites": [
         {
+          "source": "/iteration2/:path*",
+          "destination": "/:path*"
+        },
+        {
           "source": "/(.*)",
           "destination": "/index.html"
         }
@@ -31,15 +35,13 @@
     {
       "source": "/iteration2",
       "destination": {
-        "service": "frontend",
-        "path": "/index.html"
+        "service": "frontend"
       }
     },
     {
       "source": "/iteration2/:path*",
       "destination": {
-        "service": "frontend",
-        "path": "/:path*"
+        "service": "frontend"
       }
     },
     {
