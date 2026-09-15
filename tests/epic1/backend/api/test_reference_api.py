@@ -3,6 +3,7 @@
 import asyncio
 
 import httpx
+import pytest
 
 from app.api.reference import (
     REFERENCE_CACHE_CONTROL,
@@ -78,14 +79,15 @@ def sample_response() -> DrinkOptionsResponse:
     )
 
 
-def test_drink_options_endpoint_returns_camel_case_dto_and_cache_header() -> None:
+@pytest.mark.parametrize("prefix", ["", "/iteration2"])
+def test_drink_options_endpoint_returns_camel_case_dto_and_cache_header(prefix: str) -> None:
     class SuccessfulRepository:
         def fetch_drink_options(self) -> DrinkOptionsResponse:
             return sample_response()
 
     app.dependency_overrides[get_reference_repository] = SuccessfulRepository
     try:
-        response = request("/api/reference/drink-options")
+        response = request(prefix + "/api/reference/drink-options")
     finally:
         app.dependency_overrides.clear()
 

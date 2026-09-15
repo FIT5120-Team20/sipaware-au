@@ -1,7 +1,8 @@
 """FastAPI composition root for SipAware AU's public API.
 
-Vercel imports ``app`` from this module and routes same-origin ``/api`` traffic
-to it. Feature routes own their HTTP contracts; this module only assembles the
+Vercel imports ``app`` and routes ``/iteration2/api`` development traffic here.
+Stable root traffic uses its own pinned deployment; local ``/api`` stays available.
+Feature routes own their HTTP contracts; this module only assembles the
 application and retains local-development CORS support. It does not handle
 personal SavedDrink or DrinkingRecord data, which remains in browser IndexedDB.
 """
@@ -36,8 +37,9 @@ app.add_middleware(
     allow_headers=["Accept", "Content-Type"],
 )
 
-app.include_router(health_router)
-app.include_router(reference_router)
-app.include_router(barcode_router)
-
-app.include_router(catalog_router)
+# Vercel service rewrites preserve the original request path. Register the exact
+# active prefix against the SAME handlers and dependencies, rather than assuming
+# a frontend rewrite strips it. Do not expose future/frozen iteration aliases.
+for router in (health_router, reference_router, barcode_router, catalog_router):
+    app.include_router(router)
+    app.include_router(router, prefix="/iteration2")

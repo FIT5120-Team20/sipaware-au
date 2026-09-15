@@ -1,44 +1,34 @@
-/** Public route compatibility must not change API destinations or personal-data storage. */
+/** Entry paths preserve navigation state without rewriting public API or storage URLs. */
 import { afterEach, describe, expect, it } from 'vitest'
-import { applicationHref, applicationPath, officialEntryRedirect } from '../../../../frontend/src/app/entryPaths'
+import { applicationHref, applicationPath } from '../../../../frontend/src/app/entryPaths'
 
 afterEach(() => window.history.replaceState({}, '', '/'))
 
-describe('approved iteration entry', () => {
-  it('recognizes the exact mount and its nested application pages', () => {
-    expect(applicationPath('/iteration1')).toBe('/')
-    expect(applicationPath('/iteration1/')).toBe('/')
-    expect(applicationPath('/iteration1/record')).toBe('/record')
-    expect(applicationPath('/iteration1/alcohol-guidelines')).toBe('/alcohol-guidelines')
-    expect(applicationPath('/iteration10')).toBe('/iteration10')
-    expect(applicationPath('/iteration2')).toBe('/iteration2')
-  })
-
-  it('keeps links, query state and topic hashes in the current mount', () => {
-    window.history.replaceState({}, '', '/iteration1/record')
-    expect(applicationHref('/')).toBe('/iteration1')
-    expect(applicationHref('/record?record=synthetic-id')).toBe('/iteration1/record?record=synthetic-id')
-    expect(applicationHref('/alcohol-guidelines#STANDARD_DRINK')).toBe('/iteration1/alcohol-guidelines#STANDARD_DRINK')
-    expect(applicationHref('/trends#trends')).toBe('/iteration1/trends#trends')
-  })
-
-  it('keeps local root navigation and non-app URLs unchanged', () => {
-    expect(applicationHref('/record')).toBe('/record')
-    window.history.replaceState({}, '', '/iteration1')
-    for (const url of ['/api/reference/drink-options', '/reference-ui/home-ageing.svg', 'https://example.com/source', '//example.com/source', '#ALCOHOL_AGEING', '/iteration1/record']) {
-      expect(applicationHref(url)).toBe(url)
+describe('standalone and active iteration navigation', () => {
+  it('recognizes root and the exact active mount, without claiming future releases', () => {
+    for (const root of ['', '/iteration2']) {
+      expect(applicationPath(root || '/')).toBe('/')
+      expect(applicationPath(root + '/')).toBe('/')
+      expect(applicationPath(root + '/record')).toBe('/record')
+      expect(applicationPath(root + '/alcohol-guidelines')).toBe('/alcohol-guidelines')
+    }
+    for (const unknown of ['/iteration1', '/iteration1/record', '/iteration20', '/iteration2-other', '/iteration3', '/iteration3/record']) {
+      expect(applicationPath(unknown)).toBe(unknown)
     }
   })
 
-  it('redirects known live bookmarks while preserving search and hashes', () => {
-    expect(officialEntryRedirect({hostname: 'sipaware.app', pathname: '/', search: '', hash: ''})).toBe('/iteration1')
-    expect(officialEntryRedirect({hostname: 'sipaware.app', pathname: '/alcohol-guidelines', search: '?view=source', hash: '#STANDARD_DRINK'})).toBe('/iteration1/alcohol-guidelines?view=source#STANDARD_DRINK')
-    expect(officialEntryRedirect({hostname: 'sipaware-au.vercel.app', pathname: '/record', search: '', hash: ''})).toBe('/iteration1/record')
+  it.each(['', '/iteration2'])('keeps navigation, query and hash in entry %s', (mount) => {
+    window.history.replaceState({}, '', mount + '/record')
+    expect(applicationHref('/')).toBe(mount || '/')
+    expect(applicationHref('/record?record=synthetic-id')).toBe(mount + '/record?record=synthetic-id')
+    expect(applicationHref('/alcohol-guidelines#STANDARD_DRINK')).toBe(mount + '/alcohol-guidelines#STANDARD_DRINK')
+    expect(applicationHref('/trends#history')).toBe(mount + '/trends#history')
   })
 
-  it('does not redirect local, frozen, already mounted or future iteration pages', () => {
-    for (const [hostname, pathname] of [['localhost', '/'], ['sipaware-au-iteration1.vercel.app', '/'], ['sipaware.app', '/iteration1'], ['sipaware.app', '/iteration2'], ['sipaware.app', '/unknown']]) {
-      expect(officialEntryRedirect({hostname, pathname, search: '', hash: ''})).toBeNull()
+  it('does not rewrite API, assets, external sources or already mounted links', () => {
+    window.history.replaceState({}, '', '/iteration2')
+    for (const url of ['/api/reference/drink-options', '/reference-ui/home-ageing.svg', 'https://example.com/source', '//example.com/source', '#ALCOHOL_AGEING', '/iteration2/record']) {
+      expect(applicationHref(url)).toBe(url)
     }
   })
 })

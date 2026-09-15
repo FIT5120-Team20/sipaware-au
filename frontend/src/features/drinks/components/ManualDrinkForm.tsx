@@ -38,6 +38,7 @@ import type {
   ReferenceLoadStatus,
 } from '../types/drinkReference'
 import {
+  MAX_RECORD_SERVINGS,
   validateManualDrinkInput,
   validateReusableDrinkInput,
 } from '../validation/drinkingRecordValidation'
@@ -239,11 +240,19 @@ const availableCategories = includePersistedDrinkType(
       ? String(Number(millilitres) / servingVolume) : '',
   } : values
   const consumedMl = servingVolume * Number(effectiveValues.amountConsumed)
+  const volumeReady = Number.isFinite(servingVolume) && servingVolume > 0 && Number.isFinite(servingVolume * MAX_RECORD_SERVINGS)
+  const maximumMl = volumeReady ? servingVolume * MAX_RECORD_SERVINGS : undefined
+  // Derive this on every render so typing, mode switches and volume edits cannot
+  // bypass the shared submit boundary. Never silently rewrite an entered amount.
+  const overLimit = Number(effectiveValues.amountConsumed) > MAX_RECORD_SERVINGS
+  const amountError = overLimit
+    ? (amountMode === 'ml' ? `Enter no more than ${maximumMl} mL (10 servings) per record.` : 'Enter no more than 10 servings per record.')
+    : errors.amountConsumed
   const estimate = calculateStandardDrinks({
     servingVolumeMl: servingVolume, abvPercent: Number(values.abvPercent),
     amountConsumed: Number(effectiveValues.amountConsumed),
   })
-  const estimateAvailable = servingVolume > 0 && Number(values.abvPercent) >= 0 &&
+  const estimateAvailable = !overLimit && volumeReady && Number(values.abvPercent) >= 0 &&
     values.abvPercent.trim() !== '' && effectiveValues.amountConsumed.trim() !== '' &&
     Number.isFinite(estimate) && Number(effectiveValues.amountConsumed) > 0
   function switchAmountMode(mode: 'serving' | 'ml') {
@@ -254,9 +263,14 @@ const availableCategories = includePersistedDrinkType(
   }
   function adjustAmount(delta: number) {
     if (amountMode === 'ml') {
-      setMillilitres(String(Math.max(0, Number(millilitres || 0) + delta)))
+      if (!volumeReady) return
+      const next = Math.max(0, Number(millilitres || 0) + delta)
+      setMillilitres(String(delta > 0 ? Math.min(maximumMl!, next) : next))
       clearErrors('amountConsumed')
-    } else updateValue('amountConsumed', String(Math.max(0, Number(values.amountConsumed || 0) + delta)))
+    } else {
+      const next = Math.max(0, Number(values.amountConsumed || 0) + delta)
+      updateValue('amountConsumed', String(delta > 0 ? Math.min(MAX_RECORD_SERVINGS, next) : next))
+    }
   }
 
   function clearErrors(...fields: ManualDrinkField[]) {
@@ -492,7 +506,7 @@ const availableCategories = includePersistedDrinkType(
       message: templateFailed ? 'Drinking record saved on this device, but the drink could not be saved to My Drinks. Do not record the same occasion again.' : 'Drinking record saved on this device.',
     })
     // Navigate only after both independent writes settle so a template failure
-    // remains visible on the result screen and cannot invite a duplicate record.
+    // remains visible after navigation and cannot invite a duplicate record.
     onRecorded?.(record, templateFailed)
   }
 
@@ -772,25 +786,25 @@ const availableCategories = includePersistedDrinkType(
           <h3 id="drink-amount-title">How much did you drink?</h3>
           <div className="prototype-amount-tabs" aria-label="Amount entry mode">
             <button type="button" aria-pressed={amountMode === 'serving'} onClick={() => switchAmountMode('serving')}>By serving</button>
-            <button type="button" aria-pressed={amountMode === 'ml'} onClick={() => switchAmountMode('ml')}>By mL</button>
+            <button type="button" disabled={!volumeReady} aria-pressed={amountMode === 'ml'} onClick={() => switchAmountMode('ml')}>By mL</button>
           </div>
           <div className="prototype-amount-panel">
             {amountMode === 'serving' && <p>1 serving = {servingVolume > 0 ? servingVolume : '—'} mL</p>}
             <div className="prototype-amount-stepper">
               <button type="button" aria-label={amountMode === 'serving' ? 'Decrease servings' : 'Decrease mL'} onClick={() => adjustAmount(amountMode === 'serving' ? -0.5 : -50)}><MinusIcon /></button>
               <div>
-                {amountMode === 'serving' ? <input id="amount-consumed" name="amountConsumed" type="number" inputMode="decimal" step="any" placeholder="0.0"
+                {amountMode === 'serving' ? <input id="amount-consumed" name="amountConsumed" type="number" inputMode="decimal" min="0" max={MAX_RECORD_SERVINGS} step="any" placeholder="0.0"
                   value={values.amountConsumed} onChange={e => updateValue('amountConsumed', e.target.value)}
-                  aria-label="Number of servings consumed" aria-invalid={Boolean(errors.amountConsumed)} aria-describedby="amount-consumed-help amount-consumed-error" required />
-                  : <input id="consumed-ml" name="consumedMl" type="number" inputMode="decimal" step="any" placeholder="0"
+                  aria-label="Number of servings consumed" aria-invalid={Boolean(amountError)} aria-describedby="amount-consumed-help amount-consumed-error" required />
+                  : <input id="consumed-ml" name="consumedMl" type="number" inputMode="decimal" min="0" max={maximumMl} disabled={!volumeReady} step="any" placeholder="0"
                     value={millilitres} onChange={e => { setMillilitres(e.target.value); clearErrors('amountConsumed'); setSaveStatus(null) }}
-                    aria-label="Amount in mL" aria-invalid={Boolean(errors.amountConsumed)} aria-describedby="amount-consumed-help amount-consumed-error" required />}
+                    aria-label="Amount in mL" aria-invalid={Boolean(amountError)} aria-describedby="amount-consumed-help amount-consumed-error" required />}
                 <span>{amountMode === 'serving' ? 'Servings' : 'mL'}</span>
               </div>
-              <button type="button" aria-label={amountMode === 'serving' ? 'Increase servings' : 'Increase mL'} onClick={() => adjustAmount(amountMode === 'serving' ? 0.5 : 50)}><PlusIcon /></button>
+              <button type="button" aria-label={amountMode === 'serving' ? 'Increase servings' : 'Increase mL'} disabled={Number(effectiveValues.amountConsumed) >= MAX_RECORD_SERVINGS || (amountMode === 'ml' && !volumeReady)} onClick={() => adjustAmount(amountMode === 'serving' ? 0.5 : 50)}><PlusIcon /></button>
             </div>
-            <p className="field-help" id="amount-consumed-help">{amountMode === 'serving' ? 'Enter the number of servings consumed, for example 1.5.' : 'Enter the total volume you consumed in mL.'}</p>
-            <FieldError id="amount-consumed-error" message={errors.amountConsumed} />
+            <p className="field-help" id="amount-consumed-help">{amountMode === 'serving' ? 'Enter the number of servings consumed, for example 1.5.' : 'Enter the total volume you consumed in mL.'} {amountMode === 'serving' ? 'Maximum: 10 servings.' : volumeReady ? `Maximum: ${maximumMl} mL (10 servings).` : 'Choose a valid serving volume first.'}</p>
+            <FieldError id="amount-consumed-error" message={amountError} />
           </div>
           <div className="prototype-estimate" aria-live="polite">
             <div><strong>Estimated standard drinks</strong><p>{estimateAvailable ? 'Based on ' + Number(consumedMl.toFixed(2)) + ' mL consumed and ' + values.abvPercent + '% ABV.' : 'Enter the serving size, ABV and amount consumed.'}</p></div>
@@ -843,7 +857,7 @@ const availableCategories = includePersistedDrinkType(
           <button
             className="primary-button"
             type="submit"
-            disabled={isPersisting}
+            disabled={isPersisting || overLimit}
           >
             Record Drink
           </button>

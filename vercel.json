@@ -6,6 +6,10 @@
       "framework": "vite",
       "rewrites": [
         {
+          "source": "/iteration2/:path*",
+          "destination": "/:path*"
+        },
+        {
           "source": "/(.*)",
           "destination": "/index.html"
         }
@@ -19,16 +23,30 @@
   },
   "rewrites": [
     {
-      "source": "/api/(.*)",
+      "source": "/",
+      "destination": "https://sipaware-au-stable-e049609-claway.vercel.app/index.html"
+    },
+    {
+      "source": "/iteration2/api/:path*",
       "destination": {
         "service": "backend"
       }
     },
     {
-      "source": "/(.*)",
+      "source": "/iteration2",
       "destination": {
         "service": "frontend"
       }
+    },
+    {
+      "source": "/iteration2/:path*",
+      "destination": {
+        "service": "frontend"
+      }
+    },
+    {
+      "source": "/:path*",
+      "destination": "https://sipaware-au-stable-e049609-claway.vercel.app/:path*"
     }
   ]
 }

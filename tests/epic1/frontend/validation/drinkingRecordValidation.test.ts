@@ -180,3 +180,13 @@ describe('validateReusableDrinkInput', () => {
     expect(result.errors[errorField]).toBeDefined()
   })
 })
+
+
+it.each(['10.0001', '11', '999999'])('rejects an occasion above ten servings: %s', amountConsumed => {
+  const result = validateManualDrinkInput({ ...validValues(), amountConsumed })
+  expect(result.success).toBe(false)
+  if (!result.success) expect(result.errors.amountConsumed).toMatch(/no more than 10/)
+})
+it.each(['0.1', '9.999', '10'])('accepts positive occasion amounts through the boundary: %s', amountConsumed => {
+  expect(validateManualDrinkInput({ ...validValues(), amountConsumed }).success).toBe(true)
+})

@@ -159,17 +159,25 @@ function buildFourWeekBuckets(records: ConsumptionRecord[], end: Date) {
 }
 
 type HistoryTabProps = Props & {
+  initialRecordId?: string
   onEditRecord: (record: ConsumptionRecord) => void
 }
 
 function HistoryTab({
   records,
+  initialRecordId,
   onDeleteRecord,
   onEditRecord,
 }: HistoryTabProps) {
-  const latestRecordDate = records.length > 0
+  // A newly saved backdated record should open its own month, not the latest
+  // month in the database. Normal visits retain the existing latest-month view.
+  const initialRecord = records.find(record => record.id === initialRecordId)
+  const latestRecordDate = initialRecord ? parseDateOnly(initialRecord.date) : records.length > 0
     ? parseDateOnly([...records].sort((a, b) => b.date.localeCompare(a.date))[0].date)
     : startOfToday()
+  useEffect(() => {
+    if (initialRecordId) document.getElementById('history-record-' + initialRecordId)?.scrollIntoView?.({ block: 'center' })
+  }, [initialRecordId])
   const [viewYear, setViewYear] = useState(latestRecordDate.getFullYear())
   const [viewMonth, setViewMonth] = useState(latestRecordDate.getMonth())
   const [showMonthPicker, setShowMonthPicker] = useState(false)
@@ -282,7 +290,7 @@ function HistoryTab({
                 </header>
                 <div className="history-day-records">
                   {dayRecords.map((record) => (
-                    <div className="history-record" key={record.id}>
+                    <div className="history-record" id={'history-record-' + record.id} key={record.id}>
                       <div className="history-record-main">
                         <strong>{record.drinkName}</strong>
                         <span>{formatTime(record.time)}</span>
@@ -672,9 +680,10 @@ function projectHistoryRecord(record: DrinkingRecord): ConsumptionRecord {
   time: String(wall.getUTCHours()).padStart(2, '0') + ':' + String(wall.getUTCMinutes()).padStart(2, '0'),
   standardDrinks: calculateStandardDrinks(record) }
 }
-export function ReferenceHistoryTrends({ records, referenceCategories, onUpdate, onDelete, guidelines, guidelineStatus, onRetryGuidelines, todayKey }: {
+export function ReferenceHistoryTrends({ records, initialRecordId, referenceCategories, onUpdate, onDelete, guidelines, guidelineStatus, onRetryGuidelines, todayKey }: {
  records: DrinkingRecord[]; referenceCategories: DrinkReferenceCategory[]
  onUpdate: (record: DrinkingRecord) => Promise<void>; onDelete: (id: string) => Promise<void>
+ initialRecordId?: string
  guidelines: AlcoholGuidelinesResponseDto | null; guidelineStatus: GuidelineLoadStatus; onRetryGuidelines: () => void
  todayKey: string
 }) {
@@ -706,7 +715,7 @@ export function ReferenceHistoryTrends({ records, referenceCategories, onUpdate,
      onClick={() => { window.history.pushState({}, '', applicationHref('/trends#' + tab)); setActiveTab(tab) }}>
      {tab[0].toUpperCase() + tab.slice(1)}</button>)}
    </nav>
-   {activeTab === 'history' && <HistoryTab records={views} daily={daily} weekly={weekly} onDeleteRecord={onDelete} onEditRecord={record => setEditingId(record.id)} />}
+   {activeTab === 'history' && <HistoryTab records={views} initialRecordId={initialRecordId} daily={daily} weekly={weekly} onDeleteRecord={onDelete} onEditRecord={record => setEditingId(record.id)} />}
    {activeTab === 'trends' && <TrendsTab key={todayKey} records={eligible} daily={daily} weekly={weekly} />}
    {activeTab === 'report' && <ReportTab key={todayKey} records={eligible} daily={daily} weekly={weekly} />}
    {activeTab !== 'history' && <footer className="ht-recorded-data-note">

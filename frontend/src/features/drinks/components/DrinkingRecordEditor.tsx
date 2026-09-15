@@ -26,7 +26,7 @@ import {
 } from '../types/manualDrinkForm'
 import type { DrinkReferenceCategory } from '../types/drinkReference'
 import { getConsumedDateTimeInputValues } from '../utils/formatConsumedDateTime'
-import { validateManualDrinkInput } from '../validation/drinkingRecordValidation'
+import { MAX_RECORD_SERVINGS, validateManualDrinkInput } from '../validation/drinkingRecordValidation'
 
 interface DrinkingRecordEditorProps {
   referenceCategories: readonly DrinkReferenceCategory[]
@@ -233,13 +233,17 @@ export function DrinkingRecordEditor({
   // historical snapshot continue to use serving volume × number of servings.
   const servingMl = Number(isCustomVolume ? values.customVolumeMl : values.servingSizeSelection)
   const amount = Number(values.amountConsumed)
-  const volumeReady = Number.isFinite(servingMl) && servingMl > 0
+  const volumeReady = Number.isFinite(servingMl) && servingMl > 0 && Number.isFinite(servingMl * MAX_RECORD_SERVINGS)
   const amountReady = values.amountConsumed.trim() !== '' && Number.isFinite(amount)
   const displayedAmount = mode === 'ml' && volumeReady && amountReady ? String(Number((amount * servingMl).toPrecision(12))) : values.amountConsumed
+  const overLimit = amount > MAX_RECORD_SERVINGS
+  const maximumAmount = mode === 'ml' ? (volumeReady ? servingMl * MAX_RECORD_SERVINGS : undefined) : MAX_RECORD_SERVINGS
+  const amountError = overLimit ? 'Enter no more than 10 servings per record.' : errors.amountConsumed
   const preview = validateManualDrinkInput(values)
   const adjustAmount = (delta: number) => {
     const current = Number(displayedAmount)
-    const next = Math.max(0, (Number.isFinite(current) ? current : 0) + delta)
+    const stepped = Math.max(0, (Number.isFinite(current) ? current : 0) + delta)
+    const next = delta > 0 ? Math.min(maximumAmount ?? 0, stepped) : stepped
     updateValue('amountConsumed', String(mode === 'ml' && volumeReady ? next / servingMl : next))
   }
   const fieldId = (field: string) => `${formId}-${field}`
@@ -437,14 +441,15 @@ export function DrinkingRecordEditor({
           <div className="prototype-amount-stepper">
             <button type="button" aria-label="Decrease amount" onClick={() => adjustAmount(mode === 'ml' ? -50 : -.5)}>−</button>
             <div><label className="reference-sr-only" htmlFor={fieldId('amount-consumed')}>{mode === 'ml' ? 'Volume consumed (mL)' : 'Number of servings consumed'}</label>
-              <input id={fieldId('amount-consumed')} name="amountConsumed" type="number" step="any" inputMode="decimal"
-                value={displayedAmount} aria-invalid={Boolean(errors.amountConsumed)} aria-describedby={errors.amountConsumed ? fieldId('amount-error') : undefined}
+              <input id={fieldId('amount-consumed')} name="amountConsumed" type="number" step="any" inputMode="decimal" min="0" max={maximumAmount} disabled={mode === 'ml' && !volumeReady}
+                value={displayedAmount} aria-invalid={Boolean(amountError)} aria-describedby={amountError ? fieldId('amount-error') : undefined}
                 onChange={event => updateValue('amountConsumed', mode === 'ml' && volumeReady && event.target.value !== '' ? String(Number(event.target.value) / servingMl) : event.target.value)} required />
               <p>{mode === 'ml' ? 'mL' : 'Servings'}</p>
             </div>
-            <button type="button" aria-label="Increase amount" onClick={() => adjustAmount(mode === 'ml' ? 50 : .5)}>+</button>
+            <button type="button" aria-label="Increase amount" disabled={amount >= MAX_RECORD_SERVINGS || (mode === 'ml' && !volumeReady)} onClick={() => adjustAmount(mode === 'ml' ? 50 : .5)}>+</button>
           </div>
-          <FieldError id={fieldId('amount-error')} message={errors.amountConsumed} />
+          <p className="field-help">{mode === 'ml' && volumeReady ? `Maximum: ${maximumAmount} mL (10 servings).` : 'Maximum: 10 servings.'}</p>
+          <FieldError id={fieldId('amount-error')} message={amountError} />
         </div>
         <div className="reference-edit-estimate"><div><strong>Estimated standard drinks</strong><p>{preview.success ? 'Based on ' + Number((preview.data.servingVolumeMl * preview.data.amountConsumed).toPrecision(12)) + ' mL consumed and ' + preview.data.abvPercent + '% ABV.' : 'Complete valid drink details to see an estimate.'}</p></div>
           <strong>{preview.success ? calculateStandardDrinks(preview.data).toFixed(1) : '—'}</strong>
@@ -456,6 +461,7 @@ export function DrinkingRecordEditor({
         <input
           id={fieldId('amount-consumed')}
           name="amountConsumed"
+          min="0" max={MAX_RECORD_SERVINGS}
           type="number"
           inputMode="decimal"
           step="any"
@@ -463,15 +469,15 @@ export function DrinkingRecordEditor({
           onChange={(event) =>
             updateValue('amountConsumed', event.target.value)
           }
-          aria-invalid={Boolean(errors.amountConsumed)}
+          aria-invalid={Boolean(amountError)}
           aria-describedby={
-            errors.amountConsumed ? fieldId('amount-error') : undefined
+            amountError ? fieldId('amount-error') : undefined
           }
           required
         />
         <FieldError
           id={fieldId('amount-error')}
-          message={errors.amountConsumed}
+          message={amountError}
         />
       </div>
 
@@ -518,7 +524,7 @@ export function DrinkingRecordEditor({
       </fieldset>
 
       <div className="management-actions">
-        <button className="primary-button" type="submit" disabled={isSaving}>
+        <button className="primary-button" type="submit" disabled={isSaving || overLimit}>
           Save changes
         </button>
         {/* Cancel discards editor state without invoking onSave. */}

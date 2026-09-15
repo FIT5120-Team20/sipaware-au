@@ -8,17 +8,12 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 
 import App from './App'
-import { officialEntryRedirect } from './app/entryPaths'
 import './app/styles.css'
 import './app/reference-ui.css'
 
-const redirect = officialEntryRedirect()
-if (redirect) {
-  window.location.replace(redirect)
-} else {
-  createRoot(document.getElementById('root')!).render(
-    <StrictMode>
-      <App />
-    </StrictMode>,
-  )
-}
+// Deployment routing selects this build; stable root traffic uses its pinned build.
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+)

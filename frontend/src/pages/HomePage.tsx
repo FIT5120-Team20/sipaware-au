@@ -87,7 +87,7 @@ const [showAbout, setShowAbout] = useState(false)
         {slides.map((slide) => (
           <article key={slide.image} className={'home-story home-story--' + slide.tone}>
             <div className="home-story-image">
-              <img src={'/reference-ui/home-' + slide.image + '.svg'} alt={slide.alt} width="780" height="480" />
+              <img src={import.meta.env.BASE_URL + 'reference-ui/home-' + slide.image + '.svg'} alt={slide.alt} width="780" height="480" />
               {slide.label && <span>{slide.label}</span>}
             </div>
             <div className="home-story-copy">
