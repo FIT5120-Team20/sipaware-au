@@ -30,14 +30,14 @@ describe('approved iteration entry', () => {
     }
   })
 
-  it('redirects known live bookmarks while preserving search and hashes', () => {
-    expect(officialEntryRedirect({hostname: 'sipaware.app', pathname: '/', search: '', hash: ''})).toBe('/iteration1')
-    expect(officialEntryRedirect({hostname: 'sipaware.app', pathname: '/alcohol-guidelines', search: '?view=source', hash: '#STANDARD_DRINK'})).toBe('/iteration1/alcohol-guidelines?view=source#STANDARD_DRINK')
-    expect(officialEntryRedirect({hostname: 'sipaware-au.vercel.app', pathname: '/record', search: '', hash: ''})).toBe('/iteration1/record')
+  it('canonicalizes known legacy bookmarks without adding the old prefix', () => {
+    expect(officialEntryRedirect({hostname: 'sipaware.app', pathname: '/iteration1', search: '', hash: ''})).toBe('/')
+    expect(officialEntryRedirect({hostname: 'sipaware.app', pathname: '/iteration1/alcohol-guidelines', search: '?view=source', hash: '#STANDARD_DRINK'})).toBe('/alcohol-guidelines?view=source#STANDARD_DRINK')
+    expect(officialEntryRedirect({hostname: 'sipaware-au.vercel.app', pathname: '/iteration1/record', search: '', hash: ''})).toBe('/record')
   })
 
-  it('does not redirect local, frozen, already mounted or future iteration pages', () => {
-    for (const [hostname, pathname] of [['localhost', '/'], ['sipaware-au-iteration1.vercel.app', '/'], ['sipaware.app', '/iteration1'], ['sipaware.app', '/iteration2'], ['sipaware.app', '/unknown']]) {
+  it('keeps root pages, local/frozen hosts and unrelated routes independent', () => {
+    for (const [hostname, pathname] of [['localhost', '/'], ['sipaware-au-iteration1.vercel.app', '/'], ['sipaware.app', '/'], ['sipaware.app', '/record'], ['sipaware.app', '/trends'], ['sipaware.app', '/alcohol-guidelines'], ['sipaware.app', '/iteration1/unknown'], ['sipaware.app', '/iteration10'], ['sipaware-au-iteration1.vercel.app', '/iteration1'], ['sipaware.app', '/iteration2'], ['sipaware.app', '/unknown']]) {
       expect(officialEntryRedirect({hostname, pathname, search: '', hash: ''})).toBeNull()
     }
   })

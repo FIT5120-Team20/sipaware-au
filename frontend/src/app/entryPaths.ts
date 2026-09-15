@@ -1,5 +1,5 @@
 /**
- * Mount the approved live application at /iteration1 without renaming its data.
+ * Support retained /iteration1 bookmarks without changing data or the root mount.
  * Only application navigation is prefixed; API/source URLs and browser storage
  * retain their existing contracts. A frozen hostname is a separate deployment.
  */
@@ -23,15 +23,16 @@ export function applicationHref(path: string): string {
 }
 
 /**
- * Keep existing bookmarks working on the two official live hostnames. Local and
- * isolated preview hosts retain root routes; unknown/future iteration paths are
- * not silently redirected to this release. No personal data is moved or read.
+ * The teacher site serves this retained release at the root. Canonicalize only
+ * known legacy /iteration1 bookmarks on the official hosts, keeping their query
+ * and topic hash. Local/frozen hosts and other iteration paths stay independent.
  */
 export function officialEntryRedirect(
   location: Pick<Location, 'hostname' | 'pathname' | 'search' | 'hash'> = window.location,
 ): string | null {
   if (!['sipaware.app', 'sipaware-au.vercel.app'].includes(location.hostname)
-      || !APP_ROUTES.has(location.pathname)) return null
-  return ENTRY_PATH + (location.pathname === '/' ? '' : location.pathname)
-    + location.search + location.hash
+      || !hasEntryPath(location.pathname)) return null
+  const path = applicationPath(location.pathname)
+  if (!APP_ROUTES.has(path)) return null
+  return path + location.search + location.hash
 }
