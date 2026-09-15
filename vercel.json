@@ -40,7 +40,7 @@
     },
     {
       "source": "/:path*",
-      "destination": "https://sipaware-kjhwp8xl6-claway.vercel.app/:path*"
+      "destination": "https://sipaware-au-stable-e049609-claway.vercel.app/:path*"
     }
   ]
 }
