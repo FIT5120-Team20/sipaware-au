@@ -19,16 +19,28 @@
   },
   "rewrites": [
     {
-      "source": "/api/(.*)",
+      "source": "/iteration2/api/:path*",
       "destination": {
         "service": "backend"
       }
     },
     {
-      "source": "/(.*)",
+      "source": "/iteration2",
       "destination": {
-        "service": "frontend"
+        "service": "frontend",
+        "path": "/index.html"
       }
+    },
+    {
+      "source": "/iteration2/:path*",
+      "destination": {
+        "service": "frontend",
+        "path": "/:path*"
+      }
+    },
+    {
+      "source": "/:path*",
+      "destination": "https://sipaware-kjhwp8xl6-claway.vercel.app/:path*"
     }
   ]
 }

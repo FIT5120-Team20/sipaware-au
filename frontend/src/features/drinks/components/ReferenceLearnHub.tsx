@@ -89,7 +89,7 @@ export function ReferenceLearnHub({ topics }: { topics: readonly AlcoholInformat
     <div className="prototype-learn-grid">
       {hasAgeing && <a className="prototype-learn-feature" href="#ALCOHOL_AGEING">
         <div className="prototype-learn-image">
-          <img src="/reference-ui/home-ageing.svg" alt="Three seniors talking and smiling" draggable={false} />
+          <img src={import.meta.env.BASE_URL + 'reference-ui/home-ageing.svg'} alt="Three seniors talking and smiling" draggable={false} />
           <span>Featured</span>
         </div>
         <div className="prototype-learn-feature-copy">

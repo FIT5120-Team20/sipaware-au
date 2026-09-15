@@ -264,7 +264,9 @@ describe('ManualDrinkPage My Drinks management', () => {
       abvPercent: 4,
     })
 
-    await user.click(await screen.findByRole('button', { name: 'Done' }))
+    await screen.findByRole('heading', { name: 'History & Trends' })
+    window.history.pushState({}, '', '/record')
+    fireEvent.popState(window)
     await editSkyToLarge(user)
     await expect(readHistory()).resolves.toEqual(historySnapshot)
 

@@ -1,37 +1,26 @@
 /**
- * Mount the approved live application at /iteration1 without renaming its data.
- * Only application navigation is prefixed; API/source URLs and browser storage
- * retain their existing contracts. A frozen hostname is a separate deployment.
+ * Navigate within the active development iteration. Vercel sends stable root
+ * traffic to a pinned earlier deployment, including its own assets and API.
+ * Bare routes still support isolated component tests and a standalone preview;
+ * completed iterations must never become aliases of this moving application.
  */
 export const RECORD_HOME_EVENT = 'sipaware:record-home'
-const ENTRY_PATH = '/iteration1'
+const ENTRY_PATH = '/iteration2'
+const LIVE_MOUNTS = [ENTRY_PATH]
 const APP_ROUTES = new Set(['/', '/record', '/trends', '/alcohol-guidelines'])
 
-function hasEntryPath(pathname: string): boolean {
-  return pathname === ENTRY_PATH || pathname.startsWith(ENTRY_PATH + '/')
+function entryMount(pathname: string): string | undefined {
+  return LIVE_MOUNTS.find(mount => pathname === mount || pathname.startsWith(mount + '/'))
 }
 
 export function applicationPath(pathname = window.location.pathname): string {
-  if (!hasEntryPath(pathname)) return pathname
-  return pathname.slice(ENTRY_PATH.length) || '/'
+  const mount = entryMount(pathname)
+  return mount ? pathname.slice(mount.length) || '/' : pathname
 }
 
 export function applicationHref(path: string): string {
+  const mount = entryMount(window.location.pathname)
   const route = path.split(/[?#]/, 1)[0]
-  if (!hasEntryPath(window.location.pathname) || !APP_ROUTES.has(route)) return path
-  return ENTRY_PATH + (route === '/' ? path.slice(1) : path)
-}
-
-/**
- * Keep existing bookmarks working on the two official live hostnames. Local and
- * isolated preview hosts retain root routes; unknown/future iteration paths are
- * not silently redirected to this release. No personal data is moved or read.
- */
-export function officialEntryRedirect(
-  location: Pick<Location, 'hostname' | 'pathname' | 'search' | 'hash'> = window.location,
-): string | null {
-  if (!['sipaware.app', 'sipaware-au.vercel.app'].includes(location.hostname)
-      || !APP_ROUTES.has(location.pathname)) return null
-  return ENTRY_PATH + (location.pathname === '/' ? '' : location.pathname)
-    + location.search + location.hash
+  if (!mount || !APP_ROUTES.has(route)) return path
+  return mount + (route === '/' ? path.slice(1) : path)
 }

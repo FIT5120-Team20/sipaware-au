@@ -58,7 +58,7 @@ export function AlcoholInformationSection({ topic }: { topic: AlcoholInformation
    <h2 id={headingId} tabIndex={-1} aria-label={topic.displayName}>{view.title}</h2>
    <p>{'Clear, trusted Australian information about ' + view.title.toLowerCase() + '.'}</p>
   </header>
-  <img className="reference-topic-hero" data-topic={topic.topicCode} src={'/reference-ui/' + view.image} alt={view.title} draggable={false} />
+  <img className="reference-topic-hero" data-topic={topic.topicCode} src={import.meta.env.BASE_URL + 'reference-ui/' + view.image} alt={view.title} draggable={false} />
   <div className="reference-topic-key-info">
    <h3>{view.section}</h3>
    <div className="reference-topic-points">{topic.content.map(content =>

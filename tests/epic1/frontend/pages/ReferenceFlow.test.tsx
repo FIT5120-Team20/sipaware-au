@@ -2,6 +2,8 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
+import App from '../../../../frontend/src/App'
+import { IndexedDbSavedDrinkRepository } from '../../../../frontend/src/features/drinks/storage/savedDrinkRepository'
 import { ManualDrinkPage } from '../../../../frontend/src/features/drinks/pages/ManualDrinkPage'
 import { IndexedDbDrinkingRecordRepository } from '../../../../frontend/src/features/drinks/storage/drinkingRecordRepository'
 import { SavedDrinkPicker } from '../../../../frontend/src/features/drinks/components/SavedDrinkPicker'
@@ -28,26 +30,36 @@ describe('reference flow boundaries', () => {
     for (const name of ['Standard drink summary', 'Recent records', 'Learn more']) expect(screen.queryByRole('heading', { name })).not.toBeInTheDocument()
     await expect(new IndexedDbDrinkingRecordRepository().list()).resolves.toEqual([])
   })
-  it('goes to the committed result, reloads it without a write and Done returns to browsing', async () => {
-    const view = render(<ManualDrinkPage />)
-    await fillRecord()
-    fireEvent.click(screen.getByRole('button', { name: 'Record Drink' }))
-    await screen.findByRole('heading', { name: 'Drink recorded' })
+  it('opens saved History on its recorded month under /iteration2 and reloads without another write', async () => {
+    window.history.replaceState({}, '', '/iteration2/record')
     const repository = new IndexedDbDrinkingRecordRepository()
-    const records = await repository.list()
-    expect(records).toHaveLength(1)
-    expect(new URLSearchParams(window.location.search).get('record')).toBe(records[0].id)
-    expect(screen.getByRole('link', { name: /Standard Drinks/ })).toHaveAttribute('href', '/alcohol-guidelines#STANDARD_DRINK')
-    expect(screen.queryByRole('heading', { name: 'Recent records' })).not.toBeInTheDocument()
-    view.unmount()
-    render(<ManualDrinkPage />)
-    await screen.findByRole('heading', { name: 'Drink recorded' })
+    const stamp=new Date().toISOString()
+    await repository.add({id:'newer-existing',drinkType:'beer',drinkName:'Newer existing',servingVolumeMl:330,abvPercent:5,amountConsumed:20,consumedAt:stamp,consumedTimezoneOffsetMinutes:0,createdAt:stamp})
+    const view=render(<App />)
+    await fillRecord()
+    fireEvent.change(screen.getByLabelText('Date'),{target:{value:'2025-01-15'}})
+    fireEvent.click(screen.getByRole('button',{name:'Record Drink'}))
+    await screen.findByRole('heading',{name:'History & Trends'})
+    expect(window.location.pathname).toBe('/iteration2/trends')
+    expect(window.location.hash).toBe('#history')
+    expect(screen.getByRole('button',{name:'History'})).toHaveAttribute('aria-current','page')
+    expect(screen.getByText('Synthetic flow drink')).toBeInTheDocument()
+    expect(screen.queryByText('Newer existing')).not.toBeInTheDocument()
+    const records=await repository.list();expect(records).toHaveLength(2)
+    view.unmount();render(<App />)
+    await screen.findByText('Synthetic flow drink')
     await expect(repository.list()).resolves.toEqual(records)
-    fireEvent.click(screen.getByRole('button', { name: 'Done' }))
-    expect(screen.getByRole('button', { name: 'Record Manually' })).toBeInTheDocument()
-    expect(window.location.search).toBe('')
-    expect(screen.queryByRole('heading', { name: 'Standard drink summary' })).not.toBeInTheDocument()
-    await expect(repository.list()).resolves.toEqual(records)
+  })
+  it('navigates after optional template failure and preserves a visible warning',async()=>{
+    const spy=vi.spyOn(IndexedDbSavedDrinkRepository.prototype,'add').mockRejectedValue(new Error('synthetic template failure'))
+    try {
+      render(<App />);await fillRecord()
+      fireEvent.click(screen.getByRole('checkbox',{name:/Save this drink to My Drinks/}))
+      fireEvent.click(screen.getByRole('button',{name:'Record Drink'}))
+      await screen.findByRole('heading',{name:'History & Trends'})
+      expect(screen.getByRole('alert')).toHaveTextContent('could not be saved to My Drinks')
+      expect(await new IndexedDbDrinkingRecordRepository().list()).toHaveLength(1)
+    }finally{spy.mockRestore()}
   })
   it('keeps failed record writes on the populated form instead of showing a result', async () => {
     const spy = vi.spyOn(IndexedDbDrinkingRecordRepository.prototype, 'add').mockRejectedValue(new Error('synthetic storage denial'))

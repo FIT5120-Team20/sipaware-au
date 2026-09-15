@@ -192,6 +192,10 @@ export function validateReusableDrinkInput(
  * The serving volume is one serving's size; amountConsumed is the separate
  * number of servings the user consumed.
  */
+// This is a record-entry limit, not a storage validity rule or health guideline.
+// Keep existing historical snapshots readable even if their amount exceeds it.
+export const MAX_RECORD_SERVINGS = 10
+
 export function validateManualDrinkInput(
   values: ManualDrinkFormValues,
 ): ManualDrinkValidationResult {
@@ -203,6 +207,8 @@ export function validateManualDrinkInput(
   const amountConsumed = parseFiniteNumber(values.amountConsumed)
   if (amountConsumed === undefined || amountConsumed <= 0) {
     errors.amountConsumed = 'Enter an amount greater than 0 servings.'
+  } else if (amountConsumed > MAX_RECORD_SERVINGS) {
+    errors.amountConsumed = 'Enter no more than 10 servings per record.'
   }
 
   const dateParts = parseDateParts(values.date)

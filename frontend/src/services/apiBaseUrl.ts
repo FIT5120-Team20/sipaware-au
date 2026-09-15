@@ -1,14 +1,14 @@
 /**
- * Provider-neutral API URL construction shared by frontend clients.
- *
- * This module owns only origin selection. Individual clients own endpoint
- * paths and request semantics, and no server secret is read or exposed here.
+ * Choose the public API namespace for this build, without reading server secrets.
+ * Production requests stay under the build's iteration prefix so stable pages
+ * cannot accidentally call the moving backend. Only local development can opt
+ * into a separate FastAPI origin; each client retains its existing /api contract.
  */
-
-const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
+const localApiOrigin = import.meta.env.DEV
+  ? (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
+  : ''
+const apiBaseUrl = localApiOrigin || import.meta.env.BASE_URL.replace(/\/$/, '')
 
 export function buildApiUrl(path: `/${string}`): string {
-  // An empty base keeps Vercel production calls on same-origin `/api/...`,
-  // while local development may opt into a standalone FastAPI origin.
   return `${apiBaseUrl}${path}`
 }
