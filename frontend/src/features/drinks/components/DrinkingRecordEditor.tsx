@@ -7,7 +7,7 @@
  */
 import { useConsumptionTimeLimit } from '../hooks/useConsumptionTimeLimit'
 import { calculateStandardDrinks } from '../calculations/standardDrinks'
-import { type FormEvent, useId, useRef, useState } from 'react'
+import { type FormEvent, useEffect, useId, useRef, useState } from 'react'
 
 import {
   getApplicableServingSizes,
@@ -91,6 +91,7 @@ export function DrinkingRecordEditor({
   const [mode, setMode] = useState<'serving' | 'ml'>('serving')
   const formId = useId()
   const formRef = useRef<HTMLFormElement>(null)
+  const recordLimitNoticeRef = useRef<HTMLDivElement>(null)
   const timeLimit = useConsumptionTimeLimit()
   const [values, setValues] = useState<ManualDrinkFormValues>(() =>
     createEditorValues(record),
@@ -278,10 +279,47 @@ export function DrinkingRecordEditor({
       ? maximumMl
       : maximumServings
 
-  const amountError = overLimit
-    ? 'This amount appears unusually high. Please check the amount, serving size and ABV.'
-    : errors.amountConsumed
-  const preview = validateManualDrinkInput(values)
+  const amountError = overLimit ? undefined : errors.amountConsumed
+  const estimateAbvPercent = Number(values.abvPercent)
+  const estimateAmount = Number(values.amountConsumed)
+
+  const estimatedStandardDrinks = calculateStandardDrinks({
+    servingVolumeMl: servingMl,
+    abvPercent: estimateAbvPercent,
+    amountConsumed: estimateAmount,
+  })
+
+  const estimateAvailable =
+    Number.isFinite(servingMl) &&
+    servingMl > 0 &&
+    values.abvPercent.trim() !== '' &&
+    Number.isFinite(estimateAbvPercent) &&
+    estimateAbvPercent > 0 &&
+    estimateAbvPercent <= 100 &&
+    values.amountConsumed.trim() !== '' &&
+    Number.isFinite(estimateAmount) &&
+    estimateAmount > 0 &&
+    Number.isFinite(estimatedStandardDrinks)
+
+  const recordLimitNotice = overLimit
+    ? {
+      title: 'Are you sure you drank this much?',
+      body: 'Check the amount you entered and try again.',
+    }
+    : atLimit || stepperLimitReached
+      ? {
+        title: 'You’ve reached the limit for this record',
+        body: 'Does this amount look right?',
+      }
+      : null
+  useEffect(() => {
+    if (!overLimit && !atLimit && !stepperLimitReached) return
+
+    recordLimitNoticeRef.current?.scrollIntoView?.({
+      behavior: 'smooth',
+      block: 'center',
+    })
+  }, [overLimit, atLimit, stepperLimitReached])
   const adjustAmount = (delta: number) => {
     const current = Number(displayedAmount)
 
@@ -317,6 +355,15 @@ export function DrinkingRecordEditor({
       className="drinking-record-editor"
       ref={formRef}
       onSubmit={handleSubmit}
+      onKeyDown={(event) => {
+        if (
+          event.key === 'Enter' &&
+          !event.nativeEvent.isComposing &&
+          !(event.target instanceof HTMLButtonElement)
+        ) {
+          event.preventDefault()
+        }
+      }}
       noValidate
       aria-labelledby={fieldId('title')}
     >
@@ -374,7 +421,7 @@ export function DrinkingRecordEditor({
           <select
             id={fieldId('drink-variant')}
             name="drinkVariant"
-              disabled={databaseRecord}
+            disabled={databaseRecord}
             value={selectedVariantId ?? ''}
             onChange={(event) => handleVariantChange(event.target.value)}
           >
@@ -448,7 +495,7 @@ export function DrinkingRecordEditor({
           <input
             id={fieldId('custom-volume')}
             name="customVolumeMl"
-              disabled={databaseRecord}
+            disabled={databaseRecord}
             type="number"
             min="0"
             inputMode="decimal"
@@ -529,14 +576,6 @@ export function DrinkingRecordEditor({
             } onClick={() => adjustAmount(mode === 'ml' ? 50 : .5)}>+</button>
           </div>
           <FieldError id={fieldId('amount-error')} message={amountError} />
-          {(atLimit || stepperLimitReached) && !amountError && (
-            <p className="field-help" role="status">
-              Record limit reached. Enter a smaller amount if you need to adjust this record.
-            </p>
-          )}
-        </div>
-        <div className="reference-edit-estimate"><div><strong>Estimated standard drinks</strong><p>{preview.success ? 'Based on ' + Number((preview.data.servingVolumeMl * preview.data.amountConsumed).toPrecision(12)) + ' mL consumed and ' + preview.data.abvPercent + '% ABV.' : 'Complete valid drink details to see an estimate.'}</p></div>
-          <strong>{preview.success ? calculateStandardDrinks(preview.data).toFixed(1) : '—'}</strong>
         </div>
       </div> : <>      <div className="form-field">
         <label htmlFor={fieldId('amount-consumed')}>
@@ -563,14 +602,44 @@ export function DrinkingRecordEditor({
           id={fieldId('amount-error')}
           message={amountError}
         />
-        {(atLimit || stepperLimitReached) && !amountError && (
-          <p className="field-help" role="status">
-            Record limit reached. Enter a smaller amount if you need to adjust this record.
-          </p>
-        )}
       </div>
 
       </>}
+      {recordLimitNotice && (
+        <div
+          ref={recordLimitNoticeRef}
+          className={`record-limit-notice ${overLimit
+            ? 'record-limit-notice--warning'
+            : 'record-limit-notice--status'
+            }`}
+          role={overLimit ? 'alert' : 'status'}
+        >
+          <span className="record-limit-notice__icon" aria-hidden="true">
+            !
+          </span>
+          <div className="record-limit-notice__content">
+            <strong>{recordLimitNotice.title}</strong>
+            <p>{recordLimitNotice.body}</p>
+          </div>
+        </div>
+      )}
+      {presentation === 'reference' && (
+        <div className="reference-edit-estimate">
+          <div>
+            <strong>Estimated standard drinks</strong>
+            <p>
+              {estimateAvailable
+                ? `Based on ${Number(
+                  (servingMl * estimateAmount).toPrecision(12),
+                )} mL consumed and ${estimateAbvPercent}% ABV.`
+                : 'Complete valid drink details to see an estimate.'}
+            </p>
+          </div>
+          <strong>
+            {estimateAvailable ? estimatedStandardDrinks.toFixed(1) : '—'}
+          </strong>
+        </div>
+      )}
 
       <fieldset className="date-time-fields">
         <legend>When was this drink consumed?</legend>

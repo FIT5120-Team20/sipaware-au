@@ -8,6 +8,7 @@
 import {
   type FormEvent,
   type ReactNode,
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -175,11 +176,10 @@ export function ManualDrinkForm({
   const [captureView, setCaptureView] = useState<'browse' | 'manual'>(startInBrowse ? 'browse' : 'manual')
   const [showManualReferenceStatus, setShowManualReferenceStatus] = useState(false)
 
-  // The reference separates drink selection from occasion entry. Keep the form
-  // mounted so returning from camera/selection never resets Date, Time or amount.
+  // Keep the form mounted across capture views, but start or abandon actions
+  // reset the draft so one unfinished record cannot leak into the next.
   function openManualEntry() {
-    setRecordSource('manual')
-    if (selectedSavedDrink) clearSavedDrinkSelection()
+    resetRecordDraft()
     setShowManualReferenceStatus(true)
     setCaptureView('manual')
     requestAnimationFrame(() => document.getElementById('drink-type')?.focus())
@@ -189,6 +189,7 @@ export function ManualDrinkForm({
   const [millilitres, setMillilitres] = useState('')
   const [saveTemplateWithRecord, setSaveTemplateWithRecord] = useState(false)
   const formRef = useRef<HTMLFormElement>(null)
+  const recordLimitNoticeRef = useRef<HTMLDivElement>(null)
   const timeLimit = useConsumptionTimeLimit()
   const [values, setValues] = useState(createInitialManualDrinkFormValues)
   const [errors, setErrors] = useState<ManualDrinkFormErrors>({})
@@ -203,18 +204,33 @@ export function ManualDrinkForm({
   const selectedSavedDrink = savedDrinks.find(
     (savedDrink) => savedDrink.id === selectedSavedDrinkId,
   )
+  const resetRecordDraft = useCallback(() => {
+    setValues(createInitialManualDrinkFormValues())
+    setAmountMode('serving')
+    setMillilitres('')
+    setBlockedStepperKey(null)
+    setSaveTemplateWithRecord(false)
+
+    setErrors({})
+    setSaveStatus(null)
+
+    setRecordSource('manual')
+    setSelectedSavedDrinkId(null)
+    setSelectedVariantId(null)
+
+    setBarcodeOpen(false)
+    setLabelScanUnavailable(false)
+    setShowManualReferenceStatus(false)
+  }, [setSaveTemplateWithRecord])
   useEffect(() => {
     const returnToRecordHome = () => {
-      setBarcodeOpen(false)
-      setLabelScanUnavailable(false)
-      setShowManualReferenceStatus(false)
-      setSaveStatus(null)
+      resetRecordDraft()
       setCaptureView('browse')
     }
 
     window.addEventListener(RECORD_HOME_EVENT, returnToRecordHome)
     return () => window.removeEventListener(RECORD_HOME_EVENT, returnToRecordHome)
-  }, [])
+  }, [resetRecordDraft])
 
   const selectableReferenceCategories =
     referenceStatus === 'loaded'
@@ -272,16 +288,48 @@ export function ManualDrinkForm({
     Number(effectiveValues.amountConsumed) >= maximumServings &&
     !overLimit
 
-  const amountError = overLimit
-    ? 'This amount appears unusually high. Please check the amount, serving size and ABV.'
-    : errors.amountConsumed
+  const amountError = overLimit ? undefined : errors.amountConsumed
+  const abvPercent = Number(values.abvPercent)
+  const amountConsumed = Number(effectiveValues.amountConsumed)
+
   const estimate = calculateStandardDrinks({
-    servingVolumeMl: servingVolume, abvPercent: Number(values.abvPercent),
-    amountConsumed: Number(effectiveValues.amountConsumed),
+    servingVolumeMl: servingVolume,
+    abvPercent,
+    amountConsumed,
   })
-  const estimateAvailable = !overLimit && volumeReady && Number(values.abvPercent) >= 0 &&
-    values.abvPercent.trim() !== '' && effectiveValues.amountConsumed.trim() !== '' &&
-    Number.isFinite(estimate) && Number(effectiveValues.amountConsumed) > 0
+
+  const estimateAvailable =
+    Number.isFinite(servingVolume) &&
+    servingVolume > 0 &&
+    values.abvPercent.trim() !== '' &&
+    Number.isFinite(abvPercent) &&
+    abvPercent > 0 &&
+    abvPercent <= 100 &&
+    effectiveValues.amountConsumed.trim() !== '' &&
+    Number.isFinite(amountConsumed) &&
+    amountConsumed > 0 &&
+    Number.isFinite(estimate)
+
+  const recordLimitNotice = overLimit
+    ? {
+      title: 'Are you sure you drank this much?',
+      body: 'Check the amount you entered and try again.',
+    }
+    : atLimit || stepperLimitReached
+      ? {
+        title: 'You’ve reached the limit for this record',
+        body: 'Does this amount look right?',
+      }
+      : null
+  useEffect(() => {
+    if (!overLimit && !atLimit && !stepperLimitReached) return
+
+    recordLimitNoticeRef.current?.scrollIntoView?.({
+      behavior: 'smooth',
+      block: 'center',
+    })
+  }, [overLimit, atLimit, stepperLimitReached])
+
   function switchAmountMode(mode: 'serving' | 'ml') {
     if (mode === amountMode) return
     if (mode === 'ml') setMillilitres(values.amountConsumed.trim() && servingVolume > 0 ? String(consumedMl) : '')
@@ -398,6 +446,7 @@ export function ManualDrinkForm({
   }
 
   function handleSavedDrinkSelect(savedDrink: SavedDrink) {
+    resetRecordDraft()
     setRecordSource(savedDrink.recordSource ?? 'manual')
     // Copy values from the reusable template into this occasion's form. The new
     // history record will contain its own values, not a live SavedDrink link.
@@ -418,8 +467,9 @@ export function ManualDrinkForm({
     setSaveStatus(null)
   }
 
-  /** Product selection changes only reusable inputs; consumption remains explicit. */
+  /** Product selection starts a fresh draft; consumption must be entered for this occasion. */
   function handleBarcodeProduct(product: BarcodeProduct) {
+    resetRecordDraft()
     setRecordSource('database')
     setValues((current) => selectBarcodeProduct(current, product))
     setSelectedSavedDrinkId(null)
@@ -434,6 +484,7 @@ export function ManualDrinkForm({
   }
 
   function handleCatalogProduct(product: CatalogProduct) {
+    resetRecordDraft()
     setRecordSource('database')
     setValues(current => selectCatalogProduct(current, product))
     setSelectedSavedDrinkId(null)
@@ -448,10 +499,8 @@ export function ManualDrinkForm({
   }
 
   function returnToManualEntry() {
-    setRecordSource('manual')
-    // Release template field locks without discarding the user's current draft.
-    setSelectedSavedDrinkId(null)
-    setBarcodeOpen(false)
+    resetRecordDraft()
+    setShowManualReferenceStatus(true)
     queueMicrotask(() => {
       const field = formRef.current?.elements.namedItem('drinkName')
       if (field instanceof HTMLElement) field.focus()
@@ -573,8 +622,7 @@ export function ManualDrinkForm({
     <section className={"manual-drink-card prototype-capture prototype-capture--" + captureView} aria-label="Drink capture">
       {startInBrowse && captureView === 'manual' &&
         <ReferenceBackBar label="Back to Record" onClick={() => {
-          setShowManualReferenceStatus(false)
-          setSaveStatus(null)
+          resetRecordDraft()
           setCaptureView('browse')
         }} />}
       <div hidden={captureView !== 'manual'} className="prototype-form-heading">
@@ -646,7 +694,22 @@ export function ManualDrinkForm({
         />
 
       </div>
-      <form className="prototype-consumption-form" ref={formRef} onSubmit={handleSubmit} noValidate hidden={captureView !== 'manual'}>
+      <form
+        className="prototype-consumption-form"
+        ref={formRef}
+        onSubmit={handleSubmit}
+        onKeyDown={(event) => {
+          if (
+            event.key === 'Enter' &&
+            !event.nativeEvent.isComposing &&
+            !(event.target instanceof HTMLButtonElement)
+          ) {
+            event.preventDefault()
+          }
+        }}
+        noValidate
+        hidden={captureView !== 'manual'}
+      >
         {/* Step wrappers change only visual grouping. The original named
             controls remain the sole source of form state and validation. */}
         {startInBrowse && selectedSavedDrink && <div className="prototype-drink-summary">
@@ -889,12 +952,26 @@ export function ManualDrinkForm({
                 : 'Enter the total volume you consumed in mL.'}
             </p>
             <FieldError id="amount-consumed-error" message={amountError} />
-            {(atLimit || stepperLimitReached) && !amountError && (
-              <p className="field-help" role="status">
-                Record limit reached. Enter a smaller amount if you need to adjust this record.
-              </p>
-            )}
           </div>
+          {recordLimitNotice && (
+            <div
+              ref={recordLimitNoticeRef}
+              className={`record-limit-notice ${overLimit
+                ? 'record-limit-notice--warning'
+                : 'record-limit-notice--status'
+                }`}
+              role={overLimit ? 'alert' : 'status'}
+            >
+              <span className="record-limit-notice__icon" aria-hidden="true">
+                !
+              </span>
+              <div className="record-limit-notice__content">
+                <strong>{recordLimitNotice.title}</strong>
+                <p>{recordLimitNotice.body}</p>
+              </div>
+            </div>
+          )}
+
           <div className="prototype-estimate" aria-live="polite">
             <div><strong>Estimated standard drinks</strong><p>{estimateAvailable ? 'Based on ' + Number(consumedMl.toFixed(2)) + ' mL consumed and ' + values.abvPercent + '% ABV.' : 'Enter the serving size, ABV and amount consumed.'}</p></div>
             <div><p className="prototype-estimate-value">{estimateAvailable ? estimate.toFixed(1) : '—'}</p><span>standard drinks</span></div>
