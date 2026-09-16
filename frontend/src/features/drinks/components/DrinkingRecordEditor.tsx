@@ -5,6 +5,7 @@
  * to the parent; cancelling emits nothing, and SavedDrink templates are outside
  * this component's data flow.
  */
+import { useConsumptionTimeLimit } from '../hooks/useConsumptionTimeLimit'
 import { calculateStandardDrinks } from '../calculations/standardDrinks'
 import { type FormEvent, useId, useRef, useState } from 'react'
 
@@ -26,7 +27,7 @@ import {
 } from '../types/manualDrinkForm'
 import type { DrinkReferenceCategory } from '../types/drinkReference'
 import { getConsumedDateTimeInputValues } from '../utils/formatConsumedDateTime'
-import { MAX_RECORD_SERVINGS, validateManualDrinkInput } from '../validation/drinkingRecordValidation'
+import { getRecordEntryLimits, validateManualDrinkInput } from '../validation/drinkingRecordValidation'
 
 interface DrinkingRecordEditorProps {
   referenceCategories: readonly DrinkReferenceCategory[]
@@ -84,15 +85,20 @@ export function DrinkingRecordEditor({
   onCancel,
   presentation = 'default',
 }: DrinkingRecordEditorProps) {
+  // Database-origin history keeps its original drink snapshot; only the
+  // occasion is editable. Undefined legacy provenance must not be guessed.
+  const databaseRecord = record.recordSource === 'database'
   const [mode, setMode] = useState<'serving' | 'ml'>('serving')
   const formId = useId()
   const formRef = useRef<HTMLFormElement>(null)
+  const timeLimit = useConsumptionTimeLimit()
   const [values, setValues] = useState<ManualDrinkFormValues>(() =>
     createEditorValues(record),
   )
   const [errors, setErrors] = useState<ManualDrinkFormErrors>({})
   const [saveError, setSaveError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const [blockedStepperKey, setBlockedStepperKey] = useState<string | null>(null)
   const [selectedVariantId, setSelectedVariantId] = useState<number | null>(
     null,
   )
@@ -128,6 +134,7 @@ export function DrinkingRecordEditor({
     setValues((currentValues) => ({ ...currentValues, [field]: value }))
     clearErrors(field)
     setSaveError(null)
+    setBlockedStepperKey(null)
   }
 
   function handleDrinkTypeChange(drinkType: DrinkType | '') {
@@ -233,18 +240,75 @@ export function DrinkingRecordEditor({
   // historical snapshot continue to use serving volume × number of servings.
   const servingMl = Number(isCustomVolume ? values.customVolumeMl : values.servingSizeSelection)
   const amount = Number(values.amountConsumed)
-  const volumeReady = Number.isFinite(servingMl) && servingMl > 0 && Number.isFinite(servingMl * MAX_RECORD_SERVINGS)
-  const amountReady = values.amountConsumed.trim() !== '' && Number.isFinite(amount)
-  const displayedAmount = mode === 'ml' && volumeReady && amountReady ? String(Number((amount * servingMl).toPrecision(12))) : values.amountConsumed
-  const overLimit = amount > MAX_RECORD_SERVINGS
-  const maximumAmount = mode === 'ml' ? (volumeReady ? servingMl * MAX_RECORD_SERVINGS : undefined) : MAX_RECORD_SERVINGS
-  const amountError = overLimit ? 'Enter no more than 10 servings per record.' : errors.amountConsumed
+  const entryLimits = getRecordEntryLimits(
+    servingMl,
+    Number(values.abvPercent),
+  )
+
+  const volumeReady = entryLimits !== null
+
+  const maximumServings = entryLimits?.maxServings
+  const maximumMl = entryLimits?.maxVolumeMl
+  // Keep a blocked step tied to its input snapshot. Changing any input clears
+  // the displayed limit immediately, without a state-reset effect/re-render.
+  const stepperInputKey = JSON.stringify([mode, values.amountConsumed, values.abvPercent, servingMl])
+  const stepperLimitReached = blockedStepperKey === stepperInputKey
+
+
+  const amountReady =
+    values.amountConsumed.trim() !== '' &&
+    Number.isFinite(amount)
+
+  const displayedAmount =
+    mode === 'ml' && volumeReady && amountReady
+      ? String(Number((amount * servingMl).toPrecision(12)))
+      : values.amountConsumed
+
+  const overLimit =
+    maximumServings !== undefined &&
+    amount > maximumServings
+
+  const atLimit =
+    maximumServings !== undefined &&
+    amount >= maximumServings &&
+    !overLimit
+
+  const maximumAmount =
+    mode === 'ml'
+      ? maximumMl
+      : maximumServings
+
+  const amountError = overLimit
+    ? 'This amount appears unusually high. Please check the amount, serving size and ABV.'
+    : errors.amountConsumed
   const preview = validateManualDrinkInput(values)
   const adjustAmount = (delta: number) => {
     const current = Number(displayedAmount)
-    const stepped = Math.max(0, (Number.isFinite(current) ? current : 0) + delta)
-    const next = delta > 0 ? Math.min(maximumAmount ?? 0, stepped) : stepped
-    updateValue('amountConsumed', String(mode === 'ml' && volumeReady ? next / servingMl : next))
+
+    const next = Math.max(
+      0,
+      (Number.isFinite(current) ? current : 0) + delta,
+    )
+
+    if (
+      delta > 0 &&
+      maximumAmount !== undefined &&
+      next > maximumAmount
+    ) {
+      setBlockedStepperKey(stepperInputKey)
+      return
+    }
+
+    setBlockedStepperKey(null)
+
+    updateValue(
+      'amountConsumed',
+      String(
+        mode === 'ml' && volumeReady
+          ? next / servingMl
+          : next,
+      ),
+    )
   }
   const fieldId = (field: string) => `${formId}-${field}`
 
@@ -264,6 +328,9 @@ export function DrinkingRecordEditor({
         </p>
       </div>
 
+      {databaseRecord && <p className="field-help">
+        This record uses a database drink. Drink details stay unchanged; you can edit the amount, date and time.
+      </p>}
       {saveError && (
         <div className="management-notice management-notice--error" role="alert">
           {saveError}
@@ -275,6 +342,7 @@ export function DrinkingRecordEditor({
         <select
           id={fieldId('drink-type')}
           name="drinkType"
+          disabled={databaseRecord}
           value={values.drinkType}
           onChange={(event) =>
             handleDrinkTypeChange(event.target.value as DrinkType | '')
@@ -306,6 +374,7 @@ export function DrinkingRecordEditor({
           <select
             id={fieldId('drink-variant')}
             name="drinkVariant"
+              disabled={databaseRecord}
             value={selectedVariantId ?? ''}
             onChange={(event) => handleVariantChange(event.target.value)}
           >
@@ -324,6 +393,7 @@ export function DrinkingRecordEditor({
         <input
           id={fieldId('drink-name')}
           name="drinkName"
+          disabled={databaseRecord}
           type="text"
           value={values.drinkName}
           onChange={(event) => updateValue('drinkName', event.target.value)}
@@ -353,7 +423,7 @@ export function DrinkingRecordEditor({
               ? fieldId('serving-size-error')
               : undefined
           }
-          disabled={!selectedCategory}
+          disabled={databaseRecord || !selectedCategory}
           required
         >
           <option value="">Select a serving size</option>
@@ -378,6 +448,7 @@ export function DrinkingRecordEditor({
           <input
             id={fieldId('custom-volume')}
             name="customVolumeMl"
+              disabled={databaseRecord}
             type="number"
             min="0"
             inputMode="decimal"
@@ -409,6 +480,7 @@ export function DrinkingRecordEditor({
         <input
           id={fieldId('abv-percent')}
           name="abvPercent"
+          disabled={databaseRecord}
           type="number"
           min="0"
           inputMode="decimal"
@@ -446,10 +518,22 @@ export function DrinkingRecordEditor({
                 onChange={event => updateValue('amountConsumed', mode === 'ml' && volumeReady && event.target.value !== '' ? String(Number(event.target.value) / servingMl) : event.target.value)} required />
               <p>{mode === 'ml' ? 'mL' : 'Servings'}</p>
             </div>
-            <button type="button" aria-label="Increase amount" disabled={amount >= MAX_RECORD_SERVINGS || (mode === 'ml' && !volumeReady)} onClick={() => adjustAmount(mode === 'ml' ? 50 : .5)}>+</button>
+            <button type="button" aria-label="Increase amount" disabled={
+              overLimit ||
+              stepperLimitReached ||
+              (mode === 'serving'
+                ? maximumServings === undefined ||
+                amount >= maximumServings
+                : maximumMl === undefined ||
+                Number(displayedAmount) >= maximumMl)
+            } onClick={() => adjustAmount(mode === 'ml' ? 50 : .5)}>+</button>
           </div>
-          <p className="field-help">{mode === 'ml' && volumeReady ? `Maximum: ${maximumAmount} mL (10 servings).` : 'Maximum: 10 servings.'}</p>
           <FieldError id={fieldId('amount-error')} message={amountError} />
+          {(atLimit || stepperLimitReached) && !amountError && (
+            <p className="field-help" role="status">
+              Record limit reached. Enter a smaller amount if you need to adjust this record.
+            </p>
+          )}
         </div>
         <div className="reference-edit-estimate"><div><strong>Estimated standard drinks</strong><p>{preview.success ? 'Based on ' + Number((preview.data.servingVolumeMl * preview.data.amountConsumed).toPrecision(12)) + ' mL consumed and ' + preview.data.abvPercent + '% ABV.' : 'Complete valid drink details to see an estimate.'}</p></div>
           <strong>{preview.success ? calculateStandardDrinks(preview.data).toFixed(1) : '—'}</strong>
@@ -461,7 +545,7 @@ export function DrinkingRecordEditor({
         <input
           id={fieldId('amount-consumed')}
           name="amountConsumed"
-          min="0" max={MAX_RECORD_SERVINGS}
+          min="0" max={maximumServings}
           type="number"
           inputMode="decimal"
           step="any"
@@ -479,9 +563,14 @@ export function DrinkingRecordEditor({
           id={fieldId('amount-error')}
           message={amountError}
         />
+        {(atLimit || stepperLimitReached) && !amountError && (
+          <p className="field-help" role="status">
+            Record limit reached. Enter a smaller amount if you need to adjust this record.
+          </p>
+        )}
       </div>
 
-</>}
+      </>}
 
       <fieldset className="date-time-fields">
         <legend>When was this drink consumed?</legend>
@@ -492,6 +581,8 @@ export function DrinkingRecordEditor({
               id={fieldId('date')}
               name="date"
               type="date"
+              max={timeLimit.date}
+              onFocus={timeLimit.refresh}
               value={values.date}
               onChange={(event) => updateValue('date', event.target.value)}
               aria-invalid={Boolean(errors.date)}
@@ -509,6 +600,8 @@ export function DrinkingRecordEditor({
               id={fieldId('time')}
               name="time"
               type="time"
+              max={values.date === timeLimit.date ? timeLimit.time : undefined}
+              onFocus={timeLimit.refresh}
               step="60"
               value={values.time}
               onChange={(event) => updateValue('time', event.target.value)}

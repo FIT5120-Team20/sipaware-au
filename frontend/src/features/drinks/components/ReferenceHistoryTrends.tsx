@@ -4,6 +4,7 @@
  * offsets and full-precision calculation are preserved. Reference thresholds
  * arrive only through the existing validated public API, never sample data.
  */
+import { downloadDrinkingReportPdf } from '../utils/drinkingReportPdf'
 import { applicationHref } from '../../../app/entryPaths'
 import { useEffect, useMemo, useState } from 'react'
 import { calculateStandardDrinks } from '../calculations/standardDrinks'
@@ -115,33 +116,35 @@ function comparisonCopy(change: number | null, period: TrendPeriod) {
     : `${rounded}% higher than the ${previousLabel}.`
 }
 
+// Pattern summaries use recorded local dates/times only. At least two
+// observations are needed; ties are shown rather than choosing by input order.
 function mostCommonDay(records: ConsumptionRecord[]) {
-  if (records.length === 0) return 'Not enough data'
+  const dates = [...new Set(records.map(record => record.date))]
+  if (dates.length < 2) return 'Not enough data'
   const totals = new Map<number, number>()
-  records.forEach((record) => {
-    const day = parseDateOnly(record.date).getDay()
+  dates.forEach(date => {
+    const day = parseDateOnly(date).getDay()
     totals.set(day, (totals.get(day) ?? 0) + 1)
   })
-  const winner = Array.from(totals.entries()).sort((a, b) => b[1] - a[1])[0]?.[0]
-  if (winner === undefined) return 'Not enough data'
-  return ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][winner]
+  const highest = Math.max(...totals.values())
+  const winners = [...totals].filter(([, count]) => count === highest).map(([day]) => day).sort()
+  if (winners.length > 2) return 'No single most common day'
+  return winners.map(day => ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][day]).join(' / ')
 }
 
 function mostCommonTime(records: ConsumptionRecord[]) {
+  const times = records.filter(record => /^\d{2}:\d{2}$/.test(record.time))
+  if (times.length < 2) return 'Not enough data'
   const buckets = new Map<number, number>()
-  records.forEach((record) => {
-    if (!/^\d{2}:\d{2}$/.test(record.time)) return
+  times.forEach(record => {
     const [hour, minute] = record.time.split(':').map(Number)
-    const roundedMinutes = Math.round((hour * 60 + minute) / 30) * 30
-    buckets.set(roundedMinutes, (buckets.get(roundedMinutes) ?? 0) + 1)
+    const bucket = (Math.round((hour * 60 + minute) / 30) * 30) % 1440
+    buckets.set(bucket, (buckets.get(bucket) ?? 0) + 1)
   })
-  const winner = Array.from(buckets.entries()).sort((a, b) => b[1] - a[1])[0]?.[0]
-  if (winner === undefined) return 'Not enough data'
-  const minutesInDay = winner % (24 * 60)
-  const hour = Math.floor(minutesInDay / 60)
-  const minute = minutesInDay % 60
-  const date = new Date(2000, 0, 1, hour, minute)
-  return `Around ${date.toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit' })}`
+  const highest = Math.max(...buckets.values())
+  const winners = [...buckets].filter(([, count]) => count === highest).map(([time]) => time).sort((a, b) => a - b)
+  if (winners.length > 2) return 'No single most common time'
+  return winners.map(time => 'Around ' + formatTime(String(Math.floor(time / 60)).padStart(2, '0') + ':' + String(time % 60).padStart(2, '0'))).join(' / ')
 }
 
 function buildFourWeekBuckets(records: ConsumptionRecord[], end: Date) {
@@ -215,10 +218,10 @@ function HistoryTab({
   const years = useMemo(() => {
     const current = new Date().getFullYear()
     const recordYears = records.map((record) => parseDateOnly(record.date).getFullYear())
-    const min = Math.min(current - 5, ...recordYears)
-    const max = Math.max(current, ...recordYears)
+    const min = Math.min(current - 5, viewYear, ...recordYears)
+    const max = Math.max(current, viewYear, ...recordYears)
     return Array.from({ length: max - min + 1 }, (_, index) => max - index)
-  }, [records])
+  }, [records, viewYear])
 
   const moveMonth = (offset: number) => {
     const next = new Date(viewYear, viewMonth + offset, 1)
@@ -295,7 +298,7 @@ function HistoryTab({
                         <strong>{record.drinkName}</strong>
                         <span>{formatTime(record.time)}</span>
                       </div>
-                      <div className="history-record-standard-drinks">
+                      <div className="history-record-standard-drinks" aria-label={record.standardDrinks.toFixed(1) + ' standard drinks'}>
                         <span className="history-record-standard-number">{record.standardDrinks.toFixed(1)}</span>
                       </div>
                       <button
@@ -360,7 +363,7 @@ function TrendBars({
         {values.map((item) => {
           const barHeight = Math.max(item.total > 0 ? 7 : 0, (item.total / maxValue) * 100)
           return (
-            <div className="trend-bar-column" key={item.label}>
+            <div className="trend-bar-column" key={item.label} aria-label={item.label + ': ' + item.total.toFixed(1) + ' recorded standard drinks'}>
               <div className="trend-bar-track">
                 {item.total > 0 && (
                   <div className="trend-bar-value" style={{ bottom: `calc(${barHeight}% + 7px)` }}>
@@ -453,10 +456,10 @@ function TrendsTab({ records, daily, weekly }: Pick<Props, 'records' | 'daily' |
         </label>
       </div>
 
-      {records.length === 0 ? (
+      {data.current.length === 0 ? (
         <div className="ht-empty-card">
           <h3>No trend data yet.</h3>
-          <p>Record drinks to build your personal drinking trends.</p>
+          <p>There are no drinking records in this period. Missing records do not mean no alcohol was consumed.</p>
         </div>
       ) : (
         <>
@@ -562,8 +565,23 @@ function ReportTab({ records, daily, weekly }: Pick<Props, 'records' | 'daily' |
     }
   }, [records, daily, weekly, today])
 
+  const [exportError, setExportError] = useState<string | null>(null)
   const exportPdf = () => {
-    window.print()
+    setExportError(null)
+    try {
+      downloadDrinkingReportPdf({
+        start: formatDateOnly(report.start), end: formatDateOnly(report.end),
+        generated: formatDateOnly(today), recordedDays: report.recordedDays,
+        total: report.total, avgPerWeek: report.avgPerWeek,
+        avgDrinkingDaysPerWeek: report.avgDrinkingDaysPerWeek,
+        avgPerDrinkingDay: report.avgPerDrinkingDay, highestDay: report.highestDay,
+        daysAbove: report.daysAboveFour, weeksAbove: report.weeksAboveTen,
+        dailyGuideline: daily, weeklyGuideline: weekly,
+        weeks: report.values, dailyTotals: report.dailyTotals,
+      })
+    } catch {
+      setExportError('The PDF could not be created. Your records are unchanged. Please try again.')
+    }
   }
 
   return (
@@ -593,6 +611,7 @@ function ReportTab({ records, daily, weekly }: Pick<Props, 'records' | 'daily' |
             <button className="ht-primary-button report-export-button report-screen-only" onClick={exportPdf}>Export PDF</button>
           </header>
 
+          {exportError && <p role="alert" className="report-screen-only">{exportError}</p>}
           <div className="report-meta-grid">
             <div>
               <span>Reporting period</span>
@@ -652,6 +671,7 @@ function ReportTab({ records, daily, weekly }: Pick<Props, 'records' | 'daily' |
               <p className="ht-card-kicker">Recorded drinking history</p>
               <h3>Daily standard-drink totals</h3>
             </div>
+            {report.dailyTotals.length === 0 && <p>No drinking records in this reporting period. Missing dates do not mean no alcohol was consumed.</p>}
             <div className="report-history-list">
               {report.dailyTotals.map((day) => (
                 <div key={day.date}>

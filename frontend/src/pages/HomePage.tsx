@@ -6,6 +6,7 @@
  * destinations rather than duplicating the prototype's health claims.
  */
 import { useRef, useState } from 'react'
+import { HomeFooter } from '../components/HomeFooter'
 import { applicationHref } from '../app/entryPaths'
 import { ReferenceDialog } from '../features/drinks/components/ReferenceDialog'
 
@@ -125,6 +126,7 @@ const [showAbout, setShowAbout] = useState(false)
           </a>
         </div>
       </section>
+      <HomeFooter />
       {showAbout && <ReferenceDialog title="About this website"
   onClose={() => setShowAbout(false)}>
   <p>This website helps you understand your drinking as you get older.</p>

@@ -6,6 +6,7 @@
 import type { IDBPTransaction } from 'idb'
 
 import { isDrinkType } from '../config/drinkTypes'
+import { isRecordSource } from '../types/drinkingRecord'
 import type { SavedDrink } from '../types/savedDrink'
 import {
   openSipAwareDatabase,
@@ -53,6 +54,7 @@ export function isSavedDrink(value: unknown): value is SavedDrink {
 
   const candidate = value as Record<string, unknown>
   return (
+    isRecordSource(candidate.recordSource) &&
     isNonEmptyString(candidate.id) &&
     isDrinkType(candidate.drinkType) &&
     isNonEmptyString(candidate.drinkName) &&

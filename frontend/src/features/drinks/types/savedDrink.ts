@@ -1,4 +1,4 @@
-import type { DrinkType } from './drinkingRecord'
+import type { DrinkType, RecordSource } from './drinkingRecord'
 
 /**
  * Reusable drink template containing only attributes shared across occasions.
@@ -6,6 +6,7 @@ import type { DrinkType } from './drinkingRecord'
  * editing or deleting it cannot retroactively change historical snapshots.
  */
 export interface SavedDrink {
+  recordSource?: RecordSource
   id: string
   drinkType: DrinkType
   drinkName: string
@@ -60,6 +61,12 @@ export function createUpdatedSavedDrink(
   return {
     ...savedDrink,
     ...values,
+    // A corrected template becomes personal manual data. Unchanged database
+    // templates retain their origin; existing history is never rewritten.
+    recordSource: savedDrink.recordSource === 'database' &&
+      savedDrink.drinkType === values.drinkType && savedDrink.drinkName === values.drinkName &&
+      savedDrink.servingVolumeMl === values.servingVolumeMl && savedDrink.abvPercent === values.abvPercent
+        ? 'database' : 'manual',
     updatedAt: new Date(updatedAtMilliseconds).toISOString(),
   }
 }

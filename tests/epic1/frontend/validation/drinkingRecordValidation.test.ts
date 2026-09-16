@@ -27,6 +27,35 @@ function validValues(): ManualDrinkFormValues {
 }
 
 describe('validateManualDrinkInput', () => {
+  // Pin a local wall clock: a UTC date slice would incorrectly reject/allow
+  // dates around local midnight, especially in Sydney during daylight saving.
+  it.each([
+    ['tomorrow', '2026-09-17', '00:00', 'date'],
+    ['later today', '2026-09-16', '15:46', 'time'],
+  ])('rejects %s before a record can be saved', (_label, date, time, field) => {
+    const result = validateManualDrinkInput(
+      { ...validValues(), date, time }, new Date(2026, 8, 16, 15, 45, 30),
+    )
+    expect(result.success).toBe(false)
+    if (!result.success) expect(result.errors).toHaveProperty(field)
+  })
+
+  it.each([
+    ['current minute', '2026-09-16', '15:45'],
+    ['earlier today', '2026-09-16', '00:00'],
+    ['late yesterday', '2026-09-15', '23:59'],
+  ])('allows %s', (_label, date, time) => {
+    expect(validateManualDrinkInput(
+      { ...validValues(), date, time }, new Date(2026, 8, 16, 15, 45, 30),
+    ).success).toBe(true)
+  })
+
+  it('re-evaluates the boundary when midnight passes', () => {
+    const values = { ...validValues(), date: '2026-09-17', time: '00:00' }
+    expect(validateManualDrinkInput(values, new Date(2026, 8, 16, 23, 59, 59)).success).toBe(false)
+    expect(validateManualDrinkInput(values, new Date(2026, 8, 17, 0, 0)).success).toBe(true)
+  })
+
   it('normalises valid values and stores the selected local date and time as ISO', () => {
     const result = validateManualDrinkInput(validValues())
 
@@ -182,11 +211,17 @@ describe('validateReusableDrinkInput', () => {
 })
 
 
-it.each(['10.0001', '11', '999999'])('rejects an occasion above ten servings: %s', amountConsumed => {
+it.each(['26.6667', '27', '999999'])('rejects an occasion above the volume-derived limit: %s', amountConsumed => {
   const result = validateManualDrinkInput({ ...validValues(), amountConsumed })
   expect(result.success).toBe(false)
-  if (!result.success) expect(result.errors.amountConsumed).toMatch(/no more than 10/)
+  if (!result.success) expect(result.errors.amountConsumed).toMatch(/unusually high/)
 })
 it.each(['0.1', '9.999', '10'])('accepts positive occasion amounts through the boundary: %s', amountConsumed => {
   expect(validateManualDrinkInput({ ...validValues(), amountConsumed }).success).toBe(true)
+})
+
+it('enforces the alcohol-derived limit as well as the volume limit', () => {
+  const values = {...validValues(), servingSizeSelection:CUSTOM_SERVING_SIZE, customVolumeMl:'700', abvPercent:'40'}
+  expect(validateManualDrinkInput({...values, amountConsumed:'2'}).success).toBe(true)
+  expect(validateManualDrinkInput({...values, amountConsumed:'2.3'}).success).toBe(false)
 })

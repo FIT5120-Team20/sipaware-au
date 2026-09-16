@@ -5,6 +5,7 @@
  * templates, and corrections all cross the same validation boundary before
  * they can reach a repository.
  */
+import { getCurrentLocalCalendarDateKey } from '../utils/localCalendarDate'
 import { isDrinkType } from '../config/drinkTypes'
 import type { DrinkType } from '../types/drinkingRecord'
 import {
@@ -16,26 +17,27 @@ import {
   type ValidatedManualDrinkInput,
   type ValidatedReusableDrinkInput,
 } from '../types/manualDrinkForm'
+import { calculateStandardDrinks } from '../calculations/standardDrinks'
 
 export type ReusableDrinkValidationResult =
   | {
-      success: true
-      data: ValidatedReusableDrinkInput
-    }
+    success: true
+    data: ValidatedReusableDrinkInput
+  }
   | {
-      success: false
-      errors: ReusableDrinkFormErrors
-    }
+    success: false
+    errors: ReusableDrinkFormErrors
+  }
 
 export type ManualDrinkValidationResult =
   | {
-      success: true
-      data: ValidatedManualDrinkInput
-    }
+    success: true
+    data: ValidatedManualDrinkInput
+  }
   | {
-      success: false
-      errors: ManualDrinkFormErrors
-    }
+    success: false
+    errors: ManualDrinkFormErrors
+  }
 
 const DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/
 const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/
@@ -194,10 +196,50 @@ export function validateReusableDrinkInput(
  */
 // This is a record-entry limit, not a storage validity rule or health guideline.
 // Keep existing historical snapshots readable even if their amount exceeds it.
-export const MAX_RECORD_SERVINGS = 10
+export const MAX_RECORD_VOLUME_ML = 10_000
+export const MAX_RECORD_STANDARD_DRINKS = 50
+export function getRecordEntryLimits(
+  servingVolumeMl: number,
+  abvPercent: number,
+) {
+  if (!Number.isFinite(servingVolumeMl) || servingVolumeMl <= 0) {
+    return null
+  }
+
+  const maxServingsByVolume =
+    MAX_RECORD_VOLUME_ML / servingVolumeMl
+
+  let maxServings = maxServingsByVolume
+
+  if (
+    Number.isFinite(abvPercent) &&
+    abvPercent > 0 &&
+    abvPercent <= 100
+  ) {
+    const standardDrinksPerServing = calculateStandardDrinks({
+      servingVolumeMl,
+      abvPercent,
+      amountConsumed: 1,
+    })
+
+    const maxServingsByAlcohol =
+      MAX_RECORD_STANDARD_DRINKS / standardDrinksPerServing
+
+    maxServings = Math.min(
+      maxServingsByVolume,
+      maxServingsByAlcohol,
+    )
+  }
+
+  return {
+    maxServings,
+    maxVolumeMl: maxServings * servingVolumeMl,
+  }
+}
 
 export function validateManualDrinkInput(
   values: ManualDrinkFormValues,
+  now = new Date(),
 ): ManualDrinkValidationResult {
   const reusableDrinkResult = validateReusableDrinkInput(values)
   const errors: ManualDrinkFormErrors = reusableDrinkResult.success
@@ -205,10 +247,19 @@ export function validateManualDrinkInput(
     : { ...reusableDrinkResult.errors }
 
   const amountConsumed = parseFiniteNumber(values.amountConsumed)
+
   if (amountConsumed === undefined || amountConsumed <= 0) {
     errors.amountConsumed = 'Enter an amount greater than 0 servings.'
-  } else if (amountConsumed > MAX_RECORD_SERVINGS) {
-    errors.amountConsumed = 'Enter no more than 10 servings per record.'
+  } else if (reusableDrinkResult.success) {
+    const limits = getRecordEntryLimits(
+      reusableDrinkResult.data.servingVolumeMl,
+      reusableDrinkResult.data.abvPercent,
+    )
+
+    if (limits && amountConsumed > limits.maxServings) {
+      errors.amountConsumed =
+        'This amount appears unusually high. Please check the amount, serving size and ABV.'
+    }
   }
 
   const dateParts = parseDateParts(values.date)
@@ -233,6 +284,14 @@ export function validateManualDrinkInput(
     : undefined
   if (dateParts && timeParts && !consumedAt) {
     errors.time = 'Enter a valid local date and time.'
+  }
+
+  // Recheck against the clock at submission, not just the picker maximum.
+  // This is an entry rule: old stored records remain readable and are not deleted.
+  if (dateParts && values.date > getCurrentLocalCalendarDateKey(now)) {
+    errors.date = 'Choose today or an earlier date.'
+  } else if (consumedAt && new Date(consumedAt).getTime() > now.getTime()) {
+    errors.time = 'Choose the current time or an earlier time.'
   }
 
   if (

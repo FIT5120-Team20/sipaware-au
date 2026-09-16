@@ -6,6 +6,8 @@ import {
   createUpdatedDrinkingRecord,
   type DrinkingRecord,
 } from '../../../../frontend/src/features/drinks/types/drinkingRecord'
+import { createSavedDrink, createUpdatedSavedDrink } from '../../../../frontend/src/features/drinks/types/savedDrink'
+import { IndexedDbSavedDrinkRepository } from '../../../../frontend/src/features/drinks/storage/savedDrinkRepository'
 import { IndexedDbDrinkingRecordRepository } from '../../../../frontend/src/features/drinks/storage/drinkingRecordRepository'
 
 const firstRecord: DrinkingRecord = {
@@ -141,5 +143,48 @@ describe('IndexedDbDrinkingRecordRepository', () => {
     await expect(repository.delete(firstRecord.id)).rejects.toThrow(
       'IndexedDB unavailable',
     )
+  })
+})
+
+
+// Source and identity checks use real isolated IndexedDB transactions, not mocks.
+describe('Epic4 independent origin snapshots', () => {
+  it('persists database origin and locks product fields at the repository boundary', async () => {
+    const repo = new IndexedDbDrinkingRecordRepository()
+    const database: DrinkingRecord = { ...firstRecord, recordSource: 'database' }
+    await repo.add(database)
+    for (const patch of [{ drinkName: 'Changed' }, { drinkType: 'wine' as const },
+      { servingVolumeMl: 100 }, { abvPercent: 20 }, { recordSource: 'manual' as const }]) {
+      await expect(repo.update({ ...database, ...patch })).rejects.toThrow()
+      expect(await repo.list()).toEqual([database])
+    }
+    const corrected = createUpdatedDrinkingRecord(database, { ...database,
+      drinkName: 'Cannot replace database identity', amountConsumed: 2,
+      consumedAt: '2026-08-25T10:20:00.000Z' })
+    expect(corrected.drinkName).toBe(database.drinkName)
+    await repo.update(corrected)
+    expect(await new IndexedDbDrinkingRecordRepository().list()).toEqual([corrected])
+  })
+  it('allows legacy and manual corrections without inferring origin by name', async () => {
+    const repo = new IndexedDbDrinkingRecordRepository()
+    await repo.add(firstRecord)
+    await repo.update({ ...firstRecord, drinkName: 'Legacy corrected' })
+    expect((await repo.list())[0].drinkName).toBe('Legacy corrected')
+    expect((await repo.list())[0].recordSource).toBeUndefined()
+    await expect(repo.add({ ...secondRecord, recordSource: 'remote' } as unknown as DrinkingRecord)).rejects.toThrow()
+  })
+  it('editing or deleting a database-based template does not rewrite historical snapshots', async () => {
+    const templates = new IndexedDbSavedDrinkRepository(), history = new IndexedDbDrinkingRecordRepository()
+    const template = createSavedDrink({ drinkType: 'beer', drinkName: 'Original database beer',
+      servingVolumeMl: 375, abvPercent: 5, recordSource: 'database' })
+    await templates.add(template)
+    const snapshot: DrinkingRecord = { ...firstRecord, recordSource: template.recordSource, drinkName: template.drinkName }
+    await history.add(snapshot)
+    const edited = createUpdatedSavedDrink(template, { ...template, drinkName: 'My custom beer' })
+    expect(edited.recordSource).toBe('manual')
+    await templates.update(edited)
+    await templates.delete(template.id)
+    expect(await history.list()).toEqual([snapshot])
+    expect(await templates.list()).toEqual([])
   })
 })

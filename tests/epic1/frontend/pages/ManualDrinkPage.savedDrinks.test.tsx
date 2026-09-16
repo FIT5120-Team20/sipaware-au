@@ -171,7 +171,10 @@ describe('ManualDrinkPage saved drinks', () => {
     expect(screen.getByLabelText('Date')).toHaveValue('2026-08-26')
     expect(screen.getByLabelText('Time')).toHaveValue('22:17')
     await user.click(
-      screen.getByRole('button', { name: 'Enter drink manually instead' }),
+      screen.getByRole('button', { name: 'Back to Record' }),
+    )
+    await user.click(
+      screen.getByRole('button', { name: 'Record Manually' }),
     )
     expect(screen.getByLabelText('Drink type')).toBeEnabled()
     expect(screen.getByLabelText('Drink type')).toHaveValue('')
