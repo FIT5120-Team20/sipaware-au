@@ -38,7 +38,9 @@ type HydrationStatus = 'loading' | 'ready' | 'error'
 export function ManualDrinkPage({ initialView = 'record' }: { initialView?: 'record' | 'history' }) {
 
   const [resultId, setResultId] = useState<string | null>(() => new URLSearchParams(window.location.search).get('record'))
-  const [templateFailed, setTemplateFailed] = useState(false)
+  const [templateFailed, setTemplateFailed] = useState(
+    () => window.history.state?.savedTemplateFailed === true,
+  )
   const [historyView, setHistoryView] = useState(initialView === 'history' || applicationPath() === '/trends')
   const drinkingRecordRepository = useMemo(
     () => new IndexedDbDrinkingRecordRepository(),
@@ -74,38 +76,53 @@ export function ManualDrinkPage({ initialView = 'record' }: { initialView?: 'rec
   // A navigation hint identifies only a committed local snapshot; the record
   // itself is always read from IndexedDB, including after reload.
   const savedRecord = records.find(record => record.id === window.history.state?.savedRecordId)
-  const savedTemplateFailed = window.history.state?.savedTemplateFailed === true
 
   // URLs identify only committed local records. Reload/back rehydrates the same
   // source of truth; it never repeats a write or fabricates a successful result.
   useEffect(() => {
-  const restore = () => {
-    setResultId(new URLSearchParams(window.location.search).get('record'))
-    setHistoryView(applicationPath() === '/trends')
-  }
-  const returnToRecordHome = () => {
-    setResultId(null)
-    setTemplateFailed(false)
-  }
+    const restore = () => {
+      setResultId(new URLSearchParams(window.location.search).get('record'))
+      setTemplateFailed(window.history.state?.savedTemplateFailed === true)
+      setHistoryView(applicationPath() === '/trends')
+    }
+    const returnToRecordHome = () => {
+      setResultId(null)
+      setTemplateFailed(false)
+    }
 
-  window.addEventListener('popstate', restore)
-  window.addEventListener(RECORD_HOME_EVENT, returnToRecordHome)
+    window.addEventListener('popstate', restore)
+    window.addEventListener(RECORD_HOME_EVENT, returnToRecordHome)
 
-  return () => {
-    window.removeEventListener('popstate', restore)
-    window.removeEventListener(RECORD_HOME_EVENT, returnToRecordHome)
-  }
-}, [])
-  
+    return () => {
+      window.removeEventListener('popstate', restore)
+      window.removeEventListener(RECORD_HOME_EVENT, returnToRecordHome)
+    }
+  }, [])
+
   useEffect(() => {
     const heading = document.getElementById('record-result-title')
     if (resultId && heading) { heading.focus(); heading.scrollIntoView?.({ block: 'start' }) }
   }, [resultId, hydrationStatus])
-  function showRecordedHistory(record: DrinkingRecord, failed: boolean) {
-    // The form calls this only after the record and optional template writes
-    // settle. The shared route event updates the sidebar and selects History.
-    window.history.pushState({ savedRecordId: record.id, savedTemplateFailed: failed }, '', applicationHref('/trends#history'))
+  function showRecordedResult(record: DrinkingRecord, failed: boolean) {
+    // Show the committed record on its own result page before the user
+    // continues to History.
+    window.history.pushState(
+      { savedTemplateFailed: failed },
+      '',
+      applicationHref('/record?record=' + encodeURIComponent(record.id)),
+    )
+    setTemplateFailed(failed)
+    setResultId(record.id)
+    setHistoryView(false)
+  }
+  function continueToHistory() {
+    window.history.pushState(
+      { savedRecordId: resultId },
+      '',
+      applicationHref('/trends#history'),
+    )
     setResultId(null)
+    setTemplateFailed(false)
     setHistoryView(true)
     window.dispatchEvent(new PopStateEvent('popstate'))
   }
@@ -300,21 +317,19 @@ export function ManualDrinkPage({ initialView = 'record' }: { initialView?: 'rec
 
         {hydrationStatus === 'ready' && (
           (initialView === 'history' || historyView) ? (
-            <>
-            <ReferenceHistoryTrends records={records} initialRecordId={savedRecord?.id} referenceCategories={referenceCategories}
-              onUpdate={updateRecord} onDelete={deleteRecord} guidelines={guidelines} guidelineStatus={guidelineStatus}
-              onRetryGuidelines={retryGuidelines} todayKey={currentLocalDateKey} />
-            {savedRecord && <section className="manual-drink-card reference-history-summary">
-              <p role={savedTemplateFailed ? 'alert' : 'status'}>{savedTemplateFailed
-                ? 'Drinking record saved on this device, but the drink could not be saved to My Drinks. Do not record the same occasion again.'
-                : 'Drinking record saved on this device.'}</p>
-              <AlcoholConsumptionSummary presentation="reference" summary={consumptionSummary} guidelines={guidelines}
-                guidelineStatus={guidelineStatus} onRetryGuidelines={retryGuidelines} showRelatedInformation={false} />
-              {consumptionSummary.hasEligibleDrinkingRecordToday && <DrivingSafetyGuidance />}
-            </section>}
-            </>
+            <ReferenceHistoryTrends
+              records={records}
+              initialRecordId={savedRecord?.id}
+              referenceCategories={referenceCategories}
+              onUpdate={updateRecord}
+              onDelete={deleteRecord}
+              guidelines={guidelines}
+              guidelineStatus={guidelineStatus}
+              onRetryGuidelines={retryGuidelines}
+              todayKey={currentLocalDateKey}
+            />
           ) : resultId ? (
-            lastRecord ? <ReferenceRecordResult record={lastRecord} templateFailed={templateFailed} onDone={returnToBrowse}>
+            lastRecord ? <ReferenceRecordResult record={lastRecord} templateFailed={templateFailed} onDone={continueToHistory}>
               <AlcoholConsumptionSummary presentation="reference" summary={consumptionSummary} guidelines={guidelines}
                 guidelineStatus={guidelineStatus} onRetryGuidelines={retryGuidelines} showRelatedInformation={false} />
               {consumptionSummary.hasEligibleDrinkingRecordToday && <DrivingSafetyGuidance />}
@@ -329,7 +344,7 @@ export function ManualDrinkPage({ initialView = 'record' }: { initialView?: 'rec
             onRetryReferenceData={retryReferenceData}
             savedDrinks={savedDrinks}
             onSave={saveRecord}
-            onRecorded={showRecordedHistory}
+            onRecorded={showRecordedResult}
             onSaveSavedDrink={saveDrinkForFutureUse}
             onUpdateSavedDrink={updateSavedDrink}
             onDeleteSavedDrink={deleteSavedDrink}
