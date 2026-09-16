@@ -470,6 +470,58 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .prototype-estimate > div:last-child { text-align: right; flex-shrink: 0; }
 .prototype-estimate .prototype-estimate-value { display: block; font: 400 32px/1 'DM Serif Display',Georgia,serif; color: #1a5fcc; }
 .prototype-estimate span { display: block; color: #647280; font-size: 15px; margin-top: 4px; }
+.record-limit-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  margin: 0 0 24px;
+  border: 2px solid;
+  border-radius: 16px;
+}
+
+.record-limit-notice--warning {
+  color: #991b1b;
+  background: #fff1f2;
+  border-color: #dc2626;
+}
+
+.record-limit-notice--status {
+  color: #7c2d12;
+  background: #fff7ed;
+  border-color: #d97706;
+}
+
+.record-limit-notice__icon {
+  display: inline-flex;
+  flex: 0 0 28px;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.record-limit-notice__content strong {
+  display: block;
+  font-size: 18px;
+  line-height: 1.3;
+}
+
+.record-limit-notice__content p {
+  margin: 4px 0 0;
+  color: inherit;
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+.record-limit-notice + .reference-edit-estimate {
+  margin-top: 0;
+}
 .prototype-consumption-form .date-time-grid { display: block; border: 1px solid #e2ddd8; border-radius: 16px; overflow: hidden; }
 .prototype-consumption-form .date-time-grid .form-field { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0; padding: 4px 16px; }
 .prototype-consumption-form .date-time-grid .form-field + .form-field { border-top: 1px solid #e2ddd8; }

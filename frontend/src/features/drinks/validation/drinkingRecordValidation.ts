@@ -258,7 +258,7 @@ export function validateManualDrinkInput(
 
     if (limits && amountConsumed > limits.maxServings) {
       errors.amountConsumed =
-        'This amount appears unusually high. Please check the amount, serving size and ABV.'
+        'Check the amount you entered and try again.'
     }
   }
 
