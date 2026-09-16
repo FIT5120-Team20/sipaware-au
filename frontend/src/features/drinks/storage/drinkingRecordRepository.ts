@@ -6,7 +6,7 @@
 import type { IDBPTransaction } from 'idb'
 
 import { isDrinkType } from '../config/drinkTypes'
-import type { DrinkingRecord } from '../types/drinkingRecord'
+import { isRecordSource, type DrinkingRecord } from '../types/drinkingRecord'
 import {
   DRINKING_RECORDS_STORE_NAME,
   openSipAwareDatabase,
@@ -57,6 +57,7 @@ export function isDrinkingRecord(value: unknown): value is DrinkingRecord {
 
   const candidate = value as Record<string, unknown>
   return (
+    isRecordSource(candidate.recordSource) &&
     isNonEmptyString(candidate.id) &&
     isDrinkType(candidate.drinkType) &&
     isNonEmptyString(candidate.drinkName) &&
@@ -147,6 +148,17 @@ export class IndexedDbDrinkingRecordRepository
       transaction.abort()
       await transaction.done.catch(() => undefined)
       throw new Error('A drinking record creation time cannot be changed.')
+    }
+
+    // Enforce the same source/identity rule at the persistence boundary so
+    // a different UI caller cannot silently change a database drink snapshot.
+    if (record.recordSource !== existingRecord.recordSource ||
+        (existingRecord.recordSource === 'database' &&
+          (record.drinkType !== existingRecord.drinkType || record.drinkName !== existingRecord.drinkName ||
+           record.servingVolumeMl !== existingRecord.servingVolumeMl || record.abvPercent !== existingRecord.abvPercent))) {
+      transaction.abort()
+      await transaction.done.catch(() => undefined)
+      throw new Error('The original database drink information cannot be changed.')
     }
 
     await transaction.store.put(record)

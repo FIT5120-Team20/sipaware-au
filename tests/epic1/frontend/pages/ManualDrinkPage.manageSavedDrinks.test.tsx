@@ -206,7 +206,7 @@ describe('ManualDrinkPage My Drinks management', () => {
     ).toBeInTheDocument()
     await expect(readSavedDrinks()).resolves.toEqual([savedShiraz, savedSky])
 
-    await user.click(screen.getByRole('button', { name: 'Keep Sky' }))
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
     expect(
       screen.queryByText('Delete this drink?'),
     ).not.toBeInTheDocument()
@@ -217,7 +217,7 @@ describe('ManualDrinkPage My Drinks management', () => {
     )
     await user.click(
       screen.getByRole('button', {
-        name: 'Yes, delete Sky from My Drinks',
+        name: 'Delete',
       }),
     )
 
@@ -277,7 +277,7 @@ describe('ManualDrinkPage My Drinks management', () => {
     )
     await user.click(
       screen.getByRole('button', {
-        name: 'Yes, delete Sky Large from My Drinks',
+        name: 'Delete',
       }),
     )
 

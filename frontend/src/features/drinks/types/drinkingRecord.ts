@@ -13,6 +13,13 @@ export type DrinkType =
   | 'liqueur'
   | 'other'
 
+// Optional value metadata, not a new IndexedDB store/index or migration.
+// Legacy snapshots have no trustworthy origin; never guess it from drink names.
+export type RecordSource = 'manual' | 'database'
+export function isRecordSource(value: unknown): value is RecordSource | undefined {
+  return value === undefined || value === 'manual' || value === 'database'
+}
+
 /**
  * Self-contained historical snapshot of one recorded drinking occasion.
  * servingVolumeMl is the size of one serving and amountConsumed is the number
@@ -20,6 +27,7 @@ export type DrinkType =
  * template edits/deletion and protecting templates from record corrections.
  */
 export interface DrinkingRecord {
+  recordSource?: RecordSource
   id: string
   drinkType: DrinkType
   drinkName: string
@@ -65,6 +73,13 @@ export function createUpdatedDrinkingRecord(
   return {
     ...record,
     ...values,
+    recordSource: record.recordSource,
+    // Database identity is the original local snapshot, not today's catalog.
+    // Even callers outside the editor may change only the occasion fields.
+    ...(record.recordSource === 'database' ? {
+      drinkType: record.drinkType, drinkName: record.drinkName,
+      servingVolumeMl: record.servingVolumeMl, abvPercent: record.abvPercent,
+    } : {}),
     id: record.id,
     createdAt: record.createdAt,
   }

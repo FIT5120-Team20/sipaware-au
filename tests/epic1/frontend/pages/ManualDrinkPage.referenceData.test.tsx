@@ -59,10 +59,13 @@ describe('ManualDrinkPage public reference loading', () => {
     )
 
     render(<ManualDrinkPage />)
+    // Reference notices belong to the manual form, not the catalog browser.
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Record Manually' }))
 
     expect(
       await screen.findByText('Loading current drink reference options...'),
     ).toBeInTheDocument()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Back to Record' }))
     await userEvent.setup().click(screen.getByRole('button', { name: 'My Drinks' }))
     expect(
       screen.getByRole('button', {
@@ -91,19 +94,21 @@ describe('ManualDrinkPage public reference loading', () => {
     const user = userEvent.setup()
 
     render(<ManualDrinkPage />)
+    // Reference notices belong to the manual form, not the catalog browser.
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Record Manually' }))
 
     expect(
       await screen.findByText(/reference options are temporarily unavailable/i),
     ).toBeInTheDocument()
-    expect(screen.getByLabelText('Drink type')).toBeDisabled()
+    // Accepted manual fallback remains usable while optional public choices fail.
+    expect(screen.getByLabelText('Drink type')).toBeEnabled()
 
     await user.click(
       screen.getByRole('button', { name: 'Retry drink options' }),
     )
 
-    await waitFor(() => expect(screen.getByLabelText('Drink type')).toBeEnabled())
-    await user.click(screen.getByRole('button', { name: 'Record Manually' }))
-    expect(drinkOptionAttempts).toBe(2)
+    await waitFor(() => expect(drinkOptionAttempts).toBe(2))
+    await waitFor(() => expect(screen.queryByText(/reference options are temporarily unavailable/i)).not.toBeInTheDocument())
     expect(
       within(screen.getByLabelText('Drink type')).getByRole('option', {
         name: 'Straight Spirits',

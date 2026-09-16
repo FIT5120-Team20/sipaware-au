@@ -1,6 +1,6 @@
 /** Public catalog categories must never fall back to personal templates or history. */
 import { fireEvent, render, screen, within } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ReferenceRecordBrowser } from '../../../../frontend/src/features/drinks/components/ReferenceRecordBrowser'
 
 const savedDrinks = [
@@ -45,6 +45,10 @@ describe('Record source separation', () => {
 
 const catalogDrink = { productId: 'cloud', drinkName: 'Synthetic cloud beer', drinkType: 'beer', volumeMl:330, abvPercent:5, sourceName:'Synthetic source',sourceUrl:'https://example.org/data' }
 const catalogPage = { products:[catalogDrink],total:1,offset:0,limit:24 }
+// Advance beyond the public cache TTL so each network scenario owns its request.
+// Keep the real cache implementation active within each scenario.
+let cacheEpoch = Date.now()
+beforeEach(() => { cacheEpoch += 6 * 60 * 1000; vi.spyOn(Date, 'now').mockReturnValue(cacheEpoch) })
 afterEach(() => vi.restoreAllMocks())
 it('renders remote products without management actions and passes selection without saving locally', async () => {
   vi.spyOn(globalThis,'fetch').mockResolvedValue(new Response(JSON.stringify(catalogPage)))

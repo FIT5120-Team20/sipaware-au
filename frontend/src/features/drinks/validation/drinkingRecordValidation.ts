@@ -5,6 +5,7 @@
  * templates, and corrections all cross the same validation boundary before
  * they can reach a repository.
  */
+import { getCurrentLocalCalendarDateKey } from '../utils/localCalendarDate'
 import { isDrinkType } from '../config/drinkTypes'
 import type { DrinkType } from '../types/drinkingRecord'
 import {
@@ -238,6 +239,7 @@ export function getRecordEntryLimits(
 
 export function validateManualDrinkInput(
   values: ManualDrinkFormValues,
+  now = new Date(),
 ): ManualDrinkValidationResult {
   const reusableDrinkResult = validateReusableDrinkInput(values)
   const errors: ManualDrinkFormErrors = reusableDrinkResult.success
@@ -282,6 +284,14 @@ export function validateManualDrinkInput(
     : undefined
   if (dateParts && timeParts && !consumedAt) {
     errors.time = 'Enter a valid local date and time.'
+  }
+
+  // Recheck against the clock at submission, not just the picker maximum.
+  // This is an entry rule: old stored records remain readable and are not deleted.
+  if (dateParts && values.date > getCurrentLocalCalendarDateKey(now)) {
+    errors.date = 'Choose today or an earlier date.'
+  } else if (consumedAt && new Date(consumedAt).getTime() > now.getTime()) {
+    errors.time = 'Choose the current time or an earlier time.'
   }
 
   if (

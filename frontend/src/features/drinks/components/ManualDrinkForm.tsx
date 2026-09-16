@@ -44,6 +44,7 @@ import {
 } from '../validation/drinkingRecordValidation'
 import { IcoCalendar, IcoClock, MinusIcon, PlusIcon } from './ReferenceRecordBrowser'
 import { SavedDrinkPicker } from './SavedDrinkPicker'
+import { useConsumptionTimeLimit } from '../hooks/useConsumptionTimeLimit'
 import { calculateStandardDrinks } from '../calculations/standardDrinks'
 import { BarcodeScanner } from './BarcodeScanner'
 import { selectCatalogProduct, type CatalogProduct } from '../catalog/catalogApi'
@@ -166,6 +167,9 @@ export function ManualDrinkForm({
   startInBrowse = false,
   onRecorded,
 }: ManualDrinkFormProps) {
+  // Provenance travels with each independent record/template snapshot.
+  // It never links history to mutable catalog or My Drinks rows.
+  const [recordSource, setRecordSource] = useState<'manual' | 'database'>('manual')
   const [barcodeOpen, setBarcodeOpen] = useState(false)
   const [labelScanUnavailable, setLabelScanUnavailable] = useState(false)
   const [captureView, setCaptureView] = useState<'browse' | 'manual'>(startInBrowse ? 'browse' : 'manual')
@@ -174,16 +178,18 @@ export function ManualDrinkForm({
   // The reference separates drink selection from occasion entry. Keep the form
   // mounted so returning from camera/selection never resets Date, Time or amount.
   function openManualEntry() {
+    setRecordSource('manual')
     if (selectedSavedDrink) clearSavedDrinkSelection()
     setShowManualReferenceStatus(true)
     setCaptureView('manual')
     requestAnimationFrame(() => document.getElementById('drink-type')?.focus())
   }
   const [amountMode, setAmountMode] = useState<'serving' | 'ml'>('serving')
-  const [stepperLimitReached, setStepperLimitReached] = useState(false)
+  const [blockedStepperKey, setBlockedStepperKey] = useState<string | null>(null)
   const [millilitres, setMillilitres] = useState('')
   const [saveTemplateWithRecord, setSaveTemplateWithRecord] = useState(false)
   const formRef = useRef<HTMLFormElement>(null)
+  const timeLimit = useConsumptionTimeLimit()
   const [values, setValues] = useState(createInitialManualDrinkFormValues)
   const [errors, setErrors] = useState<ManualDrinkFormErrors>({})
   const [saveStatus, setSaveStatus] = useState<SaveStatus>(null)
@@ -251,15 +257,11 @@ export function ManualDrinkForm({
   const volumeReady = entryLimits !== null
   const maximumServings = entryLimits?.maxServings
   const maximumMl = entryLimits?.maxVolumeMl
-  useEffect(() => {
-    setStepperLimitReached(false)
-  }, [
-    amountMode,
-    millilitres,
-    values.amountConsumed,
-    values.abvPercent,
-    servingVolume,
-  ])
+  // Keep a blocked step tied to its input snapshot. Changing any input clears
+  // the displayed limit immediately, without a state-reset effect/re-render.
+  const stepperInputKey = JSON.stringify([amountMode, millilitres, values.amountConsumed, values.abvPercent, servingVolume])
+  const stepperLimitReached = blockedStepperKey === stepperInputKey
+
 
   const overLimit =
     maximumServings !== undefined &&
@@ -294,11 +296,11 @@ export function ManualDrinkForm({
       const next = Math.max(0, current + delta)
 
       if (delta > 0 && next > maximumMl) {
-        setStepperLimitReached(true)
+        setBlockedStepperKey(stepperInputKey)
         return
       }
 
-      setStepperLimitReached(false)
+      setBlockedStepperKey(null)
       setMillilitres(String(next))
       clearErrors('amountConsumed')
       setSaveStatus(null)
@@ -309,11 +311,11 @@ export function ManualDrinkForm({
       const next = Math.max(0, current + delta)
 
       if (delta > 0 && next > maximumServings) {
-        setStepperLimitReached(true)
+        setBlockedStepperKey(stepperInputKey)
         return
       }
 
-      setStepperLimitReached(false)
+      setBlockedStepperKey(null)
 
       updateValue(
         'amountConsumed',
@@ -340,7 +342,7 @@ export function ManualDrinkForm({
     setValues((currentValues) => ({ ...currentValues, [field]: value }))
     clearErrors(field)
     setSaveStatus(null)
-    setStepperLimitReached(false)
+    setBlockedStepperKey(null)
   }
 
   function handleDrinkTypeChange(value: DrinkType | '') {
@@ -396,6 +398,7 @@ export function ManualDrinkForm({
   }
 
   function handleSavedDrinkSelect(savedDrink: SavedDrink) {
+    setRecordSource(savedDrink.recordSource ?? 'manual')
     // Copy values from the reusable template into this occasion's form. The new
     // history record will contain its own values, not a live SavedDrink link.
     // Stored volume remains personal truth even if current Neon options differ,
@@ -417,6 +420,7 @@ export function ManualDrinkForm({
 
   /** Product selection changes only reusable inputs; consumption remains explicit. */
   function handleBarcodeProduct(product: BarcodeProduct) {
+    setRecordSource('database')
     setValues((current) => selectBarcodeProduct(current, product))
     setSelectedSavedDrinkId(null)
     setSelectedVariantId(null)
@@ -430,6 +434,7 @@ export function ManualDrinkForm({
   }
 
   function handleCatalogProduct(product: CatalogProduct) {
+    setRecordSource('database')
     setValues(current => selectCatalogProduct(current, product))
     setSelectedSavedDrinkId(null)
     setSelectedVariantId(null)
@@ -443,6 +448,7 @@ export function ManualDrinkForm({
   }
 
   function returnToManualEntry() {
+    setRecordSource('manual')
     // Release template field locks without discarding the user's current draft.
     setSelectedSavedDrinkId(null)
     setBarcodeOpen(false)
@@ -453,6 +459,7 @@ export function ManualDrinkForm({
   }
 
   function clearSavedDrinkSelection() {
+    setRecordSource('manual')
     // Returning to manual entry releases the template selection and its field
     // locks so reusable attributes can be entered independently again.
     setSelectedVariantId(null)
@@ -521,7 +528,7 @@ export function ManualDrinkForm({
       return
     }
 
-    const record = createDrinkingRecord(validationResult.data)
+    const record = createDrinkingRecord({ ...validationResult.data, recordSource })
     setIsPersisting(true)
     try {
       await onSave(record)
@@ -541,7 +548,7 @@ export function ManualDrinkForm({
       // a successful history write instead of retrying/duplicating that record.
       const reusable = validateReusableDrinkInput(values)
       if (reusable.success) {
-        try { await onSaveSavedDrink(createSavedDrink(reusable.data)) }
+        try { await onSaveSavedDrink(createSavedDrink({ ...reusable.data, recordSource })) }
         catch { templateFailed = true }
       }
     }
@@ -551,6 +558,7 @@ export function ManualDrinkForm({
     setMillilitres('')
     setSaveTemplateWithRecord(false)
     setValues(createInitialManualDrinkFormValues())
+    setRecordSource('manual')
     setSelectedSavedDrinkId(null)
     setSaveStatus({
       kind: templateFailed ? 'error' : 'success',
@@ -903,6 +911,8 @@ export function ManualDrinkForm({
                 id="consumed-date"
                 name="date"
                 type="date"
+                max={timeLimit.date}
+                onFocus={timeLimit.refresh}
                 value={values.date}
                 onChange={(event) => updateValue('date', event.target.value)}
                 aria-invalid={Boolean(errors.date)}
@@ -918,6 +928,8 @@ export function ManualDrinkForm({
                 id="consumed-time"
                 name="time"
                 type="time"
+                max={values.date === timeLimit.date ? timeLimit.time : undefined}
+                onFocus={timeLimit.refresh}
                 step="60"
                 value={values.time}
                 onChange={(event) => updateValue('time', event.target.value)}
