@@ -38,7 +38,7 @@ import type {
   ReferenceLoadStatus,
 } from '../types/drinkReference'
 import {
-  MAX_RECORD_SERVINGS,
+  getRecordEntryLimits,
   validateManualDrinkInput,
   validateReusableDrinkInput,
 } from '../validation/drinkingRecordValidation'
@@ -76,9 +76,9 @@ interface FieldDescriptionProps {
 
 type SaveStatus =
   | {
-      kind: 'success' | 'error'
-      message: string
-    }
+    kind: 'success' | 'error'
+    message: string
+  }
   | null
 
 const FIELD_FOCUS_ORDER: readonly ManualDrinkField[] = [
@@ -180,6 +180,7 @@ export function ManualDrinkForm({
     requestAnimationFrame(() => document.getElementById('drink-type')?.focus())
   }
   const [amountMode, setAmountMode] = useState<'serving' | 'ml'>('serving')
+  const [stepperLimitReached, setStepperLimitReached] = useState(false)
   const [millilitres, setMillilitres] = useState('')
   const [saveTemplateWithRecord, setSaveTemplateWithRecord] = useState(false)
   const formRef = useRef<HTMLFormElement>(null)
@@ -197,27 +198,27 @@ export function ManualDrinkForm({
     (savedDrink) => savedDrink.id === selectedSavedDrinkId,
   )
   useEffect(() => {
-  const returnToRecordHome = () => {
-    setBarcodeOpen(false)
-    setLabelScanUnavailable(false)
-    setShowManualReferenceStatus(false)
-    setSaveStatus(null)
-    setCaptureView('browse')
-  }
+    const returnToRecordHome = () => {
+      setBarcodeOpen(false)
+      setLabelScanUnavailable(false)
+      setShowManualReferenceStatus(false)
+      setSaveStatus(null)
+      setCaptureView('browse')
+    }
 
-  window.addEventListener(RECORD_HOME_EVENT, returnToRecordHome)
-  return () => window.removeEventListener(RECORD_HOME_EVENT, returnToRecordHome)
-}, [])
+    window.addEventListener(RECORD_HOME_EVENT, returnToRecordHome)
+    return () => window.removeEventListener(RECORD_HOME_EVENT, returnToRecordHome)
+  }, [])
 
   const selectableReferenceCategories =
-  referenceStatus === 'loaded'
-    ? referenceCategories
-    : FALLBACK_REFERENCE_CATEGORIES
+    referenceStatus === 'loaded'
+      ? referenceCategories
+      : FALLBACK_REFERENCE_CATEGORIES
 
-const availableCategories = includePersistedDrinkType(
-  selectableReferenceCategories,
-  selectedSavedDrink?.drinkType ?? values.drinkType,
-)
+  const availableCategories = includePersistedDrinkType(
+    selectableReferenceCategories,
+    selectedSavedDrink?.drinkType ?? values.drinkType,
+  )
   const selectedCategory = getDrinkReferenceCategory(
     availableCategories,
     values.drinkType,
@@ -239,14 +240,38 @@ const availableCategories = includePersistedDrinkType(
     ...values, amountConsumed: servingVolume > 0 && millilitres.trim() !== ''
       ? String(Number(millilitres) / servingVolume) : '',
   } : values
-  const consumedMl = servingVolume * Number(effectiveValues.amountConsumed)
-  const volumeReady = Number.isFinite(servingVolume) && servingVolume > 0 && Number.isFinite(servingVolume * MAX_RECORD_SERVINGS)
-  const maximumMl = volumeReady ? servingVolume * MAX_RECORD_SERVINGS : undefined
-  // Derive this on every render so typing, mode switches and volume edits cannot
-  // bypass the shared submit boundary. Never silently rewrite an entered amount.
-  const overLimit = Number(effectiveValues.amountConsumed) > MAX_RECORD_SERVINGS
+  const consumedMl =
+    servingVolume * Number(effectiveValues.amountConsumed)
+
+  const entryLimits = getRecordEntryLimits(
+    servingVolume,
+    Number(values.abvPercent),
+  )
+
+  const volumeReady = entryLimits !== null
+  const maximumServings = entryLimits?.maxServings
+  const maximumMl = entryLimits?.maxVolumeMl
+  useEffect(() => {
+    setStepperLimitReached(false)
+  }, [
+    amountMode,
+    millilitres,
+    values.amountConsumed,
+    values.abvPercent,
+    servingVolume,
+  ])
+
+  const overLimit =
+    maximumServings !== undefined &&
+    Number(effectiveValues.amountConsumed) > maximumServings
+
+  const atLimit =
+    maximumServings !== undefined &&
+    Number(effectiveValues.amountConsumed) >= maximumServings &&
+    !overLimit
+
   const amountError = overLimit
-    ? (amountMode === 'ml' ? `Enter no more than ${maximumMl} mL (10 servings) per record.` : 'Enter no more than 10 servings per record.')
+    ? 'This amount appears unusually high. Please check the amount, serving size and ABV.'
     : errors.amountConsumed
   const estimate = calculateStandardDrinks({
     servingVolumeMl: servingVolume, abvPercent: Number(values.abvPercent),
@@ -263,15 +288,40 @@ const availableCategories = includePersistedDrinkType(
   }
   function adjustAmount(delta: number) {
     if (amountMode === 'ml') {
-      if (!volumeReady) return
-      const next = Math.max(0, Number(millilitres || 0) + delta)
-      setMillilitres(String(delta > 0 ? Math.min(maximumMl!, next) : next))
+      if (!volumeReady || maximumMl === undefined) return
+
+      const current = Number(millilitres || 0)
+      const next = Math.max(0, current + delta)
+
+      if (delta > 0 && next > maximumMl) {
+        setStepperLimitReached(true)
+        return
+      }
+
+      setStepperLimitReached(false)
+      setMillilitres(String(next))
       clearErrors('amountConsumed')
+      setSaveStatus(null)
     } else {
-      const next = Math.max(0, Number(values.amountConsumed || 0) + delta)
-      updateValue('amountConsumed', String(delta > 0 ? Math.min(MAX_RECORD_SERVINGS, next) : next))
+      if (maximumServings === undefined) return
+
+      const current = Number(values.amountConsumed || 0)
+      const next = Math.max(0, current + delta)
+
+      if (delta > 0 && next > maximumServings) {
+        setStepperLimitReached(true)
+        return
+      }
+
+      setStepperLimitReached(false)
+
+      updateValue(
+        'amountConsumed',
+        String(next),
+      )
     }
   }
+
 
   function clearErrors(...fields: ManualDrinkField[]) {
     setErrors((currentErrors) => {
@@ -290,6 +340,7 @@ const availableCategories = includePersistedDrinkType(
     setValues((currentValues) => ({ ...currentValues, [field]: value }))
     clearErrors(field)
     setSaveStatus(null)
+    setStepperLimitReached(false)
   }
 
   function handleDrinkTypeChange(value: DrinkType | '') {
@@ -297,8 +348,8 @@ const availableCategories = includePersistedDrinkType(
     const categoryServingSizes = getApplicableServingSizes(category, null)
     const servingSizeSelection =
       category &&
-      category.variants.length === 0 &&
-      categoryServingSizes.length === 0
+        category.variants.length === 0 &&
+        categoryServingSizes.length === 0
         ? CUSTOM_SERVING_SIZE
         : ''
 
@@ -370,7 +421,7 @@ const availableCategories = includePersistedDrinkType(
     setSelectedSavedDrinkId(null)
     setSelectedVariantId(null)
     clearErrors(...REUSABLE_DRINK_FIELDS)
-    setSaveStatus({ kind:'success',message:'Drink found. Check the serving size and ABV, and correct them if needed.' })
+    setSaveStatus({ kind: 'success', message: 'Drink found. Check the serving size and ABV, and correct them if needed.' })
     setBarcodeOpen(false)
     queueMicrotask(() => {
       const field = formRef.current?.elements.namedItem('drinkName')
@@ -384,7 +435,7 @@ const availableCategories = includePersistedDrinkType(
     setSelectedVariantId(null)
     clearErrors(...REUSABLE_DRINK_FIELDS)
     setCaptureView('manual')
-    setSaveStatus({ kind:'success',message:'Drink selected. Check the serving size and ABV, and correct them if needed.' })
+    setSaveStatus({ kind: 'success', message: 'Drink selected. Check the serving size and ABV, and correct them if needed.' })
     queueMicrotask(() => {
       const field = formRef.current?.elements.namedItem('drinkName')
       if (field instanceof HTMLElement) field.focus()
@@ -512,12 +563,12 @@ const availableCategories = includePersistedDrinkType(
 
   return (
     <section className={"manual-drink-card prototype-capture prototype-capture--" + captureView} aria-label="Drink capture">
-  {startInBrowse && captureView === 'manual' &&
-  <ReferenceBackBar label="Back to Record" onClick={() => {
-    setShowManualReferenceStatus(false)
-    setSaveStatus(null)
-    setCaptureView('browse')
-  }} />}
+      {startInBrowse && captureView === 'manual' &&
+        <ReferenceBackBar label="Back to Record" onClick={() => {
+          setShowManualReferenceStatus(false)
+          setSaveStatus(null)
+          setCaptureView('browse')
+        }} />}
       <div hidden={captureView !== 'manual'} className="prototype-form-heading">
         <h1 id="manual-drink-title">{selectedSavedDrink ? 'Record Consumption' : 'Record a Drink'}</h1>
         <p>{selectedSavedDrink ? 'Tell us how much you drank.' : 'Enter the drink details and how much you drank.'}</p>
@@ -562,7 +613,7 @@ const availableCategories = includePersistedDrinkType(
         <div className="form-notice form-notice--error" role="alert">
           <p>
             Drink reference options are temporarily unavailable. You can still record
-  this drink by entering a custom serving volume and the ABV shown on its label.
+            this drink by entering a custom serving volume and the ABV shown on its label.
           </p>
           <button
             className="secondary-button"
@@ -575,16 +626,16 @@ const availableCategories = includePersistedDrinkType(
       )}
 
       <div hidden={startInBrowse && captureView !== 'browse'}>
-      <SavedDrinkPicker
-        browserActions={startInBrowse ? { onScan: () => setBarcodeOpen(true), onManual: openManualEntry, onProduct: handleCatalogProduct } : undefined}
-        referenceCategories={referenceCategories}
-        savedDrinks={savedDrinks}
-        selectedSavedDrinkId={selectedSavedDrinkId}
-        onSelect={(drink) => { handleSavedDrinkSelect(drink); setCaptureView('manual') }}
-        onClear={clearSavedDrinkSelection}
-        onUpdate={handleSavedDrinkUpdate}
-        onDelete={handleSavedDrinkDelete}
-      />
+        <SavedDrinkPicker
+          browserActions={startInBrowse ? { onScan: () => setBarcodeOpen(true), onManual: openManualEntry, onProduct: handleCatalogProduct } : undefined}
+          referenceCategories={referenceCategories}
+          savedDrinks={savedDrinks}
+          selectedSavedDrinkId={selectedSavedDrinkId}
+          onSelect={(drink) => { handleSavedDrinkSelect(drink); setCaptureView('manual') }}
+          onClear={clearSavedDrinkSelection}
+          onUpdate={handleSavedDrinkUpdate}
+          onDelete={handleSavedDrinkDelete}
+        />
 
       </div>
       <form className="prototype-consumption-form" ref={formRef} onSubmit={handleSubmit} noValidate hidden={captureView !== 'manual'}>
@@ -594,192 +645,192 @@ const availableCategories = includePersistedDrinkType(
           <strong>{selectedSavedDrink.drinkName}</strong><p>{selectedCategory?.name ?? selectedSavedDrink.drinkType}<span className="prototype-detail-separator">·</span>{values.abvPercent}% ABV<span className="prototype-detail-separator">·</span>{values.customVolumeMl} mL serving</p>
         </div>}
         <div hidden={startInBrowse && Boolean(selectedSavedDrink)}>
-        <section className="form-step" aria-labelledby="drink-choice-title">
-          <h3 id="drink-choice-title">Drink details</h3>
-          <div className="form-field drink-type-field">
-            <label htmlFor="drink-type">Drink type</label>
-            <select
-              id="drink-type"
-              name="drinkType"
-              value={values.drinkType}
-              onChange={(event) =>
-                handleDrinkTypeChange(event.target.value as DrinkType | '')
-              }
-              aria-invalid={Boolean(errors.drinkType)}
-              aria-describedby={
-                errors.drinkType ? 'drink-type-error' : undefined
-              }
-              disabled={
-                Boolean(selectedSavedDrink) ||
-                availableCategories.length === 0
-              }
-              required
-            >
-              <option value="">Select a drink type</option>
-              {availableCategories.map((category) => (
-                <option key={category.id} value={category.drinkType}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-            <FieldError id="drink-type-error" message={errors.drinkType} />
-          </div>
-
-        {selectedCategory &&
-          selectedCategory.variants.length > 0 &&
-          !selectedSavedDrink && (
-            <div className="form-field">
-              <label htmlFor="drink-variant">Drink subtype (optional)</label>
+          <section className="form-step" aria-labelledby="drink-choice-title">
+            <h3 id="drink-choice-title">Drink details</h3>
+            <div className="form-field drink-type-field">
+              <label htmlFor="drink-type">Drink type</label>
               <select
-                id="drink-variant"
-                name="drinkVariant"
-                value={selectedVariantId ?? ''}
-                onChange={(event) => handleVariantChange(event.target.value)}
-                aria-describedby="drink-variant-help"
+                id="drink-type"
+                name="drinkType"
+                value={values.drinkType}
+                onChange={(event) =>
+                  handleDrinkTypeChange(event.target.value as DrinkType | '')
+                }
+                aria-invalid={Boolean(errors.drinkType)}
+                aria-describedby={
+                  errors.drinkType ? 'drink-type-error' : undefined
+                }
+                disabled={
+                  Boolean(selectedSavedDrink) ||
+                  availableCategories.length === 0
+                }
+                required
               >
-                <option value="">No subtype selected</option>
-                {selectedCategory.variants.map((variant) => (
-                  <option key={variant.id} value={variant.id}>
-                    {variant.name}
+                <option value="">Select a drink type</option>
+                {availableCategories.map((category) => (
+                  <option key={category.id} value={category.drinkType}>
+                    {category.name}
                   </option>
                 ))}
               </select>
-              <FieldDescription id="drink-variant-help">
-                Choose a subtype to see its reference serving sizes, or leave
-                this optional field blank.
-              </FieldDescription>
+              <FieldError id="drink-type-error" message={errors.drinkType} />
             </div>
-          )}
 
-        <div className="form-field">
-          <label htmlFor="drink-name">Drink name</label>
-          <input
-            id="drink-name"
-            name="drinkName"
-            type="text"
-            value={values.drinkName}
-            onChange={(event) => updateValue('drinkName', event.target.value)}
-            aria-invalid={Boolean(errors.drinkName)}
-            aria-describedby={errors.drinkName ? 'drink-name-error' : undefined}
-            autoComplete="off"
-            placeholder="e.g. Carlton Draught, house wine, vodka soda"
-            readOnly={Boolean(selectedSavedDrink)}
-            required
-          />
-          <FieldError id="drink-name-error" message={errors.drinkName} />
-          </div>
-        </section>
+            {selectedCategory &&
+              selectedCategory.variants.length > 0 &&
+              !selectedSavedDrink && (
+                <div className="form-field">
+                  <label htmlFor="drink-variant">Drink subtype (optional)</label>
+                  <select
+                    id="drink-variant"
+                    name="drinkVariant"
+                    value={selectedVariantId ?? ''}
+                    onChange={(event) => handleVariantChange(event.target.value)}
+                    aria-describedby="drink-variant-help"
+                  >
+                    <option value="">No subtype selected</option>
+                    {selectedCategory.variants.map((variant) => (
+                      <option key={variant.id} value={variant.id}>
+                        {variant.name}
+                      </option>
+                    ))}
+                  </select>
+                  <FieldDescription id="drink-variant-help">
+                    Choose a subtype to see its reference serving sizes, or leave
+                    this optional field blank.
+                  </FieldDescription>
+                </div>
+              )}
 
-        <section className="form-step" aria-labelledby="drink-details-title">
-          <h3 id="drink-details-title">Serving details</h3>
-          <div className="form-details-grid">
             <div className="form-field">
-          <label htmlFor="serving-size">Serving size / volume</label>
-          <select
-            id="serving-size"
-            name="servingSizeSelection"
-            value={values.servingSizeSelection}
-            onChange={(event) => handleServingSizeChange(event.target.value)}
-            aria-invalid={Boolean(errors.servingSizeSelection)}
-            aria-describedby={describedBy(
-              'serving-size-help',
-              'serving-size-error',
-              Boolean(errors.servingSizeSelection),
-            )}
-            disabled={!selectedCategory || Boolean(selectedSavedDrink)}
-            required
-          >
-            <option value="">Select a serving size</option>
-            {applicableServingSizes.map((servingSize) => (
-              <option key={servingSize.id} value={String(servingSize.volumeMl)}>
-                {servingSize.name} — {servingSize.volumeMl} mL
-              </option>
-            ))}
-            {selectedCategory && (
-              <option value={CUSTOM_SERVING_SIZE}>Custom volume</option>
-            )}
-          </select>
-          <FieldDescription id="serving-size-help">
-            Choose a common serving size or enter a custom volume.
-          </FieldDescription>
-          <FieldError
-            id="serving-size-error"
-            message={errors.servingSizeSelection}
-          />
-            </div>
-
-        {isCustomVolume && (
-          <div className="form-field">
-            <label htmlFor="custom-volume">Custom volume (mL)</label>
-            <div className="input-with-unit">
+              <label htmlFor="drink-name">Drink name</label>
               <input
-                id="custom-volume"
-                name="customVolumeMl"
-                type="number"
-                min="0"
-                inputMode="decimal"
-                step="any"
-                placeholder="e.g. 375"
+                id="drink-name"
+                name="drinkName"
+                type="text"
+                value={values.drinkName}
+                onChange={(event) => updateValue('drinkName', event.target.value)}
+                aria-invalid={Boolean(errors.drinkName)}
+                aria-describedby={errors.drinkName ? 'drink-name-error' : undefined}
+                autoComplete="off"
+                placeholder="e.g. Carlton Draught, house wine, vodka soda"
                 readOnly={Boolean(selectedSavedDrink)}
-                value={values.customVolumeMl}
-                onChange={(event) =>
-                  updateValue(
-                    'customVolumeMl',
-                    Number(event.target.value) < 0 ? '0' : event.target.value,
-                  )
-                }
-                aria-invalid={Boolean(errors.customVolumeMl)}
-                aria-describedby={
-                  errors.customVolumeMl ? 'custom-volume-error' : undefined
-                }
                 required
               />
-              <span aria-hidden="true">mL</span>
+              <FieldError id="drink-name-error" message={errors.drinkName} />
             </div>
-            <FieldError
-              id="custom-volume-error"
-              message={errors.customVolumeMl}
-            />
-          </div>
-        )}
+          </section>
 
-        <div className="form-field">
-          <label htmlFor="abv-percent">ABV (%)</label>
-          <div className="input-with-unit">
-            <input
-              id="abv-percent"
-              name="abvPercent"
-              type="number"
-              min="0"
-              inputMode="decimal"
-              step="any"
-              max="100"
-              placeholder="e.g. 4.5"
-              readOnly={Boolean(selectedSavedDrink)}
-              value={values.abvPercent}
-              onChange={(event) =>
-                updateValue(
-                  'abvPercent',
-                  Number(event.target.value) < 0 ? '0' : event.target.value,
-                )
-              }
-              aria-invalid={Boolean(errors.abvPercent)}
-              aria-describedby={describedBy(
-                'abv-help',
-                'abv-error',
-                Boolean(errors.abvPercent),
+          <section className="form-step" aria-labelledby="drink-details-title">
+            <h3 id="drink-details-title">Serving details</h3>
+            <div className="form-details-grid">
+              <div className="form-field">
+                <label htmlFor="serving-size">Serving size / volume</label>
+                <select
+                  id="serving-size"
+                  name="servingSizeSelection"
+                  value={values.servingSizeSelection}
+                  onChange={(event) => handleServingSizeChange(event.target.value)}
+                  aria-invalid={Boolean(errors.servingSizeSelection)}
+                  aria-describedby={describedBy(
+                    'serving-size-help',
+                    'serving-size-error',
+                    Boolean(errors.servingSizeSelection),
+                  )}
+                  disabled={!selectedCategory || Boolean(selectedSavedDrink)}
+                  required
+                >
+                  <option value="">Select a serving size</option>
+                  {applicableServingSizes.map((servingSize) => (
+                    <option key={servingSize.id} value={String(servingSize.volumeMl)}>
+                      {servingSize.name} — {servingSize.volumeMl} mL
+                    </option>
+                  ))}
+                  {selectedCategory && (
+                    <option value={CUSTOM_SERVING_SIZE}>Custom volume</option>
+                  )}
+                </select>
+                <FieldDescription id="serving-size-help">
+                  Choose a common serving size or enter a custom volume.
+                </FieldDescription>
+                <FieldError
+                  id="serving-size-error"
+                  message={errors.servingSizeSelection}
+                />
+              </div>
+
+              {isCustomVolume && (
+                <div className="form-field">
+                  <label htmlFor="custom-volume">Custom volume (mL)</label>
+                  <div className="input-with-unit">
+                    <input
+                      id="custom-volume"
+                      name="customVolumeMl"
+                      type="number"
+                      min="0"
+                      inputMode="decimal"
+                      step="any"
+                      placeholder="e.g. 375"
+                      readOnly={Boolean(selectedSavedDrink)}
+                      value={values.customVolumeMl}
+                      onChange={(event) =>
+                        updateValue(
+                          'customVolumeMl',
+                          Number(event.target.value) < 0 ? '0' : event.target.value,
+                        )
+                      }
+                      aria-invalid={Boolean(errors.customVolumeMl)}
+                      aria-describedby={
+                        errors.customVolumeMl ? 'custom-volume-error' : undefined
+                      }
+                      required
+                    />
+                    <span aria-hidden="true">mL</span>
+                  </div>
+                  <FieldError
+                    id="custom-volume-error"
+                    message={errors.customVolumeMl}
+                  />
+                </div>
               )}
-              required
-            />
-            <span aria-hidden="true">%</span>
-          </div>
-          <FieldDescription id="abv-help">
-            Enter the alcohol percentage shown on the drink label.
-          </FieldDescription>
-          <FieldError id="abv-error" message={errors.abvPercent} />
+
+              <div className="form-field">
+                <label htmlFor="abv-percent">ABV (%)</label>
+                <div className="input-with-unit">
+                  <input
+                    id="abv-percent"
+                    name="abvPercent"
+                    type="number"
+                    min="0"
+                    inputMode="decimal"
+                    step="any"
+                    max="100"
+                    placeholder="e.g. 4.5"
+                    readOnly={Boolean(selectedSavedDrink)}
+                    value={values.abvPercent}
+                    onChange={(event) =>
+                      updateValue(
+                        'abvPercent',
+                        Number(event.target.value) < 0 ? '0' : event.target.value,
+                      )
+                    }
+                    aria-invalid={Boolean(errors.abvPercent)}
+                    aria-describedby={describedBy(
+                      'abv-help',
+                      'abv-error',
+                      Boolean(errors.abvPercent),
+                    )}
+                    required
+                  />
+                  <span aria-hidden="true">%</span>
+                </div>
+                <FieldDescription id="abv-help">
+                  Enter the alcohol percentage shown on the drink label.
+                </FieldDescription>
+                <FieldError id="abv-error" message={errors.abvPercent} />
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
 
         </div>
         <section className="prototype-consumption" aria-labelledby="drink-amount-title">
@@ -793,7 +844,7 @@ const availableCategories = includePersistedDrinkType(
             <div className="prototype-amount-stepper">
               <button type="button" aria-label={amountMode === 'serving' ? 'Decrease servings' : 'Decrease mL'} onClick={() => adjustAmount(amountMode === 'serving' ? -0.5 : -50)}><MinusIcon /></button>
               <div>
-                {amountMode === 'serving' ? <input id="amount-consumed" name="amountConsumed" type="number" inputMode="decimal" min="0" max={MAX_RECORD_SERVINGS} step="any" placeholder="0.0"
+                {amountMode === 'serving' ? <input id="amount-consumed" name="amountConsumed" type="number" inputMode="decimal" min="0" max={maximumServings} step="any" placeholder="0.0"
                   value={values.amountConsumed} onChange={e => updateValue('amountConsumed', e.target.value)}
                   aria-label="Number of servings consumed" aria-invalid={Boolean(amountError)} aria-describedby="amount-consumed-help amount-consumed-error" required />
                   : <input id="consumed-ml" name="consumedMl" type="number" inputMode="decimal" min="0" max={maximumMl} disabled={!volumeReady} step="any" placeholder="0"
@@ -801,10 +852,40 @@ const availableCategories = includePersistedDrinkType(
                     aria-label="Amount in mL" aria-invalid={Boolean(amountError)} aria-describedby="amount-consumed-help amount-consumed-error" required />}
                 <span>{amountMode === 'serving' ? 'Servings' : 'mL'}</span>
               </div>
-              <button type="button" aria-label={amountMode === 'serving' ? 'Increase servings' : 'Increase mL'} disabled={Number(effectiveValues.amountConsumed) >= MAX_RECORD_SERVINGS || (amountMode === 'ml' && !volumeReady)} onClick={() => adjustAmount(amountMode === 'serving' ? 0.5 : 50)}><PlusIcon /></button>
+              <button
+                type="button"
+                aria-label={
+                  amountMode === 'serving'
+                    ? 'Increase servings'
+                    : 'Increase mL'
+                }
+                disabled={
+                  overLimit ||
+                  stepperLimitReached ||
+                  (amountMode === 'serving'
+                    ? maximumServings === undefined ||
+                    Number(effectiveValues.amountConsumed) >= maximumServings
+                    : maximumMl === undefined ||
+                    Number(millilitres || 0) >= maximumMl)
+                }
+                onClick={() =>
+                  adjustAmount(amountMode === 'serving' ? 0.5 : 50)
+                }
+              >
+                <PlusIcon />
+              </button>
             </div>
-            <p className="field-help" id="amount-consumed-help">{amountMode === 'serving' ? 'Enter the number of servings consumed, for example 1.5.' : 'Enter the total volume you consumed in mL.'} {amountMode === 'serving' ? 'Maximum: 10 servings.' : volumeReady ? `Maximum: ${maximumMl} mL (10 servings).` : 'Choose a valid serving volume first.'}</p>
+            <p className="field-help" id="amount-consumed-help">
+              {amountMode === 'serving'
+                ? 'Enter the number of servings consumed, for example 1.5.'
+                : 'Enter the total volume you consumed in mL.'}
+            </p>
             <FieldError id="amount-consumed-error" message={amountError} />
+            {(atLimit || stepperLimitReached) && !amountError && (
+              <p className="field-help" role="status">
+                Record limit reached. Enter a smaller amount if you need to adjust this record.
+              </p>
+            )}
           </div>
           <div className="prototype-estimate" aria-live="polite">
             <div><strong>Estimated standard drinks</strong><p>{estimateAvailable ? 'Based on ' + Number(consumedMl.toFixed(2)) + ' mL consumed and ' + values.abvPercent + '% ABV.' : 'Enter the serving size, ABV and amount consumed.'}</p></div>
