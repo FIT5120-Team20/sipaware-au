@@ -264,6 +264,9 @@ describe('ManualDrinkPage My Drinks management', () => {
       abvPercent: 4,
     })
 
+    // Done is the accepted transition from the committed result to History.
+    await screen.findByRole('heading', { name: 'Drink recorded' })
+    await user.click(screen.getByRole('button', { name: 'Done' }))
     await screen.findByRole('heading', { name: 'History & Trends' })
     window.history.pushState({}, '', '/record')
     fireEvent.popState(window)
@@ -283,7 +286,10 @@ describe('ManualDrinkPage My Drinks management', () => {
 
     await expect(readSavedDrinks()).resolves.toEqual([])
     await expect(readHistory()).resolves.toEqual(historySnapshot)
-    view.rerender(<ManualDrinkPage initialView="history" />)
+    view.unmount()
+    window.history.replaceState({}, '', '/trends#history')
+    render(<ManualDrinkPage initialView="history" />)
+    await screen.findByRole('heading', { name: 'Your drinking records' })
     const recentRecordsHeading = screen.getByRole('heading', {
       name: 'Your drinking records',
     })
