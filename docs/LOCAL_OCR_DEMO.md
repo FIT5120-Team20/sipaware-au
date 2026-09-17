@@ -35,7 +35,7 @@ bash scripts/run-ocr-demo.sh
 
 For a different model location set `SIPAWARE_OCR_MODEL_ROOT` first. Open
 <http://127.0.0.1:5173/iteration2/record>, choose **Record Manually**, then
-**Scan Label**. Choose a JPEG, PNG or WebP image under 8 MB and 20 megapixels.
+**Scan Label**. Choose a JPEG, PNG or WebP image under 4 MB and 20 megapixels.
 The first request loads the model; subsequent scans reuse it. Both processes
 listen on loopback. Ctrl-C stops the two processes started by the script.
 Logs are under `.local/ocr-demo/` (ignored by Git).

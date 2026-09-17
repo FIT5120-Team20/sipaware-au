@@ -15,7 +15,7 @@ from pathlib import Path
 from ..schemas.ocr import DrinkLabelFields, DrinkLabelResult, OcrLine
 
 logger = logging.getLogger(__name__)
-MAX_IMAGE_BYTES = 8 * 1024 * 1024
+MAX_IMAGE_BYTES = 4 * 1024 * 1024
 MAX_IMAGE_PIXELS = 20_000_000
 MIN_TEXT_SCORE = 0.75
 _lock = threading.Lock()

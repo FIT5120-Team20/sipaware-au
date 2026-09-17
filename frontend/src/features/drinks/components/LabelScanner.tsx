@@ -25,7 +25,7 @@ export function LabelScanner({ onResult, disabled }: {
     setResult(null)
     setPhoto(null)
     setBusy(true)
-    if (['image/jpeg', 'image/png', 'image/webp'].includes(file.type) && file.size <= 8 * 1024 * 1024) {
+    if (['image/jpeg', 'image/png', 'image/webp'].includes(file.type) && file.size <= 4 * 1024 * 1024) {
       setPhoto({ name: file.name, url: URL.createObjectURL(file) })
     }
     try {

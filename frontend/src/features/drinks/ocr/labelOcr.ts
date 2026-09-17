@@ -43,7 +43,7 @@ export async function scanDrinkLabel(file: File, signal: AbortSignal): Promise<L
   if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
     throw new Error('Choose a JPEG, PNG or WebP photo.')
   }
-  if (!file.size || file.size > 8 * 1024 * 1024) throw new Error('Choose a photo smaller than 8 MB.')
+  if (!file.size || file.size > 4 * 1024 * 1024) throw new Error('Choose a photo smaller than 4 MB.')
   signal.throwIfAborted()
   const request = new AbortController()
   const cancel = () => request.abort(signal.reason)
