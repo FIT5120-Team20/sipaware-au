@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { getDrinkTypeLabel } from '../config/drinkTypes'
 import { scanDrinkLabel, type LabelOcrResult } from '../ocr/labelOcr'
+import { MAX_LABEL_PHOTO_BYTES } from '../ocr/labelPhoto'
 import '../labelScanner.css'
 
 export function LabelScanner({ onResult, disabled }: {
@@ -25,7 +26,7 @@ export function LabelScanner({ onResult, disabled }: {
     setResult(null)
     setPhoto(null)
     setBusy(true)
-    if (['image/jpeg', 'image/png', 'image/webp'].includes(file.type) && file.size <= 4 * 1024 * 1024) {
+    if (['image/jpeg', 'image/png', 'image/webp'].includes(file.type) && file.size > 0 && file.size <= MAX_LABEL_PHOTO_BYTES) {
       setPhoto({ name: file.name, url: URL.createObjectURL(file) })
     }
     try {
@@ -43,6 +44,7 @@ export function LabelScanner({ onResult, disabled }: {
   return <section className="prototype-scan-card label-scanner" aria-labelledby={id}>
     <div className="prototype-scan-card-title"><h2 id={id}>Scan drink label</h2></div>
     <p>Upload a clear label photo to help fill in the drink details. Your existing entries are kept.</p>
+    <p className="field-help">JPEG, PNG or WebP. Maximum photo size: 10 MB.</p>
     <input ref={input} type="file" hidden accept="image/jpeg,image/png,image/webp"
       aria-label="Choose a drink label photo" disabled={disabled || busy}
       onChange={event => {
