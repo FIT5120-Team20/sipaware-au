@@ -184,7 +184,8 @@ export async function getAlcoholInformation(
     {
       method: 'GET',
       headers: { Accept: 'application/json' },
-      credentials: 'omit',
+      // Send the shared login session only to this origin; keep cross-origin requests credential-free.
+      credentials: 'same-origin',
       signal,
     },
   )

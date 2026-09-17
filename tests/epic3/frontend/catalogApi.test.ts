@@ -6,13 +6,13 @@ const product: CatalogProduct = { productId: 'test', drinkName: 'Synthetic beer'
   volumeMl: 330, abvPercent: 5, sourceName: 'Synthetic source', sourceUrl: 'https://example.org/data' }
 const page = { products: [product], total: 1, limit: 24, offset: 0 }
 afterEach(() => vi.restoreAllMocks())
-it('sends only public browse criteria, with no cookies or personal records', async () => {
+it('sends only public browse criteria, with a same-origin session and no personal records', async () => {
   const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify(page)))
   expect(await loadCatalog('beer', ' 50% ', 0, new AbortController().signal)).toEqual(page)
   const [url, options] = fetch.mock.calls[0]
   const query = new URL(String(url), 'http://local').searchParams
   expect(Object.fromEntries(query)).toEqual({category:'beer',q:'50%',offset:'0',limit:'24'})
-  expect(options).toMatchObject({credentials:'omit',cache:'no-store'})
+  expect(options).toMatchObject({credentials:'same-origin',cache:'no-store'})
   expect(options?.body).toBeUndefined()
 })
 it('copies a single container without changing quantity, date or time', () => {

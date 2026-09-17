@@ -42,7 +42,8 @@ export const lookupBarcode: BarcodeLookup = async (barcode, signal) => {
   try {
     const query = new URLSearchParams({ barcode })
     const response = await fetch(buildApiUrl(`/api/drinks/barcode?${query}`), {
-      method: 'GET', credentials: 'omit', headers: { Accept: 'application/json' },
+      // Send the shared login session only to this origin; keep cross-origin requests credential-free.
+      method: 'GET', credentials: 'same-origin', headers: { Accept: 'application/json' },
       signal: owner.signal, cache: 'no-store',
     })
     if (!response.ok) return { kind: 'unavailable' }

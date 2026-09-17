@@ -88,7 +88,8 @@ export async function loadCatalog(category: CatalogCategory, query: string, offs
   try {
     const params = new URLSearchParams({ category, q: query.trim(), offset: String(offset), limit: '24' })
     const response = await fetch(buildApiUrl(`/api/drinks/catalog?${params}`), {
-      credentials: 'omit', cache: 'no-store', headers: { Accept: 'application/json' }, signal: owner.signal,
+      // Send the shared login session only to this origin; keep cross-origin requests credential-free.
+      credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' }, signal: owner.signal,
     })
     if (!response.ok) throw new Error('Catalog unavailable')
     const page = validateCatalogPage(await response.json(), category, offset)
