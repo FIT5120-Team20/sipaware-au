@@ -1,0 +1,6 @@
+# Optional local presentation environment. Keep ML packages out of Vercel installs.
+-r requirements.txt
+paddlepaddle==3.3.0
+paddleocr==3.7.0
+paddlex[ocr-core]==3.7.2
+Pillow==12.3.0

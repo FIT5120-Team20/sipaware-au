@@ -41,6 +41,12 @@ performed by source changes.
 
 ## Local Development
 
+For the Mac presentation with real OCR label prefill, see
+[Local OCR demo](docs/LOCAL_OCR_DEMO.md). After its one-time setup,
+`bash scripts/run-ocr-demo.sh` starts both services on this machine.
+To make the Vercel page use that Mac during a temporary public presentation,
+see [Mac OCR tunnel](docs/ONLINE_OCR_MAC_TUNNEL.md).
+
 Prerequisites:
 
 - Node.js `^20.19.0`, `^22.13.0`, or `>=24.0.0`, with npm
