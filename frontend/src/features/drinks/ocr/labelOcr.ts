@@ -1,3 +1,4 @@
+import { MAX_LABEL_UPLOAD_BYTES, prepareLabelPhoto, validateLabelPhoto } from './labelPhoto'
 import { buildApiUrl } from '../../../services/apiBaseUrl'
 import { isDrinkType } from '../config/drinkTypes'
 import type { DrinkType } from '../types/drinkingRecord'
@@ -40,20 +41,19 @@ export function validateLabelResult(value: unknown): LabelOcrResult {
 }
 
 export async function scanDrinkLabel(file: File, signal: AbortSignal): Promise<LabelOcrResult> {
-  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-    throw new Error('Choose a JPEG, PNG or WebP photo.')
-  }
-  if (!file.size || file.size > 4 * 1024 * 1024) throw new Error('Choose a photo smaller than 4 MB.')
+  validateLabelPhoto(file)
   signal.throwIfAborted()
   const request = new AbortController()
   const cancel = () => request.abort(signal.reason)
   signal.addEventListener('abort', cancel, { once: true })
   const timeout = window.setTimeout(() => request.abort(new Error('Scanning took too long. Try a smaller photo.')), 120000)
   try {
+    const upload = file.size > MAX_LABEL_UPLOAD_BYTES ? await prepareLabelPhoto(file, request.signal) : file
+    request.signal.throwIfAborted()
     // Send the website session only to this origin; the OCR service token stays on the server.
     const response = await fetch(buildApiUrl('/api/ocr/drink-label'), {
-      method: 'POST', body: file, signal: request.signal, credentials: 'same-origin', cache: 'no-store',
-      headers: { 'Content-Type': file.type, Accept: 'application/json' },
+      method: 'POST', body: upload, signal: request.signal, credentials: 'same-origin', cache: 'no-store',
+      headers: { 'Content-Type': upload.type, Accept: 'application/json' },
     })
     const result: unknown = await response.json()
     if (!response.ok) throw new Error(object(result) && typeof result.detail === 'string'
