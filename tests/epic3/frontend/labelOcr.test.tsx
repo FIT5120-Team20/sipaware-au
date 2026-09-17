@@ -97,5 +97,7 @@ it('does not fill missing or ambiguous fields', () => {
 it('rejects malformed responses and unsupported uploads', async () => {
   expect(() => validateLabelResult({ ...result, fields: { ...result.fields, abvPercent: 110 } })).toThrow()
   await expect(scanDrinkLabel(new File(['x'], 'photo.heic', { type: 'image/heic' }), new AbortController().signal)).rejects.toThrow('JPEG')
+  await expect(scanDrinkLabel(new File([new Uint8Array(4 * 1024 * 1024 + 1)], 'large.png', { type: 'image/png' }),
+    new AbortController().signal)).rejects.toThrow('4 MB')
   expect(fetch).not.toHaveBeenCalled()
 })

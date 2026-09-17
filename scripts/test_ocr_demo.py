@@ -5,6 +5,7 @@ on real bottle photography. The image is deliberately labelled as a demo.
 """
 
 import json
+import os
 from pathlib import Path
 
 import httpx
@@ -34,9 +35,12 @@ for text, y, size in [
 path = output / "sample-label.png"
 image.save(path)
 print(f"Synthetic demo image: {path}", flush=True)
+url = os.environ.get("OCR_DEMO_URL", "http://127.0.0.1:8000/api/ocr/drink-label")
+headers = {"Content-Type": "image/png"}
+if secret := os.environ.get("SIPAWARE_OCR_SHARED_SECRET"):
+    headers["X-Sipaware-Ocr-Token"] = secret
 with httpx.Client(timeout=180) as client:
-    response = client.post("http://127.0.0.1:8000/api/ocr/drink-label",
-                           content=path.read_bytes(), headers={"Content-Type": "image/png"})
+    response = client.post(url, content=path.read_bytes(), headers=headers)
     print(response.status_code, response.text, flush=True)
     response.raise_for_status()
     result = response.json()
