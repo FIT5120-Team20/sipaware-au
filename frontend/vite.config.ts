@@ -47,6 +47,10 @@ export default defineConfig(({ mode }) => ({
   server: {
     port: 5173,
     strictPort: true,
+    proxy: {
+      '/api': 'http://127.0.0.1:8000',
+      '/iteration2/api': 'http://127.0.0.1:8000',
+    },
     ...(mode === 'test' ? { fs: { allow: ['..'] } } : {}),
   },
   test: {

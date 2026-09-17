@@ -51,6 +51,8 @@ import { BarcodeScanner } from './BarcodeScanner'
 import { selectCatalogProduct, type CatalogProduct } from '../catalog/catalogApi'
 import { selectBarcodeProduct, type BarcodeLookup, type BarcodeProduct } from '../barcode/barcodeLookup'
 import { ReferenceBackBar } from './ReferenceBackBar'
+import { LabelScanner } from './LabelScanner'
+import { prefillLabelFields, type LabelOcrResult } from '../ocr/labelOcr'
 
 interface ManualDrinkFormProps {
   startInBrowse?: boolean
@@ -172,7 +174,7 @@ export function ManualDrinkForm({
   // It never links history to mutable catalog or My Drinks rows.
   const [recordSource, setRecordSource] = useState<'manual' | 'database'>('manual')
   const [barcodeOpen, setBarcodeOpen] = useState(false)
-  const [labelScanUnavailable, setLabelScanUnavailable] = useState(false)
+  const [labelScanKey, setLabelScanKey] = useState(0)
   const [captureView, setCaptureView] = useState<'browse' | 'manual'>(startInBrowse ? 'browse' : 'manual')
   const [showManualReferenceStatus, setShowManualReferenceStatus] = useState(false)
 
@@ -219,7 +221,7 @@ export function ManualDrinkForm({
     setSelectedVariantId(null)
 
     setBarcodeOpen(false)
-    setLabelScanUnavailable(false)
+    setLabelScanKey(key => key + 1)
     setShowManualReferenceStatus(false)
   }, [setSaveTemplateWithRecord])
   useEffect(() => {
@@ -498,6 +500,13 @@ export function ManualDrinkForm({
     })
   }
 
+  function handleLabelResult(result: LabelOcrResult) {
+    setValues(current => prefillLabelFields(current, result))
+    // OCR is user-reviewed manual entry, never a database product identity.
+    setRecordSource('manual')
+    clearErrors(...REUSABLE_DRINK_FIELDS)
+  }
+
   function returnToManualEntry() {
     resetRecordDraft()
     setShowManualReferenceStatus(true)
@@ -608,6 +617,7 @@ export function ManualDrinkForm({
     setSaveTemplateWithRecord(false)
     setValues(createInitialManualDrinkFormValues())
     setRecordSource('manual')
+    setLabelScanKey(key => key + 1)
     setSelectedSavedDrinkId(null)
     setSaveStatus({
       kind: templateFailed ? 'error' : 'success',
@@ -628,22 +638,8 @@ export function ManualDrinkForm({
       <div hidden={captureView !== 'manual'} className="prototype-form-heading">
         <h1 id="manual-drink-title">{selectedSavedDrink ? 'Record Consumption' : 'Record a Drink'}</h1>
         <p>{selectedSavedDrink ? 'Tell us how much you drank.' : 'Enter the drink details and how much you drank.'}</p>
-        {/* Label scanning is a UI-only placeholder. Barcode capture remains on
-            the Record browser; never substitute it or simulated OCR here. */}
-        {!selectedSavedDrink && <div className="prototype-scan-card">
-          <div className="prototype-scan-card-title">
-            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 20 20" fill="none">
-              <path d="M7 2H4a2 2 0 0 0-2 2v3M13 2h3a2 2 0 0 1 2 2v3M7 18H4a2 2 0 0 1-2-2v-3M13 18h3a2 2 0 0 0 2-2v-3" stroke="#647280" strokeWidth="1.6" strokeLinecap="round" />
-              <circle cx="10" cy="10" r="2.5" stroke="#647280" strokeWidth="1.6" />
-            </svg>
-            <h2>Scan drink label</h2>
-          </div>
-          <p>Take or upload a photo of the label to help fill in the drink details automatically.</p>
-          <button type="button" disabled={isPersisting} onClick={() => setLabelScanUnavailable(true)}>Scan Label</button>
-          {labelScanUnavailable && <p role="status" style={{ margin: '12px 0 0' }}>
-            Label scanning is not available yet. Please enter the drink details below.
-          </p>}
-        </div>}
+        {captureView === 'manual' && !selectedSavedDrink && <LabelScanner key={labelScanKey}
+          disabled={isPersisting} onResult={handleLabelResult} />}
       </div>
       {barcodeOpen && <BarcodeScanner onBack={() => setBarcodeOpen(false)}
         onUseDrink={(product) => { setCaptureView('manual'); handleBarcodeProduct(product) }}

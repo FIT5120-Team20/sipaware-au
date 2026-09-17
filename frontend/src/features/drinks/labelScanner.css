@@ -1,0 +1,10 @@
+.label-scanner-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.label-scanner-photo { display: block; max-width: 100%; width: auto; max-height: 220px; margin-top: 16px; border-radius: 10px; object-fit: contain; }
+.label-scanner-result { margin-top: 16px; }
+.label-scanner-result dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; text-align: left; }
+.label-scanner-result dt { font-size: 0.82rem; color: #52606d; }
+.label-scanner-result dd { margin: 4px 0 0; font-weight: 600; overflow-wrap: anywhere; }
+.label-scanner-result details { margin-top: 12px; text-align: left; }
+.label-scanner-result summary { cursor: pointer; }
+.label-scanner-result li { overflow-wrap: anywhere; }
+@media (max-width: 420px) { .label-scanner-result dl { grid-template-columns: 1fr; } }
