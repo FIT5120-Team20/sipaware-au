@@ -30,7 +30,7 @@ describe('reference flow boundaries', () => {
     for (const name of ['Standard drink summary', 'Recent records', 'Learn more']) expect(screen.queryByRole('heading', { name })).not.toBeInTheDocument()
     await expect(new IndexedDbDrinkingRecordRepository().list()).resolves.toEqual([])
   })
-  it('opens saved History on its recorded month under /iteration2 and reloads without another write', async () => {
+  it('shows the committed result, then opens History on Done without another write', async () => {
     window.history.replaceState({}, '', '/iteration2/record')
     const repository = new IndexedDbDrinkingRecordRepository()
     const stamp=new Date().toISOString()
@@ -39,6 +39,19 @@ describe('reference flow boundaries', () => {
     await fillRecord()
     fireEvent.change(screen.getByLabelText('Date'),{target:{value:'2025-01-15'}})
     fireEvent.click(screen.getByRole('button',{name:'Record Drink'}))
+    // main's accepted flow shows the committed result before explicit Done navigation.
+    await screen.findByRole('heading',{name:'Drink recorded'})
+    expect(window.location.pathname).toBe('/iteration2/record')
+    const committed = await repository.list()
+    const saved = committed.find(record => record.drinkName === 'Synthetic flow drink')
+    expect(saved).toBeDefined()
+    expect(new URLSearchParams(window.location.search).get('record')).toBe(saved?.id)
+    expect(committed).toHaveLength(2)
+    view.unmount()
+    const reloaded = render(<App />)
+    await screen.findByRole('heading',{name:'Drink recorded'})
+    await expect(repository.list()).resolves.toEqual(committed)
+    fireEvent.click(screen.getByRole('button',{name:'Done'}))
     await screen.findByRole('heading',{name:'History & Trends'})
     expect(window.location.pathname).toBe('/iteration2/trends')
     expect(window.location.hash).toBe('#history')
@@ -46,19 +59,25 @@ describe('reference flow boundaries', () => {
     expect(screen.getByText('Synthetic flow drink')).toBeInTheDocument()
     expect(screen.queryByText('Newer existing')).not.toBeInTheDocument()
     const records=await repository.list();expect(records).toHaveLength(2)
-    view.unmount();render(<App />)
+    reloaded.unmount();render(<App />)
     await screen.findByText('Synthetic flow drink')
     await expect(repository.list()).resolves.toEqual(records)
   })
-  it('navigates after optional template failure and preserves a visible warning',async()=>{
+  it('shows a result and preserves the optional template warning without repeating the record write',async()=>{
     const spy=vi.spyOn(IndexedDbSavedDrinkRepository.prototype,'add').mockRejectedValue(new Error('synthetic template failure'))
     try {
       render(<App />);await fillRecord()
       fireEvent.click(screen.getByRole('checkbox',{name:/Save this drink to My Drinks/}))
       fireEvent.click(screen.getByRole('button',{name:'Record Drink'}))
-      await screen.findByRole('heading',{name:'History & Trends'})
+      await screen.findByRole('heading',{name:'Drink recorded'})
       expect(screen.getByRole('alert')).toHaveTextContent('could not be saved to My Drinks')
-      expect(await new IndexedDbDrinkingRecordRepository().list()).toHaveLength(1)
+      const repository = new IndexedDbDrinkingRecordRepository()
+      const records = await repository.list()
+      expect(records).toHaveLength(1)
+      expect(new URLSearchParams(window.location.search).get('record')).toBe(records[0].id)
+      fireEvent.click(screen.getByRole('button',{name:'Done'}))
+      await screen.findByRole('heading',{name:'History & Trends'})
+      await expect(repository.list()).resolves.toEqual(records)
     }finally{spy.mockRestore()}
   })
   it('keeps failed record writes on the populated form instead of showing a result', async () => {

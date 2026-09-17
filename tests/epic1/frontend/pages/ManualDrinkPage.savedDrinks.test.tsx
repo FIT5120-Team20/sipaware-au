@@ -179,9 +179,12 @@ describe('ManualDrinkPage saved drinks', () => {
     expect(screen.getByLabelText('Drink type')).toBeEnabled()
     expect(screen.getByLabelText('Drink type')).toHaveValue('')
     expect(screen.getByLabelText('Drink name')).toHaveValue('')
-    expect(screen.getByLabelText('Number of servings consumed')).toHaveValue(2)
-    expect(screen.getByLabelText('Date')).toHaveValue('2026-08-26')
-    expect(screen.getByLabelText('Time')).toHaveValue('22:17')
+    // Leaving a draft and starting another record must not carry over the old occasion.
+    expect(screen.getByLabelText('Number of servings consumed')).toHaveValue(null)
+    expect(screen.getByLabelText('Date')).not.toHaveValue('2026-08-26')
+    expect(screen.getByLabelText('Date')).not.toHaveValue('')
+    expect(screen.getByLabelText('Time')).not.toHaveValue('')
+    await expect(new IndexedDbDrinkingRecordRepository().list()).resolves.toEqual([])
   })
 
   it('creates an independent history snapshot without changing the saved drink', async () => {

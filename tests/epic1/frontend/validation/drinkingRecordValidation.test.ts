@@ -214,7 +214,7 @@ describe('validateReusableDrinkInput', () => {
 it.each(['26.6667', '27', '999999'])('rejects an occasion above the volume-derived limit: %s', amountConsumed => {
   const result = validateManualDrinkInput({ ...validValues(), amountConsumed })
   expect(result.success).toBe(false)
-  if (!result.success) expect(result.errors.amountConsumed).toMatch(/unusually high/)
+  if (!result.success) expect(result.errors.amountConsumed).toMatch(/Check the amount you entered and try again/)
 })
 it.each(['0.1', '9.999', '10'])('accepts positive occasion amounts through the boundary: %s', amountConsumed => {
   expect(validateManualDrinkInput({ ...validValues(), amountConsumed }).success).toBe(true)

@@ -217,8 +217,8 @@ describe('Catalog packaging and provenance', () => {
   })
 })
 
-describe('US 3.1 integration preserves the existing Record draft and save boundary', () => {
-  it('AC 1 / AC 5 / AC 8: Back preserves all inputs; selection changes reusable fields without saving', async () => {
+describe('US 3.1 integration follows main draft resets and preserves the explicit save boundary', () => {
+  it('Back abandons the draft; scanner cancellation and product selection never save a record', async () => {
     const callbacks = { onSave: vi.fn(), onSaveSavedDrink: vi.fn(), onUpdateSavedDrink: vi.fn(), onDeleteSavedDrink: vi.fn() }
     render(<ManualDrinkForm startInBrowse referenceCategories={DRINK_REFERENCE_CATEGORIES} referenceStatus="loaded"
       onRetryReferenceData={vi.fn()} savedDrinks={[]} {...callbacks}
@@ -240,15 +240,20 @@ describe('US 3.1 integration preserves the existing Record draft and save bounda
     fireEvent(screen.getByLabelText('Choose a barcode photo'), new Event('cancel', { bubbles: true }))
     expect(screen.getByRole('dialog', { name: 'Scan Barcode' })).toBeVisible()
     click('Back to Record')
-    expect(screen.getByLabelText('Drink name')).toHaveValue('Unsaved draft')
+    // main treats leaving manual entry as abandoning the occasion, not saving it.
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Drink name')).toHaveValue('')
+    expect(screen.getByLabelText('Number of servings consumed')).toHaveValue(null)
+    for (const action of Object.values(callbacks)) expect(action).not.toHaveBeenCalled()
     click('Scan Barcode'); await detected(); click('Use This Drink')
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     expect(screen.getByLabelText('Drink name')).toHaveValue(product.drinkName)
     expect(screen.getByLabelText('Custom volume (mL)')).toHaveValue(330)
     expect(screen.getByLabelText('ABV (%)')).toHaveValue(5)
-    expect(screen.getByLabelText('Number of servings consumed')).toHaveValue(1.5)
-    expect(screen.getByLabelText('Date')).toHaveValue('2026-09-08')
-    expect(screen.getByLabelText('Time')).toHaveValue('20:10')
+    expect(screen.getByLabelText('Number of servings consumed')).toHaveValue(null)
+    expect(screen.getByLabelText('Date')).not.toHaveValue('2026-09-08')
+    expect(screen.getByLabelText('Date')).not.toHaveValue('')
+    expect(screen.getByLabelText('Time')).not.toHaveValue('')
     for (const action of Object.values(callbacks)) expect(action).not.toHaveBeenCalled()
     expect(screen.getByRole('button', { name: 'Record Drink' })).toBeVisible()
     expect(screen.queryByText(/^(Now|Earlier)$/)).not.toBeInTheDocument()
