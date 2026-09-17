@@ -230,7 +230,7 @@ describe('US 3.1 integration preserves the existing Record draft and save bounda
     fireEvent.change(screen.getByLabelText('Time'), { target: { value: '20:10' } })
     expect(screen.getByRole('heading', { name: 'Scan drink label' })).toBeVisible()
     click('Scan Label')
-    expect(screen.getByText('Label scanning is not available yet. Please enter the drink details below.')).toBeVisible()
+    expect(screen.getByLabelText('Choose a drink label photo')).toBeInTheDocument()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(captureCamera).not.toHaveBeenCalled()
     expect(capturePhoto).not.toHaveBeenCalled()

@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .api.catalog import router as catalog_router
 from .api.barcode import router as barcode_router
 from .api.health import router as health_router
+from .api.ocr import router as ocr_router
 from .api.reference import router as reference_router
 
 LOCAL_FRONTEND_ORIGINS = (
@@ -33,13 +34,13 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=LOCAL_FRONTEND_ORIGINS,
     allow_credentials=False,
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST"],
     allow_headers=["Accept", "Content-Type"],
 )
 
 # Vercel service rewrites preserve the original request path. Register the exact
 # active prefix against the SAME handlers and dependencies, rather than assuming
 # a frontend rewrite strips it. Do not expose future/frozen iteration aliases.
-for router in (health_router, reference_router, barcode_router, catalog_router):
+for router in (health_router, reference_router, barcode_router, catalog_router, ocr_router):
     app.include_router(router)
     app.include_router(router, prefix="/iteration2")
