@@ -2,7 +2,7 @@
 
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ManualDrinkPage } from '../../../../frontend/src/features/drinks/pages/ManualDrinkPage'
 import { IndexedDbDrinkingRecordRepository } from '../../../../frontend/src/features/drinks/storage/drinkingRecordRepository'
@@ -10,6 +10,13 @@ import { IndexedDbSavedDrinkRepository } from '../../../../frontend/src/features
 import type { DrinkingRecord } from '../../../../frontend/src/features/drinks/types/drinkingRecord'
 import { ALCOHOL_INFORMATION_TOPIC_CODES } from '../../../../frontend/src/features/drinks/types/alcoholGuideline'
 import type { SavedDrink } from '../../../../frontend/src/features/drinks/types/savedDrink'
+
+// Keep noon/afternoon fixtures in the past, with real timers for IndexedDB and UI work.
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date(2026, 8, 18, 18, 0, 0))
+})
+afterEach(() => vi.useRealTimers())
 
 function hasExactText(expected: string) {
   return (_content: string, element: Element | null) =>

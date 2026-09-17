@@ -45,7 +45,7 @@ describe('label OCR form integration', () => {
     expect(screen.getByLabelText('Drink name')).toHaveValue('Corrected name')
     expect(view.onSave).not.toHaveBeenCalled()
     expect(view.onSaveSavedDrink).not.toHaveBeenCalled()
-    expect(fetch).toHaveBeenCalledWith('/api/ocr/drink-label', expect.objectContaining({ method: 'POST', body: expect.any(File) }))
+    expect(fetch).toHaveBeenCalledWith('/api/ocr/drink-label', expect.objectContaining({ method: 'POST', body: expect.any(File), credentials: 'same-origin' }))
   })
   it('keeps values typed during an in-flight scan', async () => {
     let complete!: (value: Response) => void

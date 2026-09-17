@@ -1,13 +1,20 @@
 
 /** Real local-record projections: no catalog fixtures or network write path. */
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DrinkingRecordEditor } from '../../../../frontend/src/features/drinks/components/DrinkingRecordEditor'
 import { DRINK_REFERENCE_CATEGORIES } from '../../../epic1/frontend/fixtures/drinkReferenceFixture'
 import { createDrinkingReportPdf, type DrinkingReportPdfData } from '../../../../frontend/src/features/drinks/utils/drinkingReportPdf'
 import { ReferenceHistoryTrends } from '../../../../frontend/src/features/drinks/components/ReferenceHistoryTrends'
 import { getCurrentLocalCalendarDateKey } from '../../../../frontend/src/features/drinks/utils/localCalendarDate'
 import type { DrinkingRecord } from '../../../../frontend/src/features/drinks/types/drinkingRecord'
+
+// Keep noon/afternoon fixtures in the past, with real timers for IndexedDB and UI work.
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date(2026, 8, 18, 18, 0, 0))
+})
+afterEach(() => vi.useRealTimers())
 
 function record(id: string, daysAgo: number, standardDrinks: number): DrinkingRecord {
  const date = new Date(); date.setDate(date.getDate() - daysAgo); date.setHours(13, 0, 0, 0)
