@@ -50,8 +50,9 @@ export async function scanDrinkLabel(file: File, signal: AbortSignal): Promise<L
   signal.addEventListener('abort', cancel, { once: true })
   const timeout = window.setTimeout(() => request.abort(new Error('Scanning took too long. Try a smaller photo.')), 120000)
   try {
+    // Send the website session only to this origin; the OCR service token stays on the server.
     const response = await fetch(buildApiUrl('/api/ocr/drink-label'), {
-      method: 'POST', body: file, signal: request.signal, credentials: 'omit', cache: 'no-store',
+      method: 'POST', body: file, signal: request.signal, credentials: 'same-origin', cache: 'no-store',
       headers: { 'Content-Type': file.type, Accept: 'application/json' },
     })
     const result: unknown = await response.json()

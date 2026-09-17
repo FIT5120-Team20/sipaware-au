@@ -1,4 +1,10 @@
-.label-scanner-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+/* OCR actions are nested, so the prototype card's direct-child button rules do not apply. */
+.label-scanner-actions { display: grid; gap: 10px; }
+.label-scanner-actions > button { display: inline-flex; align-items: center; justify-content: center; width: 100%; min-height: 52px; padding: 10px 16px; border: 1px solid #c9d7eb; border-radius: 12px; color: #1a5fcc; background: #fff; font: 600 17px/1.4 Outfit, sans-serif; cursor: pointer; }
+.label-scanner-actions > button:hover:not(:disabled),
+.label-scanner-actions > button:active:not(:disabled) { background: #f8fbff; }
+.label-scanner-actions > button:focus-visible { outline: 3px solid #1a5fcc; outline-offset: 3px; }
+.label-scanner-actions > button:disabled { color: #6f7f95; background: #eef2f7; cursor: wait; }
 .label-scanner-photo { display: block; max-width: 100%; width: auto; max-height: 220px; margin-top: 16px; border-radius: 10px; object-fit: contain; }
 .label-scanner-result { margin-top: 16px; }
 .label-scanner-result dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; text-align: left; }
