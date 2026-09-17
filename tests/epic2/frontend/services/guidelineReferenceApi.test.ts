@@ -26,7 +26,7 @@ describe('guideline reference API client', () => {
       '/api/reference/alcohol-guidelines',
       expect.objectContaining({
         method: 'GET',
-        credentials: 'omit',
+        credentials: 'same-origin',
         headers: { Accept: 'application/json' },
       }),
     )

@@ -30,7 +30,7 @@ describe('getAlcoholInformation', () => {
       {
         method: 'GET',
         headers: { Accept: 'application/json' },
-        credentials: 'omit',
+        credentials: 'same-origin',
         signal,
       },
     )

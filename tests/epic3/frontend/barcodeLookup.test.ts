@@ -19,7 +19,7 @@ describe('US 3.1 exact lookup HTTP boundary', () => {
     const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({ kind: 'match', product })))
     await expect(lookupBarcode(product.barcode, new AbortController().signal)).resolves.toEqual({ kind: 'match', product })
     expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/drinks/barcode?barcode=000000000001'), {
-      method: 'GET', credentials: 'omit', headers: { Accept: 'application/json' },
+      method: 'GET', credentials: 'same-origin', headers: { Accept: 'application/json' },
       signal: expect.any(AbortSignal), cache: 'no-store',
     })
   })

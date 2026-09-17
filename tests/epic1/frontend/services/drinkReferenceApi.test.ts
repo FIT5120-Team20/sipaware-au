@@ -25,7 +25,7 @@ describe('drink reference API client', () => {
       '/api/reference/drink-options',
       expect.objectContaining({
         method: 'GET',
-        credentials: 'omit',
+        credentials: 'same-origin',
         headers: { Accept: 'application/json' },
       }),
     )
