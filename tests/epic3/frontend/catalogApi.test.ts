@@ -1,6 +1,6 @@
 /** Synthetic HTTP and form-boundary tests; live database checks are separate. */
 import { afterEach, expect, it, vi } from 'vitest'
-import { loadCatalog, selectCatalogProduct, validateCatalogPage } from '../../../frontend/src/features/drinks/catalog/catalogApi'
+import { loadCatalog, selectCatalogProduct, validateCatalogPage, validateCatalogProduct } from '../../../frontend/src/features/drinks/catalog/catalogApi'
 import type { CatalogProduct } from '../../../frontend/src/features/drinks/catalog/catalogApi'
 const product: CatalogProduct = { productId: 'test', drinkName: 'Synthetic beer', drinkType: 'beer',
   volumeMl: 330, abvPercent: 5, sourceName: 'Synthetic source', sourceUrl: 'https://example.org/data' }
@@ -40,4 +40,14 @@ it('keeps request cancellation effective while reading the body', async () => {
 it('does not turn a server failure into an empty catalog', async () => {
   vi.spyOn(globalThis,'fetch').mockResolvedValue(new Response('{}',{status:503}))
   await expect(loadCatalog('all','',0,new AbortController().signal)).rejects.toThrow()
+})
+
+it('preserves database brands and accepts absent or blank legacy brands', () => {
+  expect(validateCatalogProduct({ ...product, brandName: '  Distillery A  ' }).brandName).toBe('Distillery A')
+  expect(validateCatalogProduct({ ...product, brandName: '   ' }).brandName).toBeNull()
+  expect(validateCatalogProduct({ ...product, brandName: null }).brandName).toBeNull()
+  expect(validateCatalogProduct(product)).toEqual(product)
+})
+it.each([42, {}, ['brand'], 'x'.repeat(1001)])('rejects invalid brand values', brandName => {
+  expect(() => validateCatalogProduct({ ...product, brandName })).toThrow('Invalid catalog product')
 })

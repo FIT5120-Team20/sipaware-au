@@ -109,3 +109,18 @@ def test_ranking_and_filtering_share_literal_trimmed_search(query, normalized, e
     assert count_params == ([2], '%' + exact + '%', '%' + exact + '%')
     assert page_params == (normalized, exact, exact, exact + '%', exact + '%', '%' + exact + '%', *count_params, 24, 24)
     assert "CASE WHEN %s = '' THEN 0" in sql
+
+
+def test_brand_survives_repository_and_camel_case_api_serialization(repository):
+    db = Connection([
+        sample(product_id='a', drink_name='12 Year Old', brand_name='Distillery A'),
+        sample(product_id='b', drink_name='12 Year Old', brand_name='Distillery B'),
+        sample(product_id='c', drink_name='12 Year Old'),
+    ])
+    repository.browse.return_value = CatalogRepository(db.connect).browse('all', '', 0, 24)
+    response = request()
+    assert response.status_code == 200
+    products = response.json()['products']
+    assert [p['brandName'] for p in products] == ['Distillery A', 'Distillery B', None]
+    assert [p['productId'] for p in products] == ['a', 'b', 'c']
+    assert 'p.brand_name,' in db.calls[-1][0]

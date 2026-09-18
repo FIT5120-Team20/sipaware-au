@@ -8,6 +8,7 @@ export type CatalogCategory = 'all' | 'beer' | 'wine' | 'spirits' | 'cider' | 'r
 export interface CatalogProduct {
   productId: string
   drinkName: string
+  brandName?: string | null
   drinkType: DrinkType
   volumeMl: number
   abvPercent: number
@@ -56,12 +57,15 @@ function validSource(value: unknown): value is string {
 }
 export function validateCatalogProduct(value: unknown): CatalogProduct {
   if (!object(value) || !text(value.productId, 200) || !text(value.drinkName, 200) ||
+      (value.brandName != null && (typeof value.brandName !== 'string' || value.brandName.length > 1000)) ||
       !text(value.sourceName, 300) || !validSource(value.sourceUrl) || !isDrinkType(value.drinkType) ||
       typeof value.volumeMl !== 'number' || !Number.isFinite(value.volumeMl) || value.volumeMl <= 0 || value.volumeMl > 100000 ||
       typeof value.abvPercent !== 'number' || !Number.isFinite(value.abvPercent) || value.abvPercent < 0 || value.abvPercent > 100) {
     throw new Error('Invalid catalog product')
   }
   return { productId: value.productId, drinkName: value.drinkName, drinkType: value.drinkType,
+    // Older catalog responses can omit brand; never substitute the source name.
+    ...(value.brandName !== undefined ? { brandName: typeof value.brandName === 'string' ? value.brandName.trim() || null : null } : {}),
     volumeMl: value.volumeMl, abvPercent: value.abvPercent, sourceName: value.sourceName, sourceUrl: value.sourceUrl }
 }
 export function validateCatalogPage(value: unknown, category: CatalogCategory, offset: number): CatalogPage {

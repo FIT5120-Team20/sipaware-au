@@ -223,6 +223,7 @@ describe('US 3.1 integration follows main draft resets and preserves the explici
     render(<ManualDrinkForm startInBrowse referenceCategories={DRINK_REFERENCE_CATEGORIES} referenceStatus="loaded"
       onRetryReferenceData={vi.fn()} savedDrinks={[]} {...callbacks}
       barcodeLookup={vi.fn().mockResolvedValue({ kind: 'match', product })} />)
+    click('Got it')
     click('Record Manually')
     fireEvent.change(screen.getByLabelText('Drink name'), { target: { value: 'Unsaved draft' } })
     fireEvent.change(screen.getByLabelText('Number of servings consumed'), { target: { value: '1.5' } })

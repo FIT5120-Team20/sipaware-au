@@ -426,6 +426,12 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .prototype-drink-thumb { width: 56px; height: 56px; flex: 0 0 56px; display: flex; justify-content: center; align-items: center; border-radius: 12px; }
 .prototype-card-copy { flex: 1; min-width: 0; }
 .prototype-card-copy strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 19px; font-weight: 500; line-height: 1.35; }
+.prototype-card-copy > .prototype-card-brand {
+  color: #4a5260;
+  font-weight: 500;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
 .prototype-card-copy > span { display: block; font-size: 16px; line-height: 1.25; color: #56524f; margin-top: 4px; }
 .prototype-record-browser .saved-drink-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 0 12px 12px; margin: -4px 0 0; }
 .prototype-record-browser .saved-drink-actions button { min-height: 44px; padding: 4px 16px; border: 0; border-radius: 12px; background: #eef4ff; color: #1a5fcc; font-size: 15px; font-weight: 600; }

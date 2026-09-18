@@ -46,6 +46,7 @@ export function CatalogResults({ category, query, onSelect }: {
             <button type="button" className="saved-drink-button" onClick={() => onSelect(product)}>
               <DrinkThumb type={product.drinkType} /><span className="prototype-card-copy">
                 <strong title={product.drinkName}>{product.drinkName}</strong>
+                <span className="prototype-card-brand">{product.brandName?.trim() ? `Brand: ${product.brandName}` : 'Brand not provided'}</span>
                 <span>{getDrinkTypeLabel(product.drinkType)} · {product.abvPercent}% ABV · {product.volumeMl} mL</span>
               </span><IcoChevron />
             </button>
