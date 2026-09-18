@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => ({
   plugins: [react()],
   // Keep compiled chunks and public resources in the moving iteration channel.
   // Stable root traffic belongs to its retained deployment. Tests use root fixtures.
-  base: mode === 'test' ? '/' : '/iteration2/',
+  base: mode === 'test' ? '/' : '/iteration3/',
   // Tests exercise the deployed same-origin API contract and must not inherit
   // a developer's optional standalone FastAPI origin from .env.local.
   define:
@@ -49,7 +49,7 @@ export default defineConfig(({ mode }) => ({
     strictPort: true,
     proxy: {
       '/api': 'http://127.0.0.1:8000',
-      '/iteration2/api': 'http://127.0.0.1:8000',
+      '/iteration3/api': 'http://127.0.0.1:8000',
     },
     ...(mode === 'test' ? { fs: { allow: ['..'] } } : {}),
   },

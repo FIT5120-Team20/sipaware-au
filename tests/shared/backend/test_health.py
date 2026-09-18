@@ -8,7 +8,7 @@ import pytest
 from app.main import app
 
 
-@pytest.mark.parametrize("prefix", ["", "/iteration2"])
+@pytest.mark.parametrize("prefix", ["", "/iteration3"])
 def test_health_endpoint(prefix: str) -> None:
     async def request_health() -> httpx.Response:
         transport = httpx.ASGITransport(app=app)
@@ -27,7 +27,7 @@ def test_health_endpoint(prefix: str) -> None:
     }
 
 
-@pytest.mark.parametrize("prefix", ["/iteration1", "/iteration3", "/iteration20"])
+@pytest.mark.parametrize("prefix", ["/iteration1", "/iteration2", "/iteration30"])
 def test_unknown_iterations_do_not_alias_the_active_api(prefix: str) -> None:
     """Future or retained iterations must never silently resolve to current handlers."""
     async def send() -> httpx.Response:

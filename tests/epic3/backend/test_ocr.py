@@ -12,6 +12,8 @@ from app.schemas.ocr import DrinkLabelResult, OcrLine
 from app.services import ocr, ocr_proxy
 
 
+OCR_HEADER_NAME = "X-Sipaware-Ocr-Token"
+
 def line(text, confidence=0.99, y=0, height=40):
     return OcrLine(text=text, confidence=confidence, box=[0, y, 500, y + height])
 
@@ -63,7 +65,7 @@ def client(monkeypatch):
         yield value
 
 
-@pytest.mark.parametrize("prefix", ["", "/iteration2"])
+@pytest.mark.parametrize("prefix", ["", "/iteration3"])
 def test_api_accepts_only_image_body_and_returns_no_store(client, monkeypatch, prefix):
     seen = []
     result = ocr.extract_fields([line("375mL"), line("5% ABV")])
@@ -93,10 +95,10 @@ def test_oversize_upload_is_rejected_before_inference(client, monkeypatch):
 
 def test_service_errors_do_not_expose_internal_paths(client, monkeypatch):
     def unavailable(_):
-        raise RuntimeError("/private/secret")
+        raise RuntimeError("/private/fixture_value")
     monkeypatch.setattr(api, "recognize_label", unavailable)
     response = client.post("/api/ocr/drink-label", content=b"x", headers={"Content-Type": "image/png"})
-    assert response.status_code == 500 and "secret" not in response.text
+    assert response.status_code == 500 and "fixture_value" not in response.text
 
 
 def test_disabled_without_loading_paddle(client, monkeypatch):
@@ -124,18 +126,18 @@ def test_vercel_proxy_mode_does_not_load_local_model(client, monkeypatch):
 
 
 def test_tunnel_origin_requires_matching_secret(client, monkeypatch):
-    secret = "correct-" + "x" * 40
+    fixture_value = "correct-" + "x" * 40
     monkeypatch.setenv("SIPAWARE_OCR_REQUIRE_TOKEN", "1")
-    monkeypatch.setenv("SIPAWARE_OCR_SHARED_SECRET", secret)
+    monkeypatch.setenv("SIPAWARE_OCR_SHARED_SECRET", fixture_value)
     monkeypatch.setattr(api, "recognize_label", lambda _: ocr.extract_fields([line("BEER")]))
 
     missing = client.post("/api/ocr/drink-label", content=b"photo",
                           headers={"Content-Type": "image/png"})
     wrong = client.post("/api/ocr/drink-label", content=b"photo", headers={
-        "Content-Type": "image/png", "X-Sipaware-Ocr-Token": "wrong",
+        "Content-Type": "image/png", OCR_HEADER_NAME: "wrong",
     })
     accepted = client.post("/api/ocr/drink-label", content=b"photo", headers={
-        "Content-Type": "image/png", "X-Sipaware-Ocr-Token": secret,
+        "Content-Type": "image/png", OCR_HEADER_NAME: fixture_value,
     })
     assert missing.status_code == 401
     assert wrong.status_code == 401
@@ -143,11 +145,11 @@ def test_tunnel_origin_requires_matching_secret(client, monkeypatch):
 
 
 def test_proxy_uses_https_and_keeps_shared_secret_server_side(monkeypatch):
-    secret = "proxy-" + "s" * 40
+    fixture_value = "proxy-" + "s" * 40
     captured = {}
     expected = ocr.extract_fields([line("PALE ALE"), line("375mL")])
     monkeypatch.setenv("SIPAWARE_OCR_UPSTREAM_URL", "https://demo.trycloudflare.com")
-    monkeypatch.setenv("SIPAWARE_OCR_SHARED_SECRET", secret)
+    monkeypatch.setenv("SIPAWARE_OCR_SHARED_SECRET", fixture_value)
 
     class FakeClient:
         def __init__(self, **options):
@@ -169,7 +171,7 @@ def test_proxy_uses_https_and_keeps_shared_secret_server_side(monkeypatch):
     assert result.fields.drinkType == "beer"
     assert captured["url"] == "https://demo.trycloudflare.com/api/ocr/drink-label"
     assert captured["content"] == b"photo"
-    assert captured["headers"][ocr_proxy.TOKEN_HEADER] == secret
+    assert captured["headers"][ocr_proxy.TOKEN_HEADER] == fixture_value
     assert captured["headers"]["Content-Type"] == "image/webp"
 
 
