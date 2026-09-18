@@ -6,7 +6,7 @@
       "framework": "vite",
       "rewrites": [
         {
-          "source": "/iteration2/:path*",
+          "source": "/iteration3/:path*",
           "destination": "/:path*"
         },
         {
@@ -29,29 +29,43 @@
   "rewrites": [
     {
       "source": "/",
-      "destination": "https://sipaware-au-stable-e049609-claway.vercel.app/index.html"
+      "destination": "https://sipaware-au-iteration2.vercel.app/iteration2"
     },
     {
-      "source": "/iteration2/api/:path*",
+      "source": "/iteration3/api/:path*",
       "destination": {
         "service": "backend"
       }
     },
     {
-      "source": "/iteration2",
+      "source": "/iteration3",
       "destination": {
         "service": "frontend"
       }
     },
     {
-      "source": "/iteration2/:path*",
+      "source": "/iteration3/:path*",
       "destination": {
         "service": "frontend"
+      }
+    },
+    {
+      "source": "/iteration2",
+      "destination": "https://sipaware-au-iteration2.vercel.app/iteration2"
+    },
+    {
+      "source": "/iteration2/:path*",
+      "destination": "https://sipaware-au-iteration2.vercel.app/iteration2/:path*"
+    },
+    {
+      "source": "/iteration:iteration(\\d+)/:path*",
+      "destination": {
+        "service": "backend"
       }
     },
     {
       "source": "/:path*",
-      "destination": "https://sipaware-au-stable-e049609-claway.vercel.app/:path*"
+      "destination": "https://sipaware-au-iteration2.vercel.app/iteration2/:path*"
     }
   ],
   "proxy": {

@@ -6,15 +6,15 @@ afterEach(() => { vi.unstubAllEnvs(); vi.resetModules() })
 describe('release API namespace', () => {
   it('uses its build prefix in production, ignoring a development origin', async () => {
     vi.stubEnv('DEV', false)
-    vi.stubEnv('BASE_URL', '/iteration2/')
+    vi.stubEnv('BASE_URL', '/iteration3/')
     vi.stubEnv('VITE_API_BASE_URL', 'http://localhost:8000')
     const { buildApiUrl } = await import('../../../../frontend/src/services/apiBaseUrl')
-    expect(buildApiUrl('/api/drinks/catalog?q=brasserie&offset=24')).toBe('/iteration2/api/drinks/catalog?q=brasserie&offset=24')
+    expect(buildApiUrl('/api/drinks/catalog?q=brasserie&offset=24')).toBe('/iteration3/api/drinks/catalog?q=brasserie&offset=24')
   })
 
   it('allows an explicit standalone API origin only in development', async () => {
     vi.stubEnv('DEV', true)
-    vi.stubEnv('BASE_URL', '/iteration2/')
+    vi.stubEnv('BASE_URL', '/iteration3/')
     vi.stubEnv('VITE_API_BASE_URL', 'http://localhost:8000/')
     const { buildApiUrl } = await import('../../../../frontend/src/services/apiBaseUrl')
     expect(buildApiUrl('/api/health')).toBe('http://localhost:8000/api/health')
@@ -22,9 +22,9 @@ describe('release API namespace', () => {
 
   it('uses same-origin iteration API for development without an override', async () => {
     vi.stubEnv('DEV', true)
-    vi.stubEnv('BASE_URL', '/iteration2/')
+    vi.stubEnv('BASE_URL', '/iteration3/')
     vi.stubEnv('VITE_API_BASE_URL', '')
     const { buildApiUrl } = await import('../../../../frontend/src/services/apiBaseUrl')
-    expect(buildApiUrl('/api/health')).toBe('/iteration2/api/health')
+    expect(buildApiUrl('/api/health')).toBe('/iteration3/api/health')
   })
 })

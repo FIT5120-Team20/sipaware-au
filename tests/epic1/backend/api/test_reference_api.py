@@ -79,7 +79,7 @@ def sample_response() -> DrinkOptionsResponse:
     )
 
 
-@pytest.mark.parametrize("prefix", ["", "/iteration2"])
+@pytest.mark.parametrize("prefix", ["", "/iteration3"])
 def test_drink_options_endpoint_returns_camel_case_dto_and_cache_header(prefix: str) -> None:
     class SuccessfulRepository:
         def fetch_drink_options(self) -> DrinkOptionsResponse:

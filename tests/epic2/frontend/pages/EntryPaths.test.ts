@@ -6,18 +6,18 @@ afterEach(() => window.history.replaceState({}, '', '/'))
 
 describe('standalone and active iteration navigation', () => {
   it('recognizes root and the exact active mount, without claiming future releases', () => {
-    for (const root of ['', '/iteration2']) {
+    for (const root of ['', '/iteration3']) {
       expect(applicationPath(root || '/')).toBe('/')
       expect(applicationPath(root + '/')).toBe('/')
       expect(applicationPath(root + '/record')).toBe('/record')
       expect(applicationPath(root + '/alcohol-guidelines')).toBe('/alcohol-guidelines')
     }
-    for (const unknown of ['/iteration1', '/iteration1/record', '/iteration20', '/iteration2-other', '/iteration3', '/iteration3/record']) {
+    for (const unknown of ['/iteration1', '/iteration1/record', '/iteration30', '/iteration3-other', '/iteration2', '/iteration2/record']) {
       expect(applicationPath(unknown)).toBe(unknown)
     }
   })
 
-  it.each(['', '/iteration2'])('keeps navigation, query and hash in entry %s', (mount) => {
+  it.each(['', '/iteration3'])('keeps navigation, query and hash in entry %s', (mount) => {
     window.history.replaceState({}, '', mount + '/record')
     expect(applicationHref('/')).toBe(mount || '/')
     expect(applicationHref('/record?record=synthetic-id')).toBe(mount + '/record?record=synthetic-id')
@@ -26,8 +26,8 @@ describe('standalone and active iteration navigation', () => {
   })
 
   it('does not rewrite API, assets, external sources or already mounted links', () => {
-    window.history.replaceState({}, '', '/iteration2')
-    for (const url of ['/api/reference/drink-options', '/reference-ui/home-ageing.svg', 'https://example.com/source', '//example.com/source', '#ALCOHOL_AGEING', '/iteration2/record']) {
+    window.history.replaceState({}, '', '/iteration3')
+    for (const url of ['/api/reference/drink-options', '/reference-ui/home-ageing.svg', 'https://example.com/source', '//example.com/source', '#ALCOHOL_AGEING', '/iteration3/record']) {
       expect(applicationHref(url)).toBe(url)
     }
   })

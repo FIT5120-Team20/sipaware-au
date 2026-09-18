@@ -5,7 +5,7 @@
  * completed iterations must never become aliases of this moving application.
  */
 export const RECORD_HOME_EVENT = 'sipaware:record-home'
-const ENTRY_PATH = '/iteration2'
+const ENTRY_PATH = '/iteration3'
 const LIVE_MOUNTS = [ENTRY_PATH]
 const APP_ROUTES = new Set(['/', '/record', '/trends', '/alcohol-guidelines'])
 

@@ -37,7 +37,7 @@ OCR_BACKEND_PID=$!
 (cd frontend && exec node node_modules/vite/bin/vite.js --host 127.0.0.1) \
   > .local/ocr-demo/frontend.log 2>&1 &
 OCR_FRONTEND_PID=$!
-printf '%s\n' 'OCR demo: http://127.0.0.1:5173/iteration2/record' \
+printf '%s\n' 'OCR demo: http://127.0.0.1:5173/iteration3/record' \
   'Choose Record Manually, then Scan Label. First use loads the CPU model.' \
   'Logs: .local/ocr-demo/backend.log and frontend.log. Ctrl-C stops both services.'
 while kill -0 "$OCR_BACKEND_PID" 2>/dev/null && kill -0 "$OCR_FRONTEND_PID" 2>/dev/null; do sleep 1; done

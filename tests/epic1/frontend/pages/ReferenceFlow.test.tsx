@@ -31,7 +31,7 @@ describe('reference flow boundaries', () => {
     await expect(new IndexedDbDrinkingRecordRepository().list()).resolves.toEqual([])
   })
   it('shows the committed result, then opens History on Done without another write', async () => {
-    window.history.replaceState({}, '', '/iteration2/record')
+    window.history.replaceState({}, '', '/iteration3/record')
     const repository = new IndexedDbDrinkingRecordRepository()
     const stamp=new Date().toISOString()
     await repository.add({id:'newer-existing',drinkType:'beer',drinkName:'Newer existing',servingVolumeMl:330,abvPercent:5,amountConsumed:20,consumedAt:stamp,consumedTimezoneOffsetMinutes:0,createdAt:stamp})
@@ -41,7 +41,7 @@ describe('reference flow boundaries', () => {
     fireEvent.click(screen.getByRole('button',{name:'Record Drink'}))
     // main's accepted flow shows the committed result before explicit Done navigation.
     await screen.findByRole('heading',{name:'Drink recorded'})
-    expect(window.location.pathname).toBe('/iteration2/record')
+    expect(window.location.pathname).toBe('/iteration3/record')
     const committed = await repository.list()
     const saved = committed.find(record => record.drinkName === 'Synthetic flow drink')
     expect(saved).toBeDefined()
@@ -53,7 +53,7 @@ describe('reference flow boundaries', () => {
     await expect(repository.list()).resolves.toEqual(committed)
     fireEvent.click(screen.getByRole('button',{name:'Done'}))
     await screen.findByRole('heading',{name:'History & Trends'})
-    expect(window.location.pathname).toBe('/iteration2/trends')
+    expect(window.location.pathname).toBe('/iteration3/trends')
     expect(window.location.hash).toBe('#history')
     expect(screen.getByRole('button',{name:'History'})).toHaveAttribute('aria-current','page')
     expect(screen.getByText('Synthetic flow drink')).toBeInTheDocument()

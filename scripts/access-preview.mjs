@@ -35,7 +35,7 @@ createServer(async (req, res) => {
     }
     response ||= await accessGate(request);
     if (!response) {
-      const origin = /^\/iteration2(?:\/|$)/.test(url.pathname) ? active : stable;
+      const origin = /^\/iteration3(?:\/|$)/.test(url.pathname) ? active : stable;
       const headers = new Headers(request.headers);
       for (const h of ['host', 'cookie', 'authorization', 'connection']) headers.delete(h);
       headers.set('accept-encoding', 'identity');
