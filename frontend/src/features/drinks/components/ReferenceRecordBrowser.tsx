@@ -5,7 +5,8 @@
  * comes from the public read-only API. Personal templates and prototype samples
  * never fill catalog results. SavedDrink cards render only under My Drinks.
  */
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
+import { RECORD_HOME_EVENT } from '../../../app/entryPaths'
 import { CatalogResults } from './CatalogResults'
 import type { CatalogCategory, CatalogProduct } from '../catalog/catalogApi'
 import { ReferenceDialog } from './ReferenceDialog'
@@ -69,7 +70,14 @@ export function ReferenceRecordBrowser({ savedDrinks, onScan, onManual, onProduc
 }) {
   const [category, setCategory] = useState<string>('All')
   const [query, setQuery] = useState('')
-  const [showHelp, setShowHelp] = useState(false)
+  const [showHelp, setShowHelp] = useState(true)
+  // This browser stays mounted during recording. Only explicit Record navigation
+  // reopens guidance; search, paging and Back to Record keep it dismissed.
+  useEffect(() => {
+    const showGuidance = () => setShowHelp(true)
+    window.addEventListener(RECORD_HOME_EVENT, showGuidance)
+    return () => window.removeEventListener(RECORD_HOME_EVENT, showGuidance)
+  }, [])
   const isMyDrinks = category === 'My Drinks'
   const filtered = isMyDrinks ? savedDrinks.filter(drink =>
     drink.drinkName.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())) : []

@@ -10,6 +10,7 @@ Text = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max
 class CatalogProduct(ReferenceModel):
     product_id: Text
     drink_name: Text
+    brand_name: Annotated[str, StringConstraints(strip_whitespace=True, max_length=1000)] | None = None
     drink_type: Literal["beer", "wine", "cider", "spirits", "rtd-premixed", "cocktail", "liqueur", "other"]
     volume_ml: float = Field(gt=0, le=100000, allow_inf_nan=False)
     abv_percent: float = Field(ge=0, le=100, allow_inf_nan=False)

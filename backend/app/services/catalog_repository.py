@@ -18,7 +18,7 @@ FILTER_SQL = """
 # Rank the full filtered catalog before LIMIT, then retain that order after the
 # source join. Ranking only a fetched page could hide exact matches on later pages.
 PAGE_SQL = """
- SELECT p.product_key AS product_id, p.product_name AS drink_name,
+ SELECT p.product_key AS product_id, p.product_name AS drink_name, p.brand_name,
         p.category_id, p.container_volume_ml AS volume_ml, p.abv_percent,
         s.source_name, s.source_url
  FROM (SELECT p.*,
