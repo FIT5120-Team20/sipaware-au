@@ -213,11 +213,38 @@ _ABV_PATTERNS = [
     re.compile(r"(?<![\d.,])" + _NUMBER + r"\s*%\s*vol\b", re.I),
 ]
 _VOLUME = re.compile(r"(?<![\d.,])([0-9]+(?:[.,][0-9]+)?)\s*(ml|cl|l)\b", re.I)
+_VOLUME_ABV_FALLBACK = re.compile(
+    r"(?<![\d.,])[0-9]+(?:[.,][0-9]+)?\s*(?:ml|cl|l)\s*[/|·•]\s*"
+    + _NUMBER + r"\s*%",
+    re.I,
+)
+_NON_ABV_PERCENT_CONTEXT = re.compile(
+    r"\b(?:sugar|juice|nutrition|energy|carbohydrates?|protein|fat|sodium|daily|serving)\b",
+    re.I,
+)
 _NOT_NAME = re.compile(
     r"\b(?:alc|alcohol|abv|vol|ml|cl|litres?|liters?|ingredients?|contains|"
     r"standard|drinks|servings?|nutrition|energy|sugar|protein|fat|sodium|"
     r"brewed|bottled|distributed|imported|warning|pregnan\w*|drink\s+responsibly|"
-    r"recycl\w*|www|https?|best\s+before|sample|not\s+for\s+sale)\b|%", re.I,
+    r"consumer\s+information|calorie\w*|recycl\w*|www|https?|best\s+before|"
+    r"sample|not\s+for\s+sale|australia|street|road|avenue|phone|telephone)\b|%", re.I,
+)
+_NAME_TOKEN = re.compile(r"[A-Za-z0-9][A-Za-z0-9'&.-]*")
+_PROSE_WORDS = {
+    "a", "an", "and", "as", "at", "by", "for", "from", "in", "is", "it", "of", "on",
+    "or", "our", "that", "the", "this", "to", "was", "were", "with", "your",
+}
+_COMPANY_ONLY = re.compile(
+    r"\b(?:wines?|winery|vineyards?|brewing|brewery|distillery|beverages?|company|co)\.?$", re.I,
+)
+_NAME_STYLES: tuple[tuple[str, ...], ...] = (
+    ("cabernet", "sauvignon"), ("hard", "seltzer"), ("pale", "ale"),
+    ("pinot", "grigio"), ("pinot", "noir"), ("sauvignon", "blanc"),
+    ("beer",), ("lager",), ("ale",), ("ipa",), ("stout",), ("pilsner",), ("porter",),
+    ("wine",), ("shiraz",), ("chardonnay",), ("merlot",), ("cabernet",), ("pinot",),
+    ("riesling",), ("prosecco",), ("sauvignon",), ("cider",), ("vodka",), ("gin",),
+    ("whisky",), ("whiskey",), ("rum",), ("tequila",), ("brandy",), ("liqueur",),
+    ("cocktail",),
 )
 _TYPE_WORDS = {
     "beer": r"\b(?:beer|lager|ale|ipa|stout|pilsner|porter)\b",
@@ -230,14 +257,120 @@ _TYPE_WORDS = {
 }
 
 
+def _token_value(token: str) -> str:
+    return token.strip(".'-").lower()
+
+
+def _one_edit_apart(value: str, expected: str) -> bool:
+    """Accept a single OCR insertion/deletion/substitution in longer style words."""
+    if value == expected:
+        return True
+    if min(len(value), len(expected)) < 5 or abs(len(value) - len(expected)) > 1:
+        return False
+    if len(value) == len(expected):
+        return sum(left != right for left, right in zip(value, expected, strict=True)) == 1
+    shorter, longer = (value, expected) if len(value) < len(expected) else (expected, value)
+    for index in range(len(longer)):
+        if longer[:index] + longer[index + 1:] == shorter:
+            return True
+    return False
+
+
+def _style_at(tokens: list[str], index: int) -> tuple[int, tuple[str, ...], bool] | None:
+    for style in _NAME_STYLES:
+        end = index + len(style)
+        if end > len(tokens):
+            continue
+        values = tuple(_token_value(token) for token in tokens[index:end])
+        if values == style:
+            return end, style, False
+        if len(style) == 1 and _one_edit_apart(values[0], style[0]):
+            return end, style, True
+    return None
+
+
+def _title_token(token: str) -> bool:
+    value = token.strip(".'-")
+    if not value or value.lower() in _PROSE_WORDS:
+        return False
+    if value.isdigit():
+        return True
+    return value.isupper() or (value[0].isupper() and any(char.isalpha() for char in value))
+
+
+def _product_name_in_line(text: str) -> tuple[str, bool] | None:
+    """Find a title-like product phrase ending in a beverage style word."""
+    tokens = _NAME_TOKEN.findall(text)
+    for index in range(len(tokens)):
+        match = _style_at(tokens, index)
+        if match is None:
+            continue
+        end, canonical_style, corrected = match
+        start = index
+        while start > 0 and index - start < 4 and _title_token(tokens[start - 1]):
+            start -= 1
+        if start == index:
+            continue
+        candidate_tokens = tokens[start:index]
+        candidate_tokens.extend(
+            canonical.title() if corrected else original.strip(".'-")
+            for original, canonical in zip(tokens[index:end], canonical_style, strict=True)
+        )
+        return " ".join(candidate_tokens), start == 0 and end == len(tokens)
+    return None
+
+
+def _title_line(text: str, *, allow_company: bool = False) -> bool:
+    if _NOT_NAME.search(text) or _VOLUME.search(text) or re.search(r"[!?;:]|\.\s", text):
+        return False
+    tokens = _NAME_TOKEN.findall(text)
+    if not 1 <= len(tokens) <= 6 or sum(char.isalpha() for char in text) < 3:
+        return False
+    if any(_token_value(token) in _PROSE_WORDS for token in tokens):
+        return False
+    titled = sum(_title_token(token) for token in tokens)
+    if titled / len(tokens) < 0.75:
+        return False
+    return allow_company or not _COMPANY_ONLY.search(text.strip())
+
+
+def _suggest_drink_name(lines: list[OcrLine]) -> str | None:
+    for index, line in enumerate(lines):
+        product = _product_name_in_line(line.text)
+        if product is None:
+            continue
+        candidate, whole_line = product
+        if whole_line and index > 0 and _title_line(lines[index - 1].text, allow_company=True):
+            candidate = f"{lines[index - 1].text.strip()} {candidate}"
+        return candidate[:200]
+
+    candidates = [line for line in lines if _title_line(line.text)]
+    if not candidates:
+        return None
+    height = max(line.box[3] - line.box[1] for line in candidates)
+    prominent = [line for line in candidates if line.box[3] - line.box[1] >= height * 0.55]
+    prominent = sorted(prominent, key=lambda line: (line.box[1], line.box[0]))[:2]
+    return " ".join(dict.fromkeys(line.text.strip() for line in prominent))[:200]
+
+
 def extract_fields(lines: list[OcrLine]) -> DrinkLabelResult:
     """Rules do not infer unseen label values or use product databases."""
     usable = [line for line in lines if line.confidence >= MIN_TEXT_SCORE]
     abvs: set[float] = set()
     volumes: set[float] = set()
     for line in usable:
+        matched_explicit_abv = False
         for pattern in _ABV_PATTERNS:
             for match in pattern.finditer(line.text):
+                value = float(match[1].replace(",", "."))
+                if 0 <= value <= 100:
+                    abvs.add(value)
+                    matched_explicit_abv = True
+        # OCR may preserve the number and percent sign while corrupting ALC/VOL,
+        # for example "355mL/4.0%cm". Only accept the bare percentage when its
+        # layout still pairs it with a container volume and it is not nutrition.
+        if not matched_explicit_abv and not _NON_ABV_PERCENT_CONTEXT.search(line.text):
+            for match in _VOLUME_ABV_FALLBACK.finditer(line.text):
                 value = float(match[1].replace(",", "."))
                 if 0 <= value <= 100:
                     abvs.add(value)
@@ -262,14 +395,8 @@ def extract_fields(lines: list[OcrLine]) -> DrinkLabelResult:
     kinds = [kind for kind, pattern in _TYPE_WORDS.items() if re.search(pattern, all_text, re.I)]
     if len(kinds) == 1:
         fields.drinkType = kinds[0]
-    name_lines = [line for line in usable if len(line.text) <= 100
-                  and sum(char.isalpha() for char in line.text) >= 3
-                  and not _NOT_NAME.search(line.text) and not _VOLUME.search(line.text)]
-    if name_lines:
-        height = max(line.box[3] - line.box[1] for line in name_lines)
-        prominent = [line for line in name_lines if line.box[3] - line.box[1] >= height * 0.55]
-        prominent = sorted(prominent, key=lambda line: (line.box[1], line.box[0]))[:3]
-        fields.drinkName = " ".join(dict.fromkeys(line.text.strip() for line in prominent))[:200]
+    fields.drinkName = _suggest_drink_name(usable)
+    if fields.drinkName:
         notes.append("The drink name is a suggestion from prominent text. Check it against the label.")
     if not usable:
         notes.append("No clear text was found. Try a closer, well-lit photo or enter the details manually.")

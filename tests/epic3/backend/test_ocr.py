@@ -27,6 +27,50 @@ def test_label_fields_come_from_visible_text_not_catalog():
         drinkType="beer", containerVolumeMl=375, abvPercent=4.5)
 
 
+def test_back_label_prose_does_not_become_the_drink_name():
+    result = ocr.extract_fields([
+        line("ce and segeness egration with French ation"),
+        line("and maturation. Penfolds RWT Shiraz held", y=60),
+        line("as an impressive extension of the Penfolds", y=120),
+        line("PENFOLDS WINES", y=180),
+        line("PENFOLD ROAD MAGILL", y=240),
+        line("SA 5072 AUSTRALIA", y=300),
+        line("CONTAINS SULPHITES", y=360),
+        line("14.5% ALC/VOL", y=420),
+        line("WINE OF AUSTRALIA", y=480),
+        line("750mL", y=540),
+    ])
+    assert result.fields.model_dump() == dict(
+        drinkName="Penfolds RWT Shiraz", drinkType="wine",
+        containerVolumeMl=750, abvPercent=14.5,
+    )
+
+
+def test_single_character_style_ocr_error_is_corrected_only_inside_title_phrase():
+    result = ocr.extract_fields([
+        line("and maturation. Penfolds RWT Shira held"),
+        line("this shira should be carefully cellared", y=60),
+    ])
+    assert result.fields.drinkName == "Penfolds RWT Shiraz"
+
+
+def test_plain_description_is_not_used_as_a_drink_name():
+    result = ocr.extract_fields([
+        line("This wine should be carefully cellared before being served."),
+        line("A generous expression with French oak and maturation.", y=60),
+    ])
+    assert result.fields.drinkName is None
+
+
+def test_company_name_and_metadata_alone_are_not_used_as_product_name():
+    result = ocr.extract_fields([
+        line("PENFOLDS WINES"),
+        line("PENFOLD ROAD MAGILL", y=60),
+        line("WINE OF AUSTRALIA", y=120),
+    ])
+    assert result.fields.drinkName is None
+
+
 @pytest.mark.parametrize("text,expected", [("0.75 L", 750), ("75 cL", 750), ("6 x 330mL", 330)])
 def test_metric_volume_normalization(text, expected):
     assert ocr.extract_fields([line(text)]).fields.containerVolumeMl == expected
@@ -35,6 +79,18 @@ def test_metric_volume_normalization(text, expected):
 @pytest.mark.parametrize("text,expected", [("ABV: 4.5%", 4.5), ("ALC. 13,5% VOL", 13.5), ("0.0% ABV", 0)])
 def test_abv_formats(text, expected):
     assert ocr.extract_fields([line(text)]).fields.abvPercent == expected
+
+
+@pytest.mark.parametrize("text", ["355mL/4.0%cm", "355 mL | 4.0%", "355mL · 4,0%cl"])
+def test_abv_survives_corrupted_suffix_when_paired_with_container_volume(text):
+    result = ocr.extract_fields([line(text)])
+    assert result.fields.containerVolumeMl == 355
+    assert result.fields.abvPercent == 4.0
+
+
+@pytest.mark.parametrize("text", ["3% sugar", "355mL / 3% sugar", "PER 100mL | 4% daily"])
+def test_bare_nutrition_percent_is_not_used_as_abv(text):
+    assert ocr.extract_fields([line(text)]).fields.abvPercent is None
 
 
 def test_ambiguous_low_confidence_and_nutrition_numbers_are_not_prefilled():
