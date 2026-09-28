@@ -72,17 +72,51 @@ export async function scanDrinkLabel(file: File, signal: AbortSignal): Promise<L
   }
 }
 
-/** Preserve all occasion fields and user-entered values, including numeric zero. */
-export function prefillLabelFields(current: ManualDrinkFormValues, result: LabelOcrResult): ManualDrinkFormValues {
+function canReplaceText(current: string, previous: string | number | null | undefined): boolean {
+  return current.trim() === '' || (previous !== null && previous !== undefined && current === String(previous))
+}
+
+function canReplaceVolume(current: ManualDrinkFormValues, previous: number | null | undefined): boolean {
+  const empty = (!current.servingSizeSelection || current.servingSizeSelection === CUSTOM_SERVING_SIZE) &&
+    current.customVolumeMl.trim() === ''
+  const stillPreviousOcr = previous !== null && previous !== undefined &&
+    current.servingSizeSelection === CUSTOM_SERVING_SIZE && current.customVolumeMl === String(previous)
+  return empty || stillPreviousOcr
+}
+
+/** Preserve occasion fields and manual edits while replacing unchanged suggestions on a later scan. */
+export function prefillLabelFields(current: ManualDrinkFormValues, result: LabelOcrResult,
+  previousResult: LabelOcrResult | null = null): ManualDrinkFormValues {
   const { fields } = result
   const next = { ...current }
-  if (!current.drinkName.trim() && fields.drinkName) next.drinkName = fields.drinkName
-  if (!current.drinkType && fields.drinkType) next.drinkType = fields.drinkType
-  if (!current.abvPercent.trim() && fields.abvPercent !== null) next.abvPercent = String(fields.abvPercent)
-  if ((!current.servingSizeSelection || current.servingSizeSelection === CUSTOM_SERVING_SIZE) &&
-    !current.customVolumeMl.trim() && fields.containerVolumeMl !== null) {
-    next.servingSizeSelection = CUSTOM_SERVING_SIZE
-    next.customVolumeMl = String(fields.containerVolumeMl)
+
+  if (previousResult === null) {
+    if (!current.drinkName.trim() && fields.drinkName) next.drinkName = fields.drinkName
+    if (!current.drinkType && fields.drinkType) next.drinkType = fields.drinkType
+    if (!current.abvPercent.trim() && fields.abvPercent !== null) next.abvPercent = String(fields.abvPercent)
+    if (canReplaceVolume(current, null) && fields.containerVolumeMl !== null) {
+      next.servingSizeSelection = CUSTOM_SERVING_SIZE
+      next.customVolumeMl = String(fields.containerVolumeMl)
+    }
+    return next
+  }
+
+  const previous = previousResult.fields
+
+  if (canReplaceText(current.drinkName, previous.drinkName)) {
+    next.drinkName = fields.drinkName ?? ''
+  }
+  if (canReplaceText(current.abvPercent, previous.abvPercent)) {
+    next.abvPercent = fields.abvPercent === null ? '' : String(fields.abvPercent)
+  }
+
+  // Type and volume form one dependent choice. Replace them together only
+  // while neither has been changed since the previous OCR suggestion.
+  if (canReplaceText(current.drinkType, previous.drinkType) &&
+    canReplaceVolume(current, previous.containerVolumeMl)) {
+    next.drinkType = fields.drinkType ?? ''
+    next.servingSizeSelection = fields.containerVolumeMl === null ? '' : CUSTOM_SERVING_SIZE
+    next.customVolumeMl = fields.containerVolumeMl === null ? '' : String(fields.containerVolumeMl)
   }
   return next
 }
