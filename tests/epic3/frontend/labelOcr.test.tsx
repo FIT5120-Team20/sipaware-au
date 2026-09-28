@@ -10,6 +10,11 @@ const result: LabelOcrResult = {
   lines: [{ text: 'DEMO PALE ALE', confidence: 0.95, box: [0, 0, 100, 40] }],
   warnings: ['Check the container volume against your serving size.'], elapsedMs: 1500,
 }
+const secondResult: LabelOcrResult = {
+  fields: { drinkName: 'SECOND TEST WINE', drinkType: 'wine', containerVolumeMl: 750, abvPercent: 13.5 },
+  lines: [{ text: 'SECOND TEST WINE', confidence: 0.97, box: [0, 0, 100, 40] }],
+  warnings: [], elapsedMs: 900,
+}
 const file = () => new File(['synthetic test image'], 'label.png', { type: 'image/png' })
 const draft = { drinkType: '' as const, drinkName: '', servingSizeSelection: '', customVolumeMl: '',
   abvPercent: '', amountConsumed: '1.5', date: '2026-09-08', time: '20:10' }
@@ -47,6 +52,34 @@ describe('label OCR form integration', () => {
     expect(view.onSave).not.toHaveBeenCalled()
     expect(view.onSaveSavedDrink).not.toHaveBeenCalled()
     expect(fetch).toHaveBeenCalledWith('/api/ocr/drink-label', expect.objectContaining({ method: 'POST', body: expect.any(File), credentials: 'same-origin' }))
+  })
+  it('replaces unchanged OCR suggestions when another label is scanned', async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(new Response(JSON.stringify(result)))
+      .mockResolvedValueOnce(new Response(JSON.stringify(secondResult)))
+    open(); upload()
+    await waitFor(() => expect(screen.getByLabelText('Drink name')).toHaveValue('DEMO PALE ALE'))
+    upload()
+    await waitFor(() => expect(screen.getByLabelText('Drink name')).toHaveValue('SECOND TEST WINE'))
+    expect(screen.getByLabelText('Drink name')).toHaveValue('SECOND TEST WINE')
+    expect(screen.getByLabelText('Drink type')).toHaveValue('wine')
+    expect(screen.getByLabelText('Custom volume (mL)')).toHaveValue(750)
+    expect(screen.getByLabelText('ABV (%)')).toHaveValue(13.5)
+  })
+  it('keeps fields edited by the user while updating other OCR suggestions', async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(new Response(JSON.stringify(result)))
+      .mockResolvedValueOnce(new Response(JSON.stringify(secondResult)))
+    open(); upload()
+    await waitFor(() => expect(screen.getByLabelText('Drink name')).toHaveValue('DEMO PALE ALE'))
+    fireEvent.change(screen.getByLabelText('Drink name'), { target: { value: 'My corrected name' } })
+    fireEvent.change(screen.getByLabelText('ABV (%)'), { target: { value: '6.2' } })
+    upload()
+    await waitFor(() => expect(screen.getByText('Suggested name').nextElementSibling).toHaveTextContent('SECOND TEST WINE'))
+    expect(screen.getByLabelText('Drink name')).toHaveValue('My corrected name')
+    expect(screen.getByLabelText('ABV (%)')).toHaveValue(6.2)
+    expect(screen.getByLabelText('Drink type')).toHaveValue('wine')
+    expect(screen.getByLabelText('Custom volume (mL)')).toHaveValue(750)
   })
   it('keeps values typed during an in-flight scan', async () => {
     let complete!: (value: Response) => void
@@ -92,8 +125,23 @@ it('preserves existing values and all occasion fields, including zero', () => {
   expect(prefillLabelFields(input, result)).toEqual(input)
   expect(prefillLabelFields(draft, result)).toMatchObject({ amountConsumed: '1.5', date: draft.date, time: draft.time })
 })
+it('keeps an existing type while filling other empty fields on the first scan', () => {
+  const input = { ...draft, drinkType: 'beer' as const }
+  expect(prefillLabelFields(input, result)).toMatchObject({
+    drinkType: 'beer', drinkName: 'DEMO PALE ALE', servingSizeSelection: 'custom',
+    customVolumeMl: '375', abvPercent: '4.5',
+  })
+})
 it('does not fill missing or ambiguous fields', () => {
   expect(prefillLabelFields(draft, { ...result, fields: { drinkName: null, drinkType: null, containerVolumeMl: null, abvPercent: null } })).toEqual(draft)
+})
+it('replaces values from the previous OCR result without changing occasion fields', () => {
+  const first = prefillLabelFields(draft, result)
+  expect(prefillLabelFields(first, secondResult, result)).toEqual({
+    ...first,
+    drinkName: 'SECOND TEST WINE', drinkType: 'wine', servingSizeSelection: 'custom',
+    customVolumeMl: '750', abvPercent: '13.5',
+  })
 })
 it('rejects malformed responses and unsupported uploads', async () => {
   expect(() => validateLabelResult({ ...result, fields: { ...result.fields, abvPercent: 110 } })).toThrow()

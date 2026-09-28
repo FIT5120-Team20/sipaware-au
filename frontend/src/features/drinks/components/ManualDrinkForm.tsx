@@ -175,6 +175,7 @@ export function ManualDrinkForm({
   const [recordSource, setRecordSource] = useState<'manual' | 'database'>('manual')
   const [barcodeOpen, setBarcodeOpen] = useState(false)
   const [labelScanKey, setLabelScanKey] = useState(0)
+  const previousLabelResult = useRef<LabelOcrResult | null>(null)
   const [captureView, setCaptureView] = useState<'browse' | 'manual'>(startInBrowse ? 'browse' : 'manual')
   const [showManualReferenceStatus, setShowManualReferenceStatus] = useState(false)
 
@@ -222,6 +223,7 @@ export function ManualDrinkForm({
 
     setBarcodeOpen(false)
     setLabelScanKey(key => key + 1)
+    previousLabelResult.current = null
     setShowManualReferenceStatus(false)
   }, [setSaveTemplateWithRecord])
   useEffect(() => {
@@ -501,7 +503,9 @@ export function ManualDrinkForm({
   }
 
   function handleLabelResult(result: LabelOcrResult) {
-    setValues(current => prefillLabelFields(current, result))
+    const previous = previousLabelResult.current
+    previousLabelResult.current = result
+    setValues(current => prefillLabelFields(current, result, previous))
     // OCR is user-reviewed manual entry, never a database product identity.
     setRecordSource('manual')
     clearErrors(...REUSABLE_DRINK_FIELDS)
