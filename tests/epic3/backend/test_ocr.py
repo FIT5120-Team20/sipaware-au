@@ -1,18 +1,17 @@
-"""Rule/API contract checks; the separate demo script uses the actual CPU model."""
+"""Drink-label extraction, API contract, and Baidu transport checks."""
 
 import asyncio
+import base64
 
 import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from app.main import app
 from app.api import ocr as api
+from app.main import app
 from app.schemas.ocr import DrinkLabelResult, OcrLine
-from app.services import ocr, ocr_proxy
+from app.services import ocr
 
-
-OCR_HEADER_NAME = "X-Sipaware-Ocr-Token"
 
 def line(text, confidence=0.99, y=0, height=40):
     return OcrLine(text=text, confidence=confidence, box=[0, y, 500, y + height])
@@ -55,12 +54,16 @@ def test_empty_output_keeps_fields_empty():
     assert result.warnings
 
 
+@pytest.fixture(autouse=True)
+def isolated_baidu_configuration(monkeypatch, tmp_path):
+    monkeypatch.setattr(ocr, "_token_cache", None)
+    monkeypatch.setattr(ocr, "LOCAL_ENV_FILE", tmp_path / "missing.env")
+
+
 @pytest.fixture
 def client(monkeypatch):
-    monkeypatch.setenv("SIPAWARE_OCR_ENABLED", "1")
-    monkeypatch.delenv("SIPAWARE_OCR_UPSTREAM_URL", raising=False)
-    monkeypatch.delenv("SIPAWARE_OCR_REQUIRE_TOKEN", raising=False)
-    monkeypatch.delenv("SIPAWARE_OCR_SHARED_SECRET", raising=False)
+    monkeypatch.setenv("BAIDU_OCR_API_KEY", "test-api-key")
+    monkeypatch.setenv("BAIDU_OCR_SECRET_KEY", "test-secret-key")
     with TestClient(app) as value:
         yield value
 
@@ -69,9 +72,11 @@ def client(monkeypatch):
 def test_api_accepts_only_image_body_and_returns_no_store(client, monkeypatch, prefix):
     seen = []
     result = ocr.extract_fields([line("375mL"), line("5% ABV")])
-    def recognize(content):
+
+    async def recognize(content):
         seen.append(content)
         return result
+
     monkeypatch.setattr(api, "recognize_label", recognize)
     response = client.post(prefix + "/api/ocr/drink-label", content=b"synthetic pixels",
                            headers={"Content-Type": "image/png"})
@@ -82,111 +87,132 @@ def test_api_accepts_only_image_body_and_returns_no_store(client, monkeypatch, p
 
 
 @pytest.mark.parametrize("body,media,status", [(b"url", "application/json", 415), (b"", "image/png", 400)])
-def test_invalid_uploads_never_invoke_model(client, monkeypatch, body, media, status):
-    monkeypatch.setattr(api, "recognize_label", lambda _: pytest.fail("Unexpected inference"))
+def test_invalid_uploads_never_invoke_provider(client, monkeypatch, body, media, status):
+    async def unexpected(_):
+        pytest.fail("Unexpected provider request")
+
+    monkeypatch.setattr(api, "recognize_label", unexpected)
     assert client.post("/api/ocr/drink-label", content=body, headers={"Content-Type": media}).status_code == status
 
 
-def test_oversize_upload_is_rejected_before_inference(client, monkeypatch):
+def test_oversize_upload_is_rejected_before_provider_request(client, monkeypatch):
+    async def unexpected(_):
+        pytest.fail("Unexpected provider request")
+
     monkeypatch.setattr(api, "MAX_IMAGE_BYTES", 3)
-    monkeypatch.setattr(api, "recognize_label", lambda _: pytest.fail("Unexpected inference"))
+    monkeypatch.setattr(api, "recognize_label", unexpected)
     assert client.post("/api/ocr/drink-label", content=b"1234", headers={"Content-Type": "image/png"}).status_code == 413
 
 
 def test_service_errors_do_not_expose_internal_paths(client, monkeypatch):
-    def unavailable(_):
+    async def unavailable(_):
         raise RuntimeError("/private/fixture_value")
+
     monkeypatch.setattr(api, "recognize_label", unavailable)
     response = client.post("/api/ocr/drink-label", content=b"x", headers={"Content-Type": "image/png"})
     assert response.status_code == 500 and "fixture_value" not in response.text
 
 
-def test_disabled_without_loading_paddle(client, monkeypatch):
-    monkeypatch.delenv("SIPAWARE_OCR_ENABLED")
-    assert client.post("/api/ocr/drink-label", content=b"x", headers={"Content-Type": "image/png"}).status_code == 503
+def test_missing_baidu_credentials_returns_503(client, monkeypatch):
+    monkeypatch.delenv("BAIDU_OCR_API_KEY")
+    monkeypatch.delenv("BAIDU_OCR_SECRET_KEY")
+    response = client.post("/api/ocr/drink-label", content=b"x", headers={"Content-Type": "image/png"})
+    assert response.status_code == 503
+    assert "not configured" in response.json()["detail"]
 
 
-def test_vercel_proxy_mode_does_not_load_local_model(client, monkeypatch):
-    seen = []
-    monkeypatch.delenv("SIPAWARE_OCR_ENABLED")
-    monkeypatch.setenv("SIPAWARE_OCR_UPSTREAM_URL", "https://demo.trycloudflare.com")
-    monkeypatch.setenv("SIPAWARE_OCR_SHARED_SECRET", "a" * 64)
+class FakeBaiduClient:
+    responses = []
+    calls = []
 
-    async def forward(content, content_type):
-        seen.append((content, content_type))
-        return ocr.extract_fields([line("SHIRAZ"), line("750mL"), line("14% ABV")])
+    def __init__(self, **options):
+        self.options = options
 
-    monkeypatch.setattr(api, "proxy_label", forward)
-    monkeypatch.setattr(api, "recognize_label", lambda _: pytest.fail("Unexpected local inference"))
-    response = client.post("/api/ocr/drink-label", content=b"photo",
-                           headers={"Content-Type": "image/jpeg"})
-    assert response.status_code == 200
-    assert response.json()["fields"]["drinkType"] == "wine"
-    assert seen == [(b"photo", "image/jpeg")]
+    async def __aenter__(self):
+        return self
 
+    async def __aexit__(self, *_args):
+        return None
 
-def test_tunnel_origin_requires_matching_secret(client, monkeypatch):
-    fixture_value = "correct-" + "x" * 40
-    monkeypatch.setenv("SIPAWARE_OCR_REQUIRE_TOKEN", "1")
-    monkeypatch.setenv("SIPAWARE_OCR_SHARED_SECRET", fixture_value)
-    monkeypatch.setattr(api, "recognize_label", lambda _: ocr.extract_fields([line("BEER")]))
-
-    missing = client.post("/api/ocr/drink-label", content=b"photo",
-                          headers={"Content-Type": "image/png"})
-    wrong = client.post("/api/ocr/drink-label", content=b"photo", headers={
-        "Content-Type": "image/png", OCR_HEADER_NAME: "wrong",
-    })
-    accepted = client.post("/api/ocr/drink-label", content=b"photo", headers={
-        "Content-Type": "image/png", OCR_HEADER_NAME: fixture_value,
-    })
-    assert missing.status_code == 401
-    assert wrong.status_code == 401
-    assert accepted.status_code == 200
+    async def post(self, url, **kwargs):
+        self.calls.append((url, kwargs))
+        payload = self.responses.pop(0)
+        return httpx.Response(200, json=payload, request=httpx.Request("POST", url))
 
 
-def test_proxy_uses_https_and_keeps_shared_secret_server_side(monkeypatch):
-    fixture_value = "proxy-" + "s" * 40
-    captured = {}
-    expected = ocr.extract_fields([line("PALE ALE"), line("375mL")])
-    monkeypatch.setenv("SIPAWARE_OCR_UPSTREAM_URL", "https://demo.trycloudflare.com")
-    monkeypatch.setenv("SIPAWARE_OCR_SHARED_SECRET", fixture_value)
-
-    class FakeClient:
-        def __init__(self, **options):
-            captured["options"] = options
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *_args):
-            return None
-
-        async def post(self, url, content, headers):
-            captured.update(url=url, content=content, headers=headers)
-            return httpx.Response(200, json=expected.model_dump(),
-                                  request=httpx.Request("POST", url))
-
-    monkeypatch.setattr(ocr_proxy.httpx, "AsyncClient", FakeClient)
-    result = asyncio.run(ocr_proxy.proxy_label(b"photo", "image/webp"))
-    assert result.fields.drinkType == "beer"
-    assert captured["url"] == "https://demo.trycloudflare.com/api/ocr/drink-label"
-    assert captured["content"] == b"photo"
-    assert captured["headers"][ocr_proxy.TOKEN_HEADER] == fixture_value
-    assert captured["headers"]["Content-Type"] == "image/webp"
+def install_fake_baidu(monkeypatch, *responses):
+    FakeBaiduClient.responses = list(responses)
+    FakeBaiduClient.calls = []
+    monkeypatch.setenv("BAIDU_OCR_API_KEY", "private-api-key")
+    monkeypatch.setenv("BAIDU_OCR_SECRET_KEY", "private-secret-key")
+    monkeypatch.setattr(ocr.httpx, "AsyncClient", FakeBaiduClient)
 
 
-def test_proxy_rejects_non_https_origin(monkeypatch):
-    monkeypatch.setenv("SIPAWARE_OCR_UPSTREAM_URL", "http://127.0.0.1:8010")
-    monkeypatch.setenv("SIPAWARE_OCR_SHARED_SECRET", "s" * 64)
-    with pytest.raises(ocr_proxy.OcrProxyError, match="URL is invalid"):
-        asyncio.run(ocr_proxy.proxy_label(b"photo", "image/png"))
+def baidu_lines():
+    return {"words_result": [
+        {"words": "DEMO PALE ALE", "probability": {"average": 0.98}},
+        {"words": "375 mL", "probability": {"average": 0.96}},
+        {"words": "4.5% ALC/VOL", "probability": {"average": 0.97}},
+    ]}
 
 
-def test_corrupt_image_is_rejected_without_loading_paddle(client, monkeypatch):
-    pytest.importorskip("PIL")
-    monkeypatch.setattr(ocr, "_load_pipeline", lambda: pytest.fail("Unexpected model load"))
-    response = client.post("/api/ocr/drink-label", content=b"not an image", headers={"Content-Type": "image/png"})
+def test_baidu_transport_keeps_credentials_server_side_and_parses_result(monkeypatch):
+    install_fake_baidu(monkeypatch,
+        {"access_token": "temporary-access-token", "expires_in": 2_592_000},
+        baidu_lines(),
+    )
+    result = asyncio.run(ocr.recognize_label(b"image bytes"))
+    assert result.fields.model_dump() == dict(
+        drinkName="DEMO PALE ALE", drinkType="beer", containerVolumeMl=375, abvPercent=4.5,
+    )
+    token_url, token_request = FakeBaiduClient.calls[0]
+    ocr_url, ocr_request = FakeBaiduClient.calls[1]
+    assert token_url == ocr.BAIDU_TOKEN_URL
+    assert "private-api-key" not in token_url and "private-secret-key" not in token_url
+    assert token_request["data"] == {
+        "grant_type": "client_credentials",
+        "client_id": "private-api-key",
+        "client_secret": "private-secret-key",
+    }
+    assert ocr_url == ocr.BAIDU_OCR_URL
+    assert ocr_request["params"] == {"access_token": "temporary-access-token"}
+    assert base64.b64decode(ocr_request["data"]["image"]) == b"image bytes"
+    assert ocr_request["data"]["probability"] == "true"
+
+
+def test_access_token_is_reused_within_its_lifetime(monkeypatch):
+    install_fake_baidu(monkeypatch,
+        {"access_token": "temporary-access-token", "expires_in": 2_592_000},
+        baidu_lines(), baidu_lines(),
+    )
+    asyncio.run(ocr.recognize_label(b"first"))
+    asyncio.run(ocr.recognize_label(b"second"))
+    assert [url for url, _ in FakeBaiduClient.calls].count(ocr.BAIDU_TOKEN_URL) == 1
+    assert [url for url, _ in FakeBaiduClient.calls].count(ocr.BAIDU_OCR_URL) == 2
+
+
+def test_expired_access_token_is_refreshed_once(monkeypatch):
+    install_fake_baidu(monkeypatch,
+        {"access_token": "expired-token", "expires_in": 2_592_000},
+        {"error_code": 110, "error_msg": "Access token invalid or no longer valid"},
+        {"access_token": "fresh-token", "expires_in": 2_592_000},
+        baidu_lines(),
+    )
+    result = asyncio.run(ocr.recognize_label(b"image"))
+    assert result.fields.abvPercent == 4.5
+    assert [url for url, _ in FakeBaiduClient.calls].count(ocr.BAIDU_TOKEN_URL) == 2
+    assert FakeBaiduClient.calls[-1][1]["params"] == {"access_token": "fresh-token"}
+
+
+def test_baidu_image_error_is_safe_422(client, monkeypatch):
+    install_fake_baidu(monkeypatch,
+        {"access_token": "temporary-access-token", "expires_in": 2_592_000},
+        {"error_code": 216201, "error_msg": "image format error"},
+    )
+    response = client.post("/api/ocr/drink-label", content=b"not an image",
+                           headers={"Content-Type": "image/png"})
     assert response.status_code == 422
+    assert "baidu" not in response.text.lower()
 
 
 def test_local_post_preflight(client):

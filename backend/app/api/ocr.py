@@ -1,17 +1,12 @@
-"""Bounded label upload for local inference or a protected remote origin."""
+"""Bounded label upload forwarded server-side to Baidu OCR."""
 
 import logging
 
 from fastapi import APIRouter, HTTPException, Request, Response
-from starlette.concurrency import run_in_threadpool
-
 from ..schemas.ocr import DrinkLabelResult
 from ..services.ocr import (
     MAX_IMAGE_BYTES, InvalidLabelImage, OcrBusy, OcrUnavailable,
-    recognize_label, require_enabled,
-)
-from ..services.ocr_proxy import (
-    OcrProxyError, proxy_label, require_origin_token, upstream_base_url,
+    recognize_label,
 )
 
 router = APIRouter(prefix="/api/ocr", tags=["label OCR"])
@@ -22,10 +17,6 @@ logger = logging.getLogger(__name__)
 async def scan_drink_label(request: Request, response: Response) -> DrinkLabelResult:
     response.headers["Cache-Control"] = "no-store"
     try:
-        upstream = upstream_base_url()
-        if upstream is None:
-            require_enabled()
-            require_origin_token(request.headers)
         content_type = request.headers.get("content-type", "").split(";")[0].lower()
         if content_type not in {
             "image/jpeg", "image/png", "image/webp",
@@ -39,15 +30,11 @@ async def scan_drink_label(request: Request, response: Response) -> DrinkLabelRe
             body.extend(chunk)
         if not body:
             raise HTTPException(400, "Choose a photo first.")
-        if upstream is not None:
-            return await proxy_label(bytes(body), content_type)
-        return await run_in_threadpool(recognize_label, bytes(body))
+        return await recognize_label(bytes(body))
     except InvalidLabelImage as exc:
         raise HTTPException(422, str(exc)) from exc
     except (OcrUnavailable, OcrBusy) as exc:
         raise HTTPException(503, str(exc), headers={"Cache-Control": "no-store"}) from exc
-    except OcrProxyError as exc:
-        raise HTTPException(exc.status_code, str(exc), headers={"Cache-Control": "no-store"}) from exc
     except HTTPException:
         raise
     except Exception as exc:

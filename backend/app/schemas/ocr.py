@@ -1,4 +1,4 @@
-"""OCR suggestions are editable evidence, never catalog identities."""
+"""Provider OCR suggestions are editable evidence, never catalog identities."""
 
 from typing import Literal
 
