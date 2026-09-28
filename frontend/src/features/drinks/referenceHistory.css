@@ -216,6 +216,59 @@
   gap: 14px;
 }
 
+.history-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 0;
+  border-top: 1px solid #E8E4DF;
+}
+
+.history-pagination p {
+  margin: 0;
+  color: #1C1C1A;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.history-pagination p span {
+  display: block;
+  margin-top: 4px;
+  color: #4A5260;
+  font-size: 16px;
+  font-weight: 400;
+}
+
+.history-pagination-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+.history-pagination button {
+  min-height: 48px;
+  min-width: 96px;
+  padding: 10px 16px;
+  border: 1px solid #1A5FCC;
+  border-radius: 12px;
+  color: #1A5FCC;
+  background: #FFFFFF;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.history-pagination button:disabled {
+  color: #647280;
+  border-color: #C8D5E6;
+  background: #F7F8FA;
+  cursor: default;
+}
+
+.history-pagination button:not(:disabled):hover {
+  background: #EEF4FF;
+}
+
 .history-day {
   overflow: visible;
   border: 1px solid #E8E4DF;

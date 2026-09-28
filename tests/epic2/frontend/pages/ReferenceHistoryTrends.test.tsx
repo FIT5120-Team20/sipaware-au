@@ -22,16 +22,17 @@ function record(id: string, daysAgo: number, standardDrinks: number): DrinkingRe
   amountConsumed:standardDrinks / .789, consumedAt:date.toISOString(),
   consumedTimezoneOffsetMinutes:date.getTimezoneOffset(), createdAt:date.toISOString() }
 }
-function show(records: DrinkingRecord[], tab='trends', failed=false) {
+function show(records: DrinkingRecord[], tab='trends', failed=false, initialRecordId?: string) {
  window.history.replaceState({}, '', '/trends#'+tab)
  const retry=vi.fn(), update=vi.fn(), remove=vi.fn().mockResolvedValue(undefined)
- render(<ReferenceHistoryTrends records={records} referenceCategories={[]} onUpdate={update} onDelete={remove}
+ const view = (items: DrinkingRecord[]) => <ReferenceHistoryTrends records={items} initialRecordId={initialRecordId} referenceCategories={[]} onUpdate={update} onDelete={remove}
   guidelineStatus={failed?'failed':'loaded'} onRetryGuidelines={retry} todayKey={getCurrentLocalCalendarDateKey()}
   guidelines={failed?null:{guidelines:[
    {id:1,guidelineType:'DAILY',thresholdStandardDrinks:4,periodDescription:'day',guidelineText:'Daily fixture',source:{id:1,organisation:'NHMRC synthetic test source',name:'Synthetic reference',url:'https://example.org/daily'}},
    {id:2,guidelineType:'WEEKLY',thresholdStandardDrinks:10,periodDescription:'week',guidelineText:'Weekly fixture',source:{id:2,organisation:'NHMRC synthetic test source',name:'Synthetic reference',url:'https://example.org/weekly'}}
-  ]}} />)
- return {retry,update,remove}
+  ]}} />
+ const rendered = render(view(records))
+ return {retry,update,remove,rerenderRecords:(items: DrinkingRecord[]) => rendered.rerender(view(items))}
 }
 describe('Reference History, Trends and Report',()=>{
  it('counts raw threshold crossings, excludes future data and changes period',()=>{
@@ -216,5 +217,80 @@ describe('Epic4 actual PDF bytes',()=>{
   expect(pdf).toContain('Guideline reference unavailable')
   expect(pdf).toContain('/Count 2')
   expect(()=>createDrinkingReportPdf({...reportFixture,total:Infinity})).toThrow()
+ })
+})
+
+describe('History date-group pagination', () => {
+ const dates = (count: number) => Array.from({length:count}, (_, day) => record('day-'+day, day, 1))
+ const pager = () => screen.getByRole('navigation', {name:'History pages'})
+
+ it.each([0, 1, 7])('shows no pager for %i recorded dates', count => {
+  show(dates(count), 'history')
+  expect(screen.queryByRole('navigation', {name:'History pages'})).not.toBeInTheDocument()
+  expect(document.querySelectorAll('.history-day')).toHaveLength(count)
+ })
+
+ it('keeps every same-day drink and total together, rather than limiting entries to seven', () => {
+  show([...dates(7), record('extra-a',0,2), record('extra-b',0,3)], 'history')
+  expect(document.querySelectorAll('.history-record')).toHaveLength(9)
+  expect(document.querySelector('.history-day-total')).toHaveTextContent('6.0')
+  expect(screen.queryByRole('navigation', {name:'History pages'})).not.toBeInTheDocument()
+ })
+
+ it('pages eight dates in descending order with complete boundary groups and accessible controls', () => {
+  const older = record('oldest-extra',7,2)
+  older.consumedAt = new Date(new Date(older.consumedAt).getTime()-3600000).toISOString()
+  show([older, ...dates(8).reverse()], 'history')
+  expect(pager()).toHaveTextContent('Page 1 of 2')
+  expect(within(pager()).getByRole('button',{name:'Previous'})).toBeDisabled()
+  expect(document.querySelectorAll('.history-day')).toHaveLength(7)
+  expect(screen.queryByText('Synthetic day-7')).not.toBeInTheDocument()
+  fireEvent.click(within(pager()).getByRole('button',{name:'Next'}))
+  expect(pager()).toHaveTextContent('Recorded dates 8–8 of 8')
+  expect(document.querySelectorAll('.history-record-main strong')).toHaveLength(2)
+  expect([...document.querySelectorAll('.history-record-main strong')].map(x=>x.textContent)).toEqual(['Synthetic day-7','Synthetic oldest-extra'])
+  expect(document.querySelector('.history-day-total')).toHaveTextContent('3.0')
+  expect(within(pager()).getByRole('button',{name:'Next'})).toBeDisabled()
+  expect(screen.getByRole('heading',{name:'Your drinking records'})).toHaveFocus()
+  fireEvent.click(within(pager()).getByRole('button',{name:'Previous'}))
+  expect(pager()).toHaveTextContent('Page 1 of 2')
+  // Switching tabs still uses the complete month data, including the hidden date.
+  fireEvent.click(screen.getByRole('button',{name:'Trends'}))
+  fireEvent.change(screen.getByLabelText('Trend period'),{target:{value:'4w'}})
+  expect(document.querySelector('.trend-kpi-card')).toHaveTextContent('2.5')
+ })
+
+ it('resets to page one when moving months or applying the month picker', () => {
+  show(dates(8), 'history')
+  fireEvent.click(within(pager()).getByRole('button',{name:'Next'}))
+  fireEvent.click(screen.getByRole('button',{name:'Previous month'}))
+  expect(screen.queryByRole('navigation',{name:'History pages'})).not.toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button',{name:'Next month'}))
+  expect(pager()).toHaveTextContent('Page 1 of 2')
+  fireEvent.click(within(pager()).getByRole('button',{name:'Next'}))
+  fireEvent.click(screen.getByRole('button',{name:/September 2026/}))
+  fireEvent.click(screen.getByRole('button',{name:'Apply'}))
+  expect(pager()).toHaveTextContent('Page 1 of 2')
+ })
+
+ it('opens a newly saved backdated record on its own page', () => {
+  show(dates(15), 'history', false, 'day-14')
+  expect(pager()).toHaveTextContent('Page 3 of 3')
+  expect(screen.getByText('Synthetic day-14')).toBeVisible()
+ })
+
+ it('clamps the page after the final date is removed and remembers it when dates are added', () => {
+  const items=dates(15)
+  const {rerenderRecords}=show(items,'history',false,'day-14')
+  rerenderRecords(items.slice(0,14))
+  expect(pager()).toHaveTextContent('Page 2 of 2')
+  expect(screen.getByText('Synthetic day-13')).toBeVisible()
+  rerenderRecords(items)
+  expect(pager()).toHaveTextContent('Page 2 of 3')
+  rerenderRecords(items.slice(0,7))
+  expect(screen.queryByRole('navigation',{name:'History pages'})).not.toBeInTheDocument()
+  expect(document.querySelectorAll('.history-day')).toHaveLength(7)
+  rerenderRecords([])
+  expect(screen.getByText(/No drinking records for September/)).toBeVisible()
  })
 })
