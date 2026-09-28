@@ -1,25 +1,33 @@
-"""Local CPU inference, with in-memory images and conservative field extraction."""
+"""Baidu OCR integration with conservative drink-label field extraction."""
 
 from __future__ import annotations
 
-import io
+import base64
+import hashlib
 import logging
 import math
 import os
 import re
-import threading
 import time
-import warnings
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
+
+import httpx
+from dotenv import dotenv_values
 
 from ..schemas.ocr import DrinkLabelFields, DrinkLabelResult, OcrLine
 
 logger = logging.getLogger(__name__)
 MAX_IMAGE_BYTES = 4 * 1024 * 1024
-MAX_IMAGE_PIXELS = 20_000_000
 MIN_TEXT_SCORE = 0.75
-_lock = threading.Lock()
-_pipeline = None
+BAIDU_TOKEN_URL = "https://aip.baidubce.com/oauth/2.0/token"
+BAIDU_OCR_URL = "https://aip.baidubce.com/rest/2.0/ocr/v1/accurate_basic"
+BAIDU_API_KEY_VARIABLE = "BAIDU_OCR_API_KEY"
+BAIDU_SECRET_KEY_VARIABLE = "BAIDU_OCR_SECRET_KEY"
+LOCAL_ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
+TOKEN_REFRESH_MARGIN_SECONDS = 300
+_token_cache: tuple[str, float, bytes] | None = None
 
 
 class OcrUnavailable(RuntimeError):
@@ -34,68 +42,168 @@ class InvalidLabelImage(ValueError):
     pass
 
 
-def require_enabled() -> None:
-    if os.environ.get("SIPAWARE_OCR_ENABLED") != "1":
-        raise OcrUnavailable("Label scanning is disabled. Start the local OCR demo service.")
+def _credentials() -> tuple[str, str]:
+    api_key = os.environ.get(BAIDU_API_KEY_VARIABLE, "").strip()
+    secret_key = os.environ.get(BAIDU_SECRET_KEY_VARIABLE, "").strip()
+    if (not api_key or not secret_key) and LOCAL_ENV_FILE.is_file():
+        local = dotenv_values(LOCAL_ENV_FILE)
+        if not api_key and isinstance(local.get(BAIDU_API_KEY_VARIABLE), str):
+            api_key = local[BAIDU_API_KEY_VARIABLE].strip()
+        if not secret_key and isinstance(local.get(BAIDU_SECRET_KEY_VARIABLE), str):
+            secret_key = local[BAIDU_SECRET_KEY_VARIABLE].strip()
+    if not api_key or not secret_key:
+        raise OcrUnavailable("Label scanning is not configured. Add the Baidu OCR server credentials.")
+    return api_key, secret_key
 
 
-def _load_pipeline():
-    global _pipeline
-    if _pipeline is not None:
-        return _pipeline
-    root = Path(os.environ.get("SIPAWARE_OCR_MODEL_ROOT", "backend/models")).expanduser()
-    directories = [root / f"PP-OCRv6_medium_{kind}_infer" for kind in ("det", "rec")]
-    for directory in directories:
-        if not all((directory / name).is_file() for name in (
-            "inference.json", "inference.pdiparams", "inference.yml"
-        )):
-            raise OcrUnavailable("Local OCR models are missing. Check SIPAWARE_OCR_MODEL_ROOT.")
-    # Set before importing PaddleX. All models are supplied locally; no hub lookup.
-    os.environ.setdefault("PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK", "True")
+def _credential_fingerprint(api_key: str, secret_key: str) -> bytes:
+    return hashlib.sha256(f"{api_key}\0{secret_key}".encode()).digest()
+
+
+def _response_object(response: httpx.Response, failure_message: str) -> Mapping[str, Any]:
+    if response.status_code < 200 or response.status_code >= 300:
+        raise OcrUnavailable(failure_message)
     try:
-        from paddleocr import PaddleOCR
+        payload = response.json()
+    except ValueError as exc:
+        raise OcrUnavailable(failure_message) from exc
+    if not isinstance(payload, Mapping):
+        raise OcrUnavailable(failure_message)
+    return payload
 
-        _pipeline = PaddleOCR(
-            text_detection_model_name="PP-OCRv6_medium_det",
-            text_detection_model_dir=str(directories[0]),
-            text_recognition_model_name="PP-OCRv6_medium_rec",
-            text_recognition_model_dir=str(directories[1]),
-            use_doc_orientation_classify=False,
-            use_doc_unwarping=False,
-            use_textline_orientation=False,
-            device="cpu",
-            enable_mkldnn=False,
-            cpu_threads=4,
-            text_det_limit_side_len=1280,
-            text_det_limit_type="max",
-            text_recognition_batch_size=4,
+
+def _error_code(payload: Mapping[str, Any]) -> int | None:
+    value = payload.get("error_code")
+    try:
+        return int(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+async def _access_token(
+    client: httpx.AsyncClient,
+    api_key: str,
+    secret_key: str,
+    *,
+    force_refresh: bool = False,
+) -> str:
+    global _token_cache
+    fingerprint = _credential_fingerprint(api_key, secret_key)
+    if not force_refresh and _token_cache is not None:
+        token, expires_at, cached_fingerprint = _token_cache
+        if cached_fingerprint == fingerprint and time.monotonic() < expires_at:
+            return token
+
+    try:
+        response = await client.post(
+            BAIDU_TOKEN_URL,
+            data={
+                "grant_type": "client_credentials",
+                "client_id": api_key,
+                "client_secret": secret_key,
+            },
+            headers={"Accept": "application/json"},
         )
-    except Exception as exc:
-        logger.exception("Local OCR initialization failed")
-        raise OcrUnavailable("OCR could not start. Check the local model and CPU dependencies.") from exc
-    return _pipeline
+    except httpx.RequestError as exc:
+        raise OcrUnavailable("The label scanning service could not be reached. Please try again shortly.") from exc
+    payload = _response_object(response, "The Baidu OCR credentials could not be verified.")
+    token = payload.get("access_token")
+    if not isinstance(token, str) or not token:
+        logger.warning("Baidu OCR token request failed with error code %s", _error_code(payload))
+        raise OcrUnavailable("The Baidu OCR credentials could not be verified.")
+    expires_in = payload.get("expires_in", 2_592_000)
+    try:
+        lifetime = max(60.0, float(expires_in))
+    except (TypeError, ValueError):
+        lifetime = 2_592_000.0
+    refresh_after = time.monotonic() + max(30.0, lifetime - TOKEN_REFRESH_MARGIN_SECONDS)
+    _token_cache = (token, refresh_after, fingerprint)
+    return token
 
 
-def _decode_image(content: bytes):
+async def _recognition_payload(
+    client: httpx.AsyncClient,
+    token: str,
+    encoded_image: str,
+) -> Mapping[str, Any]:
     try:
-        import numpy as np
-        from PIL import Image, ImageOps, UnidentifiedImageError
-    except ImportError as exc:
-        raise OcrUnavailable("Install backend/requirements-ocr.txt for local label scanning.") from exc
+        response = await client.post(
+            BAIDU_OCR_URL,
+            params={"access_token": token},
+            data={
+                "image": encoded_image,
+                "language_type": "CHN_ENG",
+                "detect_direction": "true",
+                "probability": "true",
+            },
+            headers={
+                "Accept": "application/json",
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+        )
+    except httpx.RequestError as exc:
+        raise OcrUnavailable("The label scanning service could not be reached. Please try again shortly.") from exc
+    return _response_object(response, "The label scanning service is temporarily unavailable.")
+
+
+def _number(value: Any) -> float | None:
+    if isinstance(value, bool):
+        return None
     try:
-        with warnings.catch_warnings():
-            warnings.simplefilter("error", Image.DecompressionBombWarning)
-            with Image.open(io.BytesIO(content)) as source:
-                if source.format not in {"JPEG", "PNG", "WEBP"}:
-                    raise InvalidLabelImage("Choose a JPEG, PNG or WebP photo.")
-                if source.width * source.height > MAX_IMAGE_PIXELS:
-                    raise InvalidLabelImage("Use an image smaller than 20 megapixels.")
-                rgb = ImageOps.exif_transpose(source).convert("RGB")
-                rgb.thumbnail((1600, 1600))
-                return np.asarray(rgb)[:, :, ::-1].copy()  # PaddleOCR expects BGR.
-    except (UnidentifiedImageError, OSError, Image.DecompressionBombWarning,
-            Image.DecompressionBombError) as exc:
-        raise InvalidLabelImage("This photo could not be read. Try a JPEG or PNG image.") from exc
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) else None
+
+
+def _line_box(item: Mapping[str, Any], index: int) -> list[float]:
+    location = item.get("location")
+    if isinstance(location, Mapping):
+        left = _number(location.get("left"))
+        top = _number(location.get("top"))
+        width = _number(location.get("width"))
+        height = _number(location.get("height"))
+        if None not in (left, top, width, height) and width >= 0 and height >= 0:
+            return [left, top, left + width, top + height]
+    # accurate_basic returns reading order but no coordinates. Preserve that order
+    # in the existing four-number API contract without claiming pixel geometry.
+    y = float(index)
+    return [0.0, y, 1.0, y + 1.0]
+
+
+def _lines_from_payload(payload: Mapping[str, Any]) -> tuple[list[OcrLine], bool]:
+    raw_lines = payload.get("words_result")
+    if not isinstance(raw_lines, list):
+        raise OcrUnavailable("The label scanning service returned an invalid response.")
+    lines: list[OcrLine] = []
+    missing_confidence = False
+    for index, item in enumerate(raw_lines):
+        if not isinstance(item, Mapping):
+            continue
+        text = item.get("words")
+        if not isinstance(text, str) or not text.strip():
+            continue
+        probability = item.get("probability")
+        confidence = _number(probability.get("average")) if isinstance(probability, Mapping) else None
+        if confidence is None:
+            missing_confidence = True
+            confidence = MIN_TEXT_SCORE
+        lines.append(OcrLine(
+            text=text.strip(),
+            confidence=max(0.0, min(1.0, confidence)),
+            box=_line_box(item, index),
+        ))
+    return lines, missing_confidence
+
+
+def _raise_provider_error(code: int | None) -> None:
+    if code in {17, 18, 19}:
+        raise OcrBusy("The label scanning quota is temporarily unavailable. Please try again later.")
+    if code is not None and 216200 <= code <= 216299:
+        raise InvalidLabelImage("This photo could not be read. Try another JPEG, PNG or WebP image.")
+    if code in {6, 100, 110, 111}:
+        raise OcrUnavailable("The Baidu OCR service credentials are invalid or expired.")
+    raise OcrUnavailable("The label scanning service is temporarily unavailable.")
 
 
 _NUMBER = r"(\d{1,3}(?:[.,]\d{1,2})?)"
@@ -168,23 +276,28 @@ def extract_fields(lines: list[OcrLine]) -> DrinkLabelResult:
     return DrinkLabelResult(fields=fields, lines=lines, warnings=notes)
 
 
-def recognize_label(content: bytes) -> DrinkLabelResult:
-    require_enabled()
-    if not _lock.acquire(blocking=False):
-        raise OcrBusy("Another label is being scanned. Please try again shortly.")
+async def recognize_label(content: bytes) -> DrinkLabelResult:
+    """Send one in-memory image to Baidu and return the existing editable contract."""
+    global _token_cache
     started = time.perf_counter()
-    try:
-        image = _decode_image(content)
-        pipeline = _load_pipeline()
-        lines = []
-        for result in pipeline.predict(image):
-            for text, score, box in zip(result["rec_texts"], result["rec_scores"], result["rec_boxes"]):
-                confidence = float(score)
-                if text.strip() and math.isfinite(confidence):
-                    lines.append(OcrLine(text=text.strip(), confidence=max(0, min(1, confidence)),
-                                         box=[float(coordinate) for coordinate in box]))
-        response = extract_fields(lines)
-        response.elapsedMs = round((time.perf_counter() - started) * 1000)
-        return response
-    finally:
-        _lock.release()
+    api_key, secret_key = _credentials()
+    encoded_image = base64.b64encode(content).decode("ascii")
+    timeout = httpx.Timeout(35.0, connect=10.0)
+    async with httpx.AsyncClient(timeout=timeout, follow_redirects=False) as client:
+        for attempt in range(2):
+            token = await _access_token(client, api_key, secret_key, force_refresh=attempt > 0)
+            payload = await _recognition_payload(client, token, encoded_image)
+            code = _error_code(payload)
+            if code in {110, 111} and attempt == 0:
+                _token_cache = None
+                continue
+            if code is not None:
+                logger.warning("Baidu OCR recognition failed with error code %s", code)
+                _raise_provider_error(code)
+            lines, missing_confidence = _lines_from_payload(payload)
+            result = extract_fields(lines)
+            if missing_confidence:
+                result.warnings.append("Some recognized lines did not include a confidence score. Check them carefully.")
+            result.elapsedMs = round((time.perf_counter() - started) * 1000)
+            return result
+    raise OcrUnavailable("The label scanning service is temporarily unavailable.")

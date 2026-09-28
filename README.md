@@ -41,11 +41,8 @@ performed by source changes.
 
 ## Local Development
 
-For the Mac presentation with real OCR label prefill, see
-[Local OCR demo](docs/LOCAL_OCR_DEMO.md). After its one-time setup,
-`bash scripts/run-ocr-demo.sh` starts both services on this machine.
-To make the Vercel page use that Mac during a temporary public presentation,
-see [Mac OCR tunnel](docs/ONLINE_OCR_MAC_TUNNEL.md).
+Drink-label prefill uses Baidu OCR through the FastAPI backend. Configure its
+server-only credentials by following [Baidu OCR setup](docs/BAIDU_OCR.md).
 
 Prerequisites:
 
@@ -100,6 +97,7 @@ The API runs at `http://localhost:8000` and exposes:
 - `GET /api/reference/drink-options`
 - `GET /api/reference/alcohol-guidelines`
 - `GET /api/reference/alcohol-information`
+- `POST /api/ocr/drink-label`
 
 The health route does not require database configuration. The reference route
 requires `DATABASE_URL` in the process environment or untracked `backend/.env`.
