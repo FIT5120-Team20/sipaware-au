@@ -166,6 +166,8 @@ type HistoryTabProps = Props & {
   onEditRecord: (record: ConsumptionRecord) => void
 }
 
+const HISTORY_DATES_PER_PAGE = 7
+
 function HistoryTab({
   records,
   initialRecordId,
@@ -215,6 +217,27 @@ function HistoryTab({
     return Array.from(groups.entries())
   }, [monthRecords])
 
+  // Page complete date groups, never individual drinks: daily totals and the
+  // full records passed to Trends/Report must not depend on the visible page.
+  const [page, setPage] = useState(() => {
+    const index = groupedRecords.findIndex(([, items]) => items.some(item => item.id === initialRecordId))
+    return Math.floor(Math.max(0, index) / HISTORY_DATES_PER_PAGE) + 1
+  })
+  const pageCount = Math.max(1, Math.ceil(groupedRecords.length / HISTORY_DATES_PER_PAGE))
+  const currentPage = Math.min(page, pageCount)
+  // A deletion or date edit can remove the last page. Remember the clamped page
+  // so later additions do not unexpectedly send the user back to that old page.
+  if (page !== currentPage) setPage(currentPage)
+  const pageStart = (currentPage - 1) * HISTORY_DATES_PER_PAGE
+  const visibleGroups = groupedRecords.slice(pageStart, pageStart + HISTORY_DATES_PER_PAGE)
+  const changePage = (next: number) => {
+    setPage(next)
+    setOpenActionsId(null)
+    const heading = document.getElementById('history-heading')
+    heading?.focus({ preventScroll: true })
+    heading?.scrollIntoView?.({ block: 'start' })
+  }
+
   const years = useMemo(() => {
     const current = new Date().getFullYear()
     const recordYears = records.map((record) => parseDateOnly(record.date).getFullYear())
@@ -225,12 +248,16 @@ function HistoryTab({
 
   const moveMonth = (offset: number) => {
     const next = new Date(viewYear, viewMonth + offset, 1)
+    setPage(1)
+    setOpenActionsId(null)
     setViewYear(next.getFullYear())
     setViewMonth(next.getMonth())
     setShowMonthPicker(false)
   }
 
   const applyMonth = () => {
+    setPage(1)
+    setOpenActionsId(null)
     setViewYear(draftYear)
     setViewMonth(draftMonth)
     setShowMonthPicker(false)
@@ -239,7 +266,7 @@ function HistoryTab({
   return (
     <section className="ht-section" aria-labelledby="history-heading">
       <div className="ht-section-heading-row">
-        <h2 id="history-heading" className="ht-section-title">Your drinking records</h2>
+        <h2 id="history-heading" tabIndex={-1} className="ht-section-title">Your drinking records</h2>
       </div>
 
       <div className="history-month-nav" aria-label="History month navigation">
@@ -280,7 +307,7 @@ function HistoryTab({
         </div>
       ) : (
         <div className="history-list">
-          {groupedRecords.map(([date, dayRecords]) => {
+          {visibleGroups.map(([date, dayRecords]) => {
             const dailyTotal = (dayRecords.reduce((sum, record) => sum + record.standardDrinks, 0))
             return (
               <article className="history-day" key={date}>
@@ -323,6 +350,19 @@ function HistoryTab({
         </div>
       )}
 
+
+      {pageCount > 1 && (
+        <nav className="history-pagination" aria-label="History pages">
+          <p role="status">
+            Page {currentPage} of {pageCount}
+            <span>Recorded dates {pageStart + 1}–{Math.min(pageStart + HISTORY_DATES_PER_PAGE, groupedRecords.length)} of {groupedRecords.length}</span>
+          </p>
+          <div className="history-pagination-buttons">
+            <button type="button" disabled={currentPage === 1} onClick={() => changePage(currentPage - 1)}>Previous</button>
+            <button type="button" disabled={currentPage === pageCount} onClick={() => changePage(currentPage + 1)}>Next</button>
+          </div>
+        </nav>
+      )}
 
       {pendingDelete && <ReferenceDialog title="Delete this record?" alert onClose={() => { if (!deleting) { setPendingDelete(null); setDeleteError(null) } }}>
         <p>This removes this record from your drinking history, Trends, and Report. My Drinks will not be changed.</p>
