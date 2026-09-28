@@ -29,3 +29,23 @@ Normal feature PRs into main develop Iteration 3 only. Updating the stable root 
 replacing a retained deployment needs a later explicit iteration-completion decision.
 Teammates should start new feature branches from main after the transition and must
 not commit further work to `Team20/Iteration2/final-build`.
+
+
+## Explicit teacher-root snapshot promotion — 2026-09-28
+
+The owner requested promotion of the currently published Iteration 3 functionality
+without declaring Iteration 3 complete. This prepared promotion supersedes the root
+mapping above only after its deployment and live verification.
+
+- Root `https://sipaware.app` serves source `8d0eb65986f638d28a7494ad4f15d3b5da3b0298`,
+  retained independently at `sipaware-au-root-8d0eb65.vercel.app`. Its build uses bare
+  root asset and API paths, so future main changes do not replace its chunks or API.
+- `/iteration3` remains the active main development version. No I3 freeze occurs.
+- `/iteration2` retains `sipaware-au-iteration2.vercel.app` and its existing deployment.
+- Shared website login, same-origin local IndexedDB and external reference/OCR
+  services remain as configured. Pinning code does not freeze external data/services.
+- Later stable-root updates still need the owner's explicit promotion instruction.
+
+The retained upload differs from the source only in `vercel.json` (serve its own
+frontend/API) and `frontend/vite.config.ts` (bare-root build base). Product behavior,
+including the current OCR integration and History pagination, is unchanged.
