@@ -39,6 +39,8 @@ if (!HTMLDialogElement.prototype.showModal) {
 }
 
 beforeEach(() => {
+  // Each independent test starts as a first-time visitor; personal data stays isolated below.
+  window.localStorage.removeItem('sipaware.record-help.seen.v1')
   window.history.replaceState({}, '', '/record')
   // Page tests receive the same public reference contract by default. Tests of
   // loading and failure states replace this mock explicitly.

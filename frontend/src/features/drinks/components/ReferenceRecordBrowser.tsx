@@ -5,8 +5,8 @@
  * comes from the public read-only API. Personal templates and prototype samples
  * never fill catalog results. SavedDrink cards render only under My Drinks.
  */
-import { useEffect, useState, type ReactNode } from 'react'
-import { RECORD_HOME_EVENT } from '../../../app/entryPaths'
+import { useState, type ReactNode } from 'react'
+import { recordHelpPreference } from '../storage/recordHelpPreference'
 import { CatalogResults } from './CatalogResults'
 import type { CatalogCategory, CatalogProduct } from '../catalog/catalogApi'
 import { ReferenceDialog } from './ReferenceDialog'
@@ -70,14 +70,13 @@ export function ReferenceRecordBrowser({ savedDrinks, onScan, onManual, onProduc
 }) {
   const [category, setCategory] = useState<string>('All')
   const [query, setQuery] = useState('')
-  const [showHelp, setShowHelp] = useState(true)
-  // This browser stays mounted during recording. Only explicit Record navigation
-  // reopens guidance; search, paging and Back to Record keep it dismissed.
-  useEffect(() => {
-    const showGuidance = () => setShowHelp(true)
-    window.addEventListener(RECORD_HOME_EVENT, showGuidance)
-    return () => window.removeEventListener(RECORD_HOME_EVENT, showGuidance)
-  }, [])
+  const [showHelp, setShowHelp] = useState(() => !recordHelpPreference.hasSeen())
+  // All dismissal paths acknowledge onboarding. Record navigation no longer
+  // reopens it; the question-mark button remains available for deliberate help.
+  const dismissHelp = () => {
+    recordHelpPreference.markSeen()
+    setShowHelp(false)
+  }
   const isMyDrinks = category === 'My Drinks'
   const filtered = isMyDrinks ? savedDrinks.filter(drink =>
     drink.drinkName.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())) : []
@@ -88,7 +87,7 @@ export function ReferenceRecordBrowser({ savedDrinks, onScan, onManual, onProduc
     aria-label="How to record a drink" aria-expanded={showHelp}>?</button>
 </div>
 
-{showHelp && <ReferenceDialog title="How to record a drink" onClose={() => setShowHelp(false)}>
+{showHelp && <ReferenceDialog title="How to record a drink" onClose={dismissHelp}>
   <ul className="reference-record-help-list">
     <li><strong>Search</strong><span>Use the search bar above to enter a drink name, brand, or product and find a matching drink.</span></li>
     <li><strong>Scan a barcode</strong><span>Tap Scan Barcode to scan the bottle or can and look for a matching product.</span></li>
@@ -99,7 +98,7 @@ export function ReferenceRecordBrowser({ savedDrinks, onScan, onManual, onProduc
 
   <p className="reference-record-help-note">After selecting a drink, enter how much you drank and tap Record Drink.</p>
 
-  <button type="button" className="primary-button" onClick={() => setShowHelp(false)}>Got it</button>
+  <button type="button" className="primary-button" onClick={dismissHelp}>Got it</button>
 </ReferenceDialog>}
     <div className="prototype-record-controls">
       <div className="prototype-record-search"><IcoSearch /><input type="search" aria-label="Search for a drink" placeholder="Search for a drink..." value={query} maxLength={200} onChange={e => setQuery(e.target.value)} />{query && <button type="button" aria-label="Clear search" onClick={() => setQuery('')}>×</button>}</div>
