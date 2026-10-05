@@ -17,6 +17,7 @@ describe('SipAware IndexedDB database', () => {
     expect(database.name).toBe('alcohol_user_data')
     expect(database.name).toBe(SIPAWARE_DATABASE_NAME)
     expect(database.version).toBe(SIPAWARE_DATABASE_VERSION)
+    expect([...database.objectStoreNames]).toEqual(['drinking_records', 'saved_drinks'])
     expect(database.objectStoreNames.contains(SAVED_DRINKS_STORE_NAME)).toBe(
       true,
     )

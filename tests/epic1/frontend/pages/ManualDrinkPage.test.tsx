@@ -23,6 +23,7 @@ const existingRecord: DrinkingRecord = {
 }
 
 async function renderHydratedPage() {
+  window.history.replaceState({ fromHistory: true }, '', '/record?date=2026-08-26')
   const view = render(<ManualDrinkPage />)
   await screen.findByLabelText('Drink type')
   fireEvent.click(await screen.findByRole('button', { name: 'Record Manually' }))
@@ -46,9 +47,9 @@ async function completeValidForm() {
   fireEvent.change(screen.getByLabelText('Number of servings consumed'), {
     target: { value: '1.5' },
   })
-  fireEvent.change(screen.getByLabelText('Date'), {
-    target: { value: '2026-08-26' },
-  })
+  const date = screen.getByLabelText('Date')
+  if (date instanceof HTMLInputElement) fireEvent.change(date, { target: { value: '2026-08-26' } })
+  else expect(date).toHaveTextContent('26 August 2026')
   fireEvent.change(screen.getByLabelText('Time'), {
     target: { value: '19:30' },
   })
@@ -164,8 +165,10 @@ describe('ManualDrinkPage', () => {
       drinkName: 'Pale Ale',
       servingVolumeMl: 500,
     })
+    await screen.findByRole('heading', { name: 'Drink recorded' })
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }))
     expect(
-      await screen.findByText('Drinking record saved on this device.'),
+      await screen.findByRole('heading', { name: 'History & Trends' }),
     ).toBeInTheDocument()
   })
 
@@ -178,8 +181,10 @@ describe('ManualDrinkPage', () => {
       screen.getByRole('button', { name: 'Record Drink' }),
     )
 
+    await screen.findByRole('heading', { name: 'Drink recorded' })
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }))
     expect(
-      await screen.findByText('Drinking record saved on this device.'),
+      await screen.findByRole('heading', { name: 'History & Trends' }),
     ).toBeInTheDocument()
 
     const storedRecords = await new IndexedDbDrinkingRecordRepository().list()
@@ -203,7 +208,7 @@ describe('ManualDrinkPage', () => {
     })
     expect(storedRecords[1].id).not.toHaveLength(0)
     expect(Number.isNaN(Date.parse(storedRecords[1].createdAt))).toBe(false)
-    window.history.pushState({}, '', '/record')
+    window.history.pushState({}, '', '/record?date=2026-08-26')
     fireEvent.popState(window)
     await user.click(screen.getByRole('button', { name: 'Record Manually' }))
     expect(screen.getByLabelText('Drink name')).toHaveValue('')
@@ -211,6 +216,8 @@ describe('ManualDrinkPage', () => {
     expect(screen.getByLabelText('Number of servings consumed')).toHaveValue(
       null,
     )
+    window.history.replaceState({ checkInDate: '2026-08-26' }, '', '/trends#history')
+    fireEvent.popState(window)
     view.rerender(<ManualDrinkPage initialView="history" />)
     expect(screen.getByText('Pale Ale')).toBeInTheDocument()
     expect(screen.getByText('Existing Shiraz')).toBeInTheDocument()

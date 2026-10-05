@@ -39,11 +39,12 @@ let databasePromise: Promise<SipAwareDatabase> | undefined
  * IndexedDB primary key, keeping identity stable through later corrections.
  */
 export function openSipAwareDatabase(): Promise<SipAwareDatabase> {
-  // All repositories share one asynchronously opened connection, ensuring they
-  // use the same versioned schema while still operating on separate stores.
+  // Open the existing version, or create v1 on first use. Never upgrade the
+  // shared database: retained root/I2 builds still request version 1. Existing
+  // unpublished v2 preview data is read in place without a destructive downgrade.
   databasePromise ??= openDB<SipAwareDatabaseSchema>(
     SIPAWARE_DATABASE_NAME,
-    SIPAWARE_DATABASE_VERSION,
+    undefined,
     {
       upgrade(database) {
         if (!database.objectStoreNames.contains(SAVED_DRINKS_STORE_NAME)) {

@@ -246,7 +246,7 @@ describe('History date-group pagination', () => {
   expect(document.querySelectorAll('.history-day')).toHaveLength(7)
   expect(screen.queryByText('Synthetic day-7')).not.toBeInTheDocument()
   fireEvent.click(within(pager()).getByRole('button',{name:'Next'}))
-  expect(pager()).toHaveTextContent('Recorded dates 8–8 of 8')
+  expect(pager()).toHaveTextContent('Dates 8–8 of 8')
   expect(document.querySelectorAll('.history-record-main strong')).toHaveLength(2)
   expect([...document.querySelectorAll('.history-record-main strong')].map(x=>x.textContent)).toEqual(['Synthetic day-7','Synthetic oldest-extra'])
   expect(document.querySelector('.history-day-total')).toHaveTextContent('3.0')

@@ -67,6 +67,7 @@ async function historyAction(action: 'Edit' | 'Delete', name: string) {
 async function openRecordForm() {
  window.history.replaceState({}, '', '/record')
  pageView.rerender(<ManualDrinkPage key={++pageKey} initialView="record" />)
+ fireEvent.click(await screen.findByRole('button', { name: /I drank today/ }))
  fireEvent.click(await screen.findByRole('button', { name: 'Record Manually' }))
  await waitFor(() => expect(screen.getByLabelText('Drink type')).toBeEnabled())
 }
@@ -191,9 +192,7 @@ describe('ManualDrinkPage alcohol consumption integration', () => {
       screen.getByLabelText('Number of servings consumed'),
       '1',
     )
-    fireEvent.change(screen.getByLabelText('Date'), {
-      target: { value: localDateInputValue() },
-    })
+    expect(screen.getByLabelText('Date')).toHaveTextContent('18 September 2026')
     await user.click(
       screen.getByRole('button', { name: 'Record Drink' }),
     )

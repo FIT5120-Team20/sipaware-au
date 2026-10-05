@@ -82,6 +82,7 @@ function readSavedDrinks(): Promise<SavedDrink[]> {
 let pageView: ReturnType<typeof render>
 async function renderHydratedPage() {
   window.history.replaceState({}, '', '/record')
+  window.history.replaceState({ fromHistory: true }, '', '/record?date=2026-08-26')
   const view = render(<ManualDrinkPage />)
   pageView = view
   await screen.findByLabelText('Drink type')
@@ -91,12 +92,16 @@ async function renderHydratedPage() {
 }
 
 function historyAction(action: 'Edit' | 'Delete', name: string) {
+  window.history.replaceState({ checkInDate: '2026-08-26' }, '', '/trends#history')
+  fireEvent.popState(window)
   pageView.rerender(<ManualDrinkPage initialView="history" />)
   fireEvent.click(screen.getByRole('button', { name: 'Actions for ' + name }))
   return screen.getByRole('button', { name: action })
 }
 
 function getRecentRecordsSection(): HTMLElement {
+  window.history.replaceState({ checkInDate: '2026-08-26' }, '', '/trends#history')
+  fireEvent.popState(window)
   pageView.rerender(<ManualDrinkPage initialView="history" />)
   const heading = screen.getByRole('heading', { name: 'Your drinking records' })
   const section = heading.closest('section')
@@ -165,17 +170,17 @@ describe('ManualDrinkPage drinking-record management', () => {
     fireEvent.change(screen.getByLabelText('Number of servings consumed'), {
       target: { value: '2' },
     })
-    fireEvent.change(screen.getByLabelText('Date'), {
-      target: { value: '2026-08-26' },
-    })
+    expect(screen.getByLabelText('Date')).toHaveTextContent('26 August 2026')
     fireEvent.change(screen.getByLabelText('Time'), {
       target: { value: '22:17' },
     })
     await user.click(
       screen.getByRole('button', { name: 'Record Drink' }),
     )
+    await screen.findByRole('heading', { name: 'Drink recorded' })
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }))
     expect(
-      await screen.findByText('Drinking record saved on this device.'),
+      await screen.findByRole('heading', { name: 'History & Trends' }),
     ).toBeInTheDocument()
     const createdSkyRecord = (await readRecords())[1]
     expect(createdSkyRecord).toMatchObject({
@@ -316,6 +321,8 @@ describe('ManualDrinkPage drinking-record management', () => {
     const recentRecords = getRecentRecordsSection()
     expect(within(recentRecords).queryByText('Sky')).not.toBeInTheDocument()
     expect(within(recentRecords).getByText('Shiraz')).toBeInTheDocument()
+    window.history.replaceState({}, '', '/record?date=2026-08-26')
+    fireEvent.popState(window)
     pageView.rerender(<ManualDrinkPage initialView="record" />)
     fireEvent.click(screen.getByRole('button', { name: 'My Drinks' }))
     if (screen.queryByRole('button', { name: 'Back to Record' })) await user.click(screen.getByRole('button', { name: 'Back to Record' }))
