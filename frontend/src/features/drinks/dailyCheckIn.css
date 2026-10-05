@@ -1,9 +1,16 @@
 /* Approved v3 choice geometry. Both halves are congruent under 180° rotation;
    only decoration is clipped. Inner CTA focus rings remain fully visible. */
+/* Only the standalone entry fills the viewport. Remove its nested shell padding
+   so the bottom margin is intentional; History keeps its compact content height.
+   Minimum panel heights allow short/zoomed screens to scroll instead of clipping. */
+.reference-content:has(.manual-drink-shell > .daily-check-in:not(.daily-check-in--compact)) { padding-bottom:0; }
+.manual-drink-shell:has(> .daily-check-in:not(.daily-check-in--compact)) { max-width:none; padding:0; }
 .daily-check-in { padding: 8px 28px 28px; }
+.daily-check-in:not(.daily-check-in--compact) { min-height:100dvh; display:flex; flex-direction:column; padding:24px clamp(24px,2.5vw,44px) 24px; }
+.daily-check-in:not(.daily-check-in--compact) .check-in-choices { flex:1; min-height:510px; }
 .check-in-date { display:flex; align-items:center; gap:10px; color:#536b7c; font-size:18px; margin:0 0 27px; min-height:28px; }
 .check-in-date svg { width:22px; height:22px; flex:none; }
-.check-in-choices { position:relative; width:100%; height:clamp(510px,calc(100dvh - 170px),640px); isolation:isolate; }
+.check-in-choices { position:relative; width:100%; isolation:isolate; }
 .check-in-choice { position:absolute; inset:0; width:100%; border:0; padding:0; font:inherit; text-align:center; cursor:pointer; }
 .check-in-choice--zero { background:#edf6f2; clip-path:polygon(0 0,60% 0,40% 100%,0 100%); color:#28605c; }
 .check-in-choice--drink { background:#eef3fc; clip-path:polygon(60% 0,100% 0,100% 100%,40% 100%); color:#1a5fcc; }
@@ -12,11 +19,11 @@
 .check-in-choice:disabled { cursor:wait; opacity:.65; }
 .manual-drink-page .check-in-choice:focus-visible { outline:0; }
 .check-in-choice:focus-visible .check-in-cta { outline:3px solid #bb6500; outline-offset:5px; }
-.check-in-choice-content { position:absolute; width:40%; top:48px; bottom:48px; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+.check-in-choice-content { position:absolute; width:40%; top:32px; bottom:32px; display:flex; flex-direction:column; align-items:center; justify-content:center; }
 .check-in-choice--zero .check-in-choice-content { left:3%; }
 .check-in-choice--drink .check-in-choice-content { right:3%; }
-.check-in-logo { display:block; width:238px; height:217px; margin-bottom:18px; flex-shrink:0; }
-.check-in-title { font:400 36px/1.25 'DM Serif Display',Georgia,serif; color:#1c1c1a; }
+.check-in-logo { display:block; width:clamp(238px,28dvh,310px); height:auto; aspect-ratio:220/200; margin-bottom:clamp(18px,3dvh,32px); flex-shrink:0; }
+.check-in-title { font:400 clamp(32px,3.8dvh,42px)/1.25 'DM Serif Display',Georgia,serif; color:#1c1c1a; }
 .check-in-copy { margin-top:13px; font-size:19px; line-height:1.55; color:#4e6260; }
 .check-in-choice--drink .check-in-copy { color:#51647e; }
 .check-in-cta { display:flex; align-items:center; justify-content:center; gap:13px; border:1px solid currentColor; border-radius:12px; min-height:54px; padding:10px 20px; background:#ffffffe0; font-size:18px; font-weight:500; margin-top:28px; }
@@ -57,11 +64,14 @@
   .daily-check-in--compact .check-in-choice { padding:12px; }.daily-check-in--compact .check-in-choice-content { grid-template-columns:54px 1fr; column-gap:10px; }.daily-check-in--compact .check-in-logo { width:54px; height:51px; }.daily-check-in--compact .check-in-title { font-size:19px; }.daily-check-in--compact .check-in-cta { font-size:14px; }
 }
 @media(max-width:767px) {
+  .reference-content:has(.manual-drink-shell > .daily-check-in:not(.daily-check-in--compact)) { padding-bottom:calc(76px + env(safe-area-inset-bottom)); }
+  .daily-check-in:not(.daily-check-in--compact) { min-height:calc(100svh - 76px - env(safe-area-inset-bottom)); padding:14px 20px 14px; }
+  .daily-check-in:not(.daily-check-in--compact) .check-in-choices { min-height:600px; }
   .daily-check-in { padding:3px 20px 22px; }.check-in-date { font-size:15px; gap:8px; margin-bottom:20px; min-height:25px; }.check-in-date svg { width:20px; }
-  .check-in-choices { height:clamp(520px,calc(100svh - 175px),660px); }.check-in-choice--zero { clip-path:polygon(0 0,100% 0,100% 45%,0 55%); }.check-in-choice--drink { clip-path:polygon(0 55%,100% 45%,100% 100%,0 100%); }
+  .check-in-choice--zero { clip-path:polygon(0 0,100% 0,100% 45%,0 55%); }.check-in-choice--drink { clip-path:polygon(0 55%,100% 45%,100% 100%,0 100%); }
   .check-in-divider { display:none; }.check-in-choices:after { content:''; position:absolute; inset:0; pointer-events:none; background:white; clip-path:polygon(0 54.5%,100% 44.5%,100% 45.5%,0 55.5%); }
   .check-in-choice-content { width:100%; height:44%; top:auto; bottom:auto; padding:0 13px; }.check-in-choice--zero .check-in-choice-content { left:0; top:9px; }.check-in-choice--drink .check-in-choice-content { right:0; bottom:9px; }
-  .check-in-logo { width:135px; height:123px; margin-bottom:5px; }.check-in-title { font-size:28px; }.check-in-copy { font-size:16px; margin-top:7px; }.check-in-copy br { display:none; }.check-in-cta { font-size:16px; min-height:47px; padding:9px 16px; margin-top:16px; }
+  .check-in-logo { width:135px; height:123px; margin-bottom:5px; }.check-in-title { font-size:28px; }.check-in-copy { font-size:16px; margin-top:7px; }.check-in-copy br { display:initial; }.check-in-cta { font-size:16px; min-height:47px; padding:9px 16px; margin-top:16px; }
   .check-in-capture-context { padding-inline:20px; font-size:14px; }.check-in-fixed-date { max-width:65%; font-size:15px; }.check-in-save-feedback { margin-inline:20px; }
   .history-check-in-row { padding:13px 12px; gap:10px; }.history-check-in-mark { width:34px; height:39px; }.history-check-in-copy strong { font-size:16px; }.history-check-in-copy small { font-size:13px; }.history-check-in-action { font-size:14px; padding-inline:10px; }
   .history-backfill { margin-inline:12px; padding:18px 0; }.history-backfill h4 { font-size:18px; }.history-backfill p { font-size:14px; }
