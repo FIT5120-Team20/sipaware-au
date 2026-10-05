@@ -65,6 +65,7 @@ function readHistory(): Promise<DrinkingRecord[]> {
 }
 
 async function renderHydratedPage() {
+  window.history.replaceState({ fromHistory: true }, '', '/record?date=2026-08-26')
   const view = render(<ManualDrinkPage />)
   await screen.findByLabelText('Drink type')
   fireEvent.click(screen.getByRole('button', { name: 'My Drinks' }))
@@ -248,9 +249,7 @@ describe('ManualDrinkPage My Drinks management', () => {
     fireEvent.change(screen.getByLabelText('Number of servings consumed'), {
       target: { value: '1' },
     })
-    fireEvent.change(screen.getByLabelText('Date'), {
-      target: { value: '2026-08-26' },
-    })
+    expect(screen.getByLabelText('Date')).toHaveTextContent('26 August 2026')
     fireEvent.change(screen.getByLabelText('Time'), {
       target: { value: '19:30' },
     })
@@ -264,11 +263,11 @@ describe('ManualDrinkPage My Drinks management', () => {
       abvPercent: 4,
     })
 
-    // Done is the accepted transition from the committed result to History.
+    // Inspect the saved result before returning to History and editing the template.
     await screen.findByRole('heading', { name: 'Drink recorded' })
-    await user.click(screen.getByRole('button', { name: 'Done' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }))
     await screen.findByRole('heading', { name: 'History & Trends' })
-    window.history.pushState({}, '', '/record')
+    window.history.pushState({}, '', '/record?date=2026-08-26')
     fireEvent.popState(window)
     await editSkyToLarge(user)
     await expect(readHistory()).resolves.toEqual(historySnapshot)
@@ -287,7 +286,7 @@ describe('ManualDrinkPage My Drinks management', () => {
     await expect(readSavedDrinks()).resolves.toEqual([])
     await expect(readHistory()).resolves.toEqual(historySnapshot)
     view.unmount()
-    window.history.replaceState({}, '', '/trends#history')
+    window.history.replaceState({ checkInDate: '2026-08-26' }, '', '/trends#history')
     render(<ManualDrinkPage initialView="history" />)
     await screen.findByRole('heading', { name: 'Your drinking records' })
     const recentRecordsHeading = screen.getByRole('heading', {

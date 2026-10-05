@@ -13,6 +13,8 @@ import {
   useRef,
   useState,
 } from 'react'
+import { displayCheckInDate } from '../types/dailyCheckIn'
+import { getCurrentLocalCalendarDateKey } from '../utils/localCalendarDate'
 import { RECORD_HOME_EVENT } from '../../../app/entryPaths'
 
 import {
@@ -56,6 +58,7 @@ import { prefillLabelFields, type LabelOcrResult } from '../ocr/labelOcr'
 
 interface ManualDrinkFormProps {
   startInBrowse?: boolean
+  selectedDate?: string
   onRecorded?: (record: DrinkingRecord, templateFailed: boolean) => void
   barcodeLookup?: BarcodeLookup
   referenceCategories: readonly DrinkReferenceCategory[]
@@ -118,6 +121,7 @@ function padDatePart(value: number): string {
 
 function createInitialManualDrinkFormValues(
   now = new Date(),
+  selectedDate?: string,
 ): ManualDrinkFormValues {
   // Date and time inputs start from the user's local wall clock, not UTC, so a
   // new record initially reflects the occasion the user sees on their device.
@@ -128,8 +132,9 @@ function createInitialManualDrinkFormValues(
     customVolumeMl: '',
     abvPercent: '',
     amountConsumed: '',
-    date: `${now.getFullYear()}-${padDatePart(now.getMonth() + 1)}-${padDatePart(now.getDate())}`,
-    time: `${padDatePart(now.getHours())}:${padDatePart(now.getMinutes())}`,
+    date: selectedDate ?? `${now.getFullYear()}-${padDatePart(now.getMonth() + 1)}-${padDatePart(now.getDate())}`,
+    // Past occasions need an intentional time, not the current clock.
+    time: selectedDate && selectedDate !== getCurrentLocalCalendarDateKey(now) ? '' : `${padDatePart(now.getHours())}:${padDatePart(now.getMinutes())}`,
   }
 }
 
@@ -168,6 +173,7 @@ export function ManualDrinkForm({
   onDeleteSavedDrink,
   barcodeLookup,
   startInBrowse = false,
+  selectedDate,
   onRecorded,
 }: ManualDrinkFormProps) {
   // Provenance travels with each independent record/template snapshot.
@@ -192,9 +198,10 @@ export function ManualDrinkForm({
   const [millilitres, setMillilitres] = useState('')
   const [saveTemplateWithRecord, setSaveTemplateWithRecord] = useState(false)
   const formRef = useRef<HTMLFormElement>(null)
+  const pendingSave = useRef(false)
   const recordLimitNoticeRef = useRef<HTMLDivElement>(null)
   const timeLimit = useConsumptionTimeLimit()
-  const [values, setValues] = useState(createInitialManualDrinkFormValues)
+  const [values, setValues] = useState(() => createInitialManualDrinkFormValues(new Date(), selectedDate))
   const [errors, setErrors] = useState<ManualDrinkFormErrors>({})
   const [saveStatus, setSaveStatus] = useState<SaveStatus>(null)
   const [isPersisting, setIsPersisting] = useState(false)
@@ -208,7 +215,7 @@ export function ManualDrinkForm({
     (savedDrink) => savedDrink.id === selectedSavedDrinkId,
   )
   const resetRecordDraft = useCallback(() => {
-    setValues(createInitialManualDrinkFormValues())
+    setValues(createInitialManualDrinkFormValues(new Date(), selectedDate))
     setAmountMode('serving')
     setMillilitres('')
     setBlockedStepperKey(null)
@@ -225,7 +232,7 @@ export function ManualDrinkForm({
     setLabelScanKey(key => key + 1)
     previousLabelResult.current = null
     setShowManualReferenceStatus(false)
-  }, [setSaveTemplateWithRecord])
+  }, [setSaveTemplateWithRecord, selectedDate])
   useEffect(() => {
     const returnToRecordHome = () => {
       resetRecordDraft()
@@ -577,6 +584,7 @@ export function ManualDrinkForm({
    */
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (pendingSave.current) return
     setSaveStatus(null)
 
     const validationResult = validateManualDrinkInput(effectiveValues)
@@ -591,10 +599,12 @@ export function ManualDrinkForm({
     }
 
     const record = createDrinkingRecord({ ...validationResult.data, recordSource })
+    pendingSave.current = true
     setIsPersisting(true)
     try {
       await onSave(record)
     } catch {
+      pendingSave.current = false
       setIsPersisting(false)
       setSaveStatus({
         kind: 'error',
@@ -619,7 +629,7 @@ export function ManualDrinkForm({
     setAmountMode('serving')
     setMillilitres('')
     setSaveTemplateWithRecord(false)
-    setValues(createInitialManualDrinkFormValues())
+    setValues(createInitialManualDrinkFormValues(new Date(), selectedDate))
     setRecordSource('manual')
     setLabelScanKey(key => key + 1)
     setSelectedSavedDrinkId(null)
@@ -630,6 +640,7 @@ export function ManualDrinkForm({
     // Navigate only after both independent writes settle so a template failure
     // remains visible after navigation and cannot invite a duplicate record.
     onRecorded?.(record, templateFailed)
+    pendingSave.current = false
   }
 
   return (
@@ -984,6 +995,7 @@ export function ManualDrinkForm({
           <div className="date-time-grid">
             <div className="form-field">
               <label htmlFor="consumed-date"><span aria-hidden="true"><IcoCalendar /></span> Date</label>
+              {selectedDate ? <span id="consumed-date" className="check-in-fixed-date" aria-label="Date">{displayCheckInDate(selectedDate)}</span> : (
               <input
                 id="consumed-date"
                 name="date"
@@ -996,6 +1008,7 @@ export function ManualDrinkForm({
                 aria-describedby={errors.date ? 'consumed-date-error' : undefined}
                 required
               />
+              )}
               <FieldError id="consumed-date-error" message={errors.date} />
             </div>
 
@@ -1017,6 +1030,7 @@ export function ManualDrinkForm({
               <FieldError id="consumed-time-error" message={errors.time} />
             </div>
           </div>
+          {selectedDate && <p className="check-in-time-hint">{selectedDate < timeLimit.date ? 'Adding a past entry. Choose the time you drank on this date.' : 'Adjust the time to when you drank.'}</p>}
         </fieldset>
 
         {!selectedSavedDrink && <label className="prototype-save-template">

@@ -14,6 +14,8 @@ import type { DrinkReferenceCategory } from '../types/drinkReference'
 import type { AlcoholGuidelinesResponseDto, GuidelineLoadStatus } from '../types/alcoholGuideline'
 import { DrinkingRecordEditor } from './DrinkingRecordEditor'
 import { ReferenceDialog } from './ReferenceDialog'
+import { DailyCheckIn } from './DailyCheckIn'
+import { displayCheckInDate, historyMonthDates } from '../types/dailyCheckIn'
 import { ReferenceBackBar } from './ReferenceBackBar'
 import '../referenceHistory.css'
 
@@ -161,7 +163,17 @@ function buildFourWeekBuckets(records: ConsumptionRecord[], end: Date) {
   return { start: reportStart, end, values }
 }
 
-type HistoryTabProps = Props & {
+type CheckInHistoryProps = {
+  initialDateKey?: string
+  savedDay?: boolean
+  alcoholFreeDates?: string[]
+  startDate?: string
+  onNoAlcohol?: (date: string) => Promise<void>
+  onAddDrink?: (date: string) => void
+}
+
+type HistoryTabProps = Props & CheckInHistoryProps & {
+  todayKey: string
   initialRecordId?: string
   onEditRecord: (record: ConsumptionRecord) => void
 }
@@ -170,6 +182,7 @@ const HISTORY_DATES_PER_PAGE = 7
 
 function HistoryTab({
   records,
+  todayKey, initialDateKey, savedDay, alcoholFreeDates = [], startDate, onNoAlcohol, onAddDrink,
   initialRecordId,
   onDeleteRecord,
   onEditRecord,
@@ -177,18 +190,16 @@ function HistoryTab({
   // A newly saved backdated record should open its own month, not the latest
   // month in the database. Normal visits retain the existing latest-month view.
   const initialRecord = records.find(record => record.id === initialRecordId)
-  const latestRecordDate = initialRecord ? parseDateOnly(initialRecord.date) : records.length > 0
+  const latestRecordDate = initialDateKey ? parseDateOnly(initialDateKey) : startDate && !initialRecord ? parseDateOnly(todayKey) : initialRecord ? parseDateOnly(initialRecord.date) : records.length > 0
     ? parseDateOnly([...records].sort((a, b) => b.date.localeCompare(a.date))[0].date)
     : startOfToday()
-  useEffect(() => {
-    if (initialRecordId) document.getElementById('history-record-' + initialRecordId)?.scrollIntoView?.({ block: 'center' })
-  }, [initialRecordId])
   const [viewYear, setViewYear] = useState(latestRecordDate.getFullYear())
   const [viewMonth, setViewMonth] = useState(latestRecordDate.getMonth())
   const [showMonthPicker, setShowMonthPicker] = useState(false)
   const [draftYear, setDraftYear] = useState(viewYear)
   const [draftMonth, setDraftMonth] = useState(viewMonth)
   const [openActionsId, setOpenActionsId] = useState<string | null>(null)
+  const [expandedDate, setExpandedDate] = useState<string | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [pendingDelete, setPendingDelete] = useState<ConsumptionRecord | null>(null)
@@ -209,18 +220,18 @@ function HistoryTab({
 
   const groupedRecords = useMemo(() => {
     const groups = new Map<string, ConsumptionRecord[]>()
-    monthRecords.forEach((record) => {
-      const list = groups.get(record.date) ?? []
-      list.push(record)
-      groups.set(record.date, list)
-    })
-    return Array.from(groups.entries())
-  }, [monthRecords])
+    // Missing days are read-only projections, not stored fake records. Expand
+    // at most this month's dates so long histories do not create huge arrays.
+    if (startDate) historyMonthDates(viewYear, viewMonth, startDate, todayKey)
+      .forEach(date => groups.set(date, []))
+    monthRecords.forEach(record => groups.set(record.date, [...(groups.get(record.date) ?? []), record]))
+    return [...groups.entries()].sort(([a], [b]) => b.localeCompare(a))
+  }, [monthRecords, startDate, todayKey, viewYear, viewMonth])
 
   // Page complete date groups, never individual drinks: daily totals and the
   // full records passed to Trends/Report must not depend on the visible page.
   const [page, setPage] = useState(() => {
-    const index = groupedRecords.findIndex(([, items]) => items.some(item => item.id === initialRecordId))
+    const index = groupedRecords.findIndex(([date, items]) => date === initialDateKey || items.some(item => item.id === initialRecordId))
     return Math.floor(Math.max(0, index) / HISTORY_DATES_PER_PAGE) + 1
   })
   const pageCount = Math.max(1, Math.ceil(groupedRecords.length / HISTORY_DATES_PER_PAGE))
@@ -230,7 +241,14 @@ function HistoryTab({
   if (page !== currentPage) setPage(currentPage)
   const pageStart = (currentPage - 1) * HISTORY_DATES_PER_PAGE
   const visibleGroups = groupedRecords.slice(pageStart, pageStart + HISTORY_DATES_PER_PAGE)
+  useEffect(() => {
+    const target = initialDateKey ? document.getElementById('history-day-' + initialDateKey)
+      : initialRecordId ? document.getElementById('history-record-' + initialRecordId) : null
+    target?.focus({ preventScroll: true })
+    target?.scrollIntoView?.({ block: 'center' })
+  }, [initialDateKey, initialRecordId])
   const changePage = (next: number) => {
+    setExpandedDate(null)
     setPage(next)
     setOpenActionsId(null)
     const heading = document.getElementById('history-heading')
@@ -249,6 +267,7 @@ function HistoryTab({
   const moveMonth = (offset: number) => {
     const next = new Date(viewYear, viewMonth + offset, 1)
     setPage(1)
+    setExpandedDate(null)
     setOpenActionsId(null)
     setViewYear(next.getFullYear())
     setViewMonth(next.getMonth())
@@ -257,6 +276,7 @@ function HistoryTab({
 
   const applyMonth = () => {
     setPage(1)
+    setExpandedDate(null)
     setOpenActionsId(null)
     setViewYear(draftYear)
     setViewMonth(draftMonth)
@@ -310,14 +330,37 @@ function HistoryTab({
           {visibleGroups.map(([date, dayRecords]) => {
             const dailyTotal = (dayRecords.reduce((sum, record) => sum + record.standardDrinks, 0))
             return (
-              <article className="history-day" key={date}>
+              <article className={'history-day' + (savedDay && date === initialDateKey ? ' history-day--saved' : '') + (date === expandedDate ? ' history-day--expanded' : '')} key={date} id={'history-day-' + date} tabIndex={-1}>
                 <header className="history-day-header">
-                  <h3>{formatHistoryDate(date)}</h3>
-                  <div className="history-day-total">
+                  <h3>{formatHistoryDate(date)}{savedDay && date === initialDateKey && <span className="history-saved-tag">Saved</span>}</h3>
+                  {dayRecords.length === 0 && !alcoholFreeDates.includes(date) ? <span className="history-no-data">No data</span> : <div className="history-day-total">
                     <span className="history-day-total-number">{dailyTotal.toFixed(1)}</span>
                     <span className="history-day-total-unit">standard drinks</span>
-                  </div>
+                  </div>}
                 </header>
+                {dayRecords.length === 0 && <div className="history-check-in-row">
+                  <span className={'history-check-in-mark' + (alcoholFreeDates.includes(date) ? '' : ' history-check-in-mark--missing')} aria-hidden="true">{alcoholFreeDates.includes(date) ? '✓' : '—'}</span>
+                  <div className="history-check-in-copy">
+                    <strong>{alcoholFreeDates.includes(date) ? 'Alcohol-free day' : 'No check-in saved'}</strong>
+                    <small>{alcoholFreeDates.includes(date) ? 'You confirmed no alcohol.' : 'You can add an entry for this day.'}</small>
+                  </div>
+                  {onAddDrink && onNoAlcohol && <button type="button" className="history-check-in-action"
+                    aria-expanded={alcoholFreeDates.includes(date) ? undefined : expandedDate === date}
+                    aria-controls={alcoholFreeDates.includes(date) ? undefined : 'backfill-' + date}
+                    onClick={() => {
+                      if (alcoholFreeDates.includes(date)) onAddDrink(date)
+                      else {
+                        setExpandedDate(current => current === date ? null : date)
+                        requestAnimationFrame(() => document.getElementById('backfill-' + date)?.scrollIntoView?.({ block: 'center' }))
+                      }
+                    }}>{alcoholFreeDates.includes(date) ? 'Add drink' : expandedDate === date ? 'Close' : 'Add entry'}</button>}
+                </div>}
+                {expandedDate === date && onNoAlcohol && onAddDrink && <div className="history-backfill" id={'backfill-' + date}>
+                  <h4>Did you drink on {displayCheckInDate(date)}?</h4>
+                  <p>Your entry will be saved to the date above.</p>
+                  <DailyCheckIn compact date={date} onNoAlcohol={onNoAlcohol} onDrink={onAddDrink} />
+                  <button type="button" className="history-backfill-cancel" onClick={() => setExpandedDate(null)}>Cancel</button>
+                </div>}
                 <div className="history-day-records">
                   {dayRecords.map((record) => (
                     <div className="history-record" id={'history-record-' + record.id} key={record.id}>
@@ -355,7 +398,7 @@ function HistoryTab({
         <nav className="history-pagination" aria-label="History pages">
           <p role="status">
             Page {currentPage} of {pageCount}
-            <span>Recorded dates {pageStart + 1}–{Math.min(pageStart + HISTORY_DATES_PER_PAGE, groupedRecords.length)} of {groupedRecords.length}</span>
+            <span>Dates {pageStart + 1}–{Math.min(pageStart + HISTORY_DATES_PER_PAGE, groupedRecords.length)} of {groupedRecords.length}</span>
           </p>
           <div className="history-pagination-buttons">
             <button type="button" disabled={currentPage === 1} onClick={() => changePage(currentPage - 1)}>Previous</button>
@@ -363,6 +406,8 @@ function HistoryTab({
           </div>
         </nav>
       )}
+
+      {startDate && <p className="history-check-in-note">Days with no data count as 0 recorded drinks in Trends. They are not confirmed alcohol-free days.</p>}
 
       {pendingDelete && <ReferenceDialog title="Delete this record?" alert onClose={() => { if (!deleting) { setPendingDelete(null); setDeleteError(null) } }}>
         <p>This removes this record from your drinking history, Trends, and Report. My Drinks will not be changed.</p>
@@ -421,7 +466,7 @@ function TrendBars({
   )
 }
 
-function TrendsTab({ records, daily, weekly }: Pick<Props, 'records' | 'daily' | 'weekly'>) {
+function TrendsTab({ records, daily, weekly, alcoholFreeDates = [] }: Pick<Props, 'records' | 'daily' | 'weekly'> & { alcoholFreeDates?: string[] }) {
   const [period, setPeriod] = useState<TrendPeriod>('7d')
   const today = useMemo(() => startOfToday(), [])
 
@@ -496,7 +541,8 @@ function TrendsTab({ records, daily, weekly }: Pick<Props, 'records' | 'daily' |
         </label>
       </div>
 
-      {data.current.length === 0 ? (
+      {/* A confirmed zero day is usable data without becoming a fake drink. */}
+      {data.current.length === 0 && !alcoholFreeDates.some(date => date >= formatDateOnly(addDays(today, period === '7d' ? -6 : -27)) && date <= formatDateOnly(today)) ? (
         <div className="ht-empty-card">
           <h3>No trend data yet.</h3>
           <p>There are no drinking records in this period. Missing records do not mean no alcohol was consumed.</p>
@@ -740,7 +786,7 @@ function projectHistoryRecord(record: DrinkingRecord): ConsumptionRecord {
   time: String(wall.getUTCHours()).padStart(2, '0') + ':' + String(wall.getUTCMinutes()).padStart(2, '0'),
   standardDrinks: calculateStandardDrinks(record) }
 }
-export function ReferenceHistoryTrends({ records, initialRecordId, referenceCategories, onUpdate, onDelete, guidelines, guidelineStatus, onRetryGuidelines, todayKey }: {
+export function ReferenceHistoryTrends({ records, initialRecordId, referenceCategories, onUpdate, onDelete, guidelines, guidelineStatus, onRetryGuidelines, todayKey, ...checkInHistory }: CheckInHistoryProps & {
  records: DrinkingRecord[]; referenceCategories: DrinkReferenceCategory[]
  onUpdate: (record: DrinkingRecord) => Promise<void>; onDelete: (id: string) => Promise<void>
  initialRecordId?: string
@@ -775,8 +821,8 @@ export function ReferenceHistoryTrends({ records, initialRecordId, referenceCate
      onClick={() => { window.history.pushState({}, '', applicationHref('/trends#' + tab)); setActiveTab(tab) }}>
      {tab[0].toUpperCase() + tab.slice(1)}</button>)}
    </nav>
-   {activeTab === 'history' && <HistoryTab records={views} initialRecordId={initialRecordId} daily={daily} weekly={weekly} onDeleteRecord={onDelete} onEditRecord={record => setEditingId(record.id)} />}
-   {activeTab === 'trends' && <TrendsTab key={todayKey} records={eligible} daily={daily} weekly={weekly} />}
+   {activeTab === 'history' && <HistoryTab key={(checkInHistory.initialDateKey ?? '') + (initialRecordId ?? '')} {...checkInHistory} todayKey={todayKey} records={views} initialRecordId={initialRecordId} daily={daily} weekly={weekly} onDeleteRecord={onDelete} onEditRecord={record => setEditingId(record.id)} />}
+   {activeTab === 'trends' && <TrendsTab key={todayKey} alcoholFreeDates={checkInHistory.alcoholFreeDates} records={eligible} daily={daily} weekly={weekly} />}
    {activeTab === 'report' && <ReportTab key={todayKey} records={eligible} daily={daily} weekly={weekly} />}
    {activeTab !== 'history' && <footer className="ht-recorded-data-note">
     <p>Based on drinks recorded on this device. Missing records do not mean no alcohol was consumed. Future-dated records are excluded from feedback.</p>

@@ -3,6 +3,7 @@
 import '@testing-library/jest-dom/vitest'
 import { cleanup } from '@testing-library/react'
 import { deleteDB } from 'idb'
+import { closeCheckInDatabase, CHECKIN_DATABASE_NAME } from '../../../frontend/src/features/drinks/storage/dailyCheckInDatabase'
 import 'fake-indexeddb/auto'
 import { afterEach, beforeEach, vi } from 'vitest'
 
@@ -52,6 +53,8 @@ beforeEach(() => {
 
 afterEach(async () => {
   cleanup()
+  await closeCheckInDatabase()
+  await deleteDB(CHECKIN_DATABASE_NAME)
   await closeSipAwareDatabase()
   await deleteDB(SIPAWARE_DATABASE_NAME)
   vi.unstubAllGlobals()

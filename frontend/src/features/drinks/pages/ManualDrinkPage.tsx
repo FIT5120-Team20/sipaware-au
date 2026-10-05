@@ -31,12 +31,26 @@ import type {
   GuidelineLoadStatus,
 } from '../types/alcoholGuideline'
 import type { SavedDrink } from '../types/savedDrink'
+import { DailyCheckIn } from '../components/DailyCheckIn'
+import { IndexedDbDailyCheckInRepository } from '../storage/dailyCheckInRepository'
+import { displayCheckInDate, historyStartDate, isCalendarDate, type DailyCheckInState } from '../types/dailyCheckIn'
+import { getCurrentLocalCalendarDateKey, getRecordLocalCalendarDateKey } from '../utils/localCalendarDate'
 import '../manualDrink.css'
+
+// The URL carries only a validated date, never an uncommitted personal record.
+function readCaptureDate() {
+  const date = new URLSearchParams(window.location.search).get('date')
+  return isCalendarDate(date) && date <= getCurrentLocalCalendarDateKey() ? date : null
+}
 
 type HydrationStatus = 'loading' | 'ready' | 'error'
 
 export function ManualDrinkPage({ initialView = 'record' }: { initialView?: 'record' | 'history' }) {
 
+  const [captureDate, setCaptureDate] = useState<string | null>(readCaptureDate)
+  const [historyDate, setHistoryDate] = useState<string | undefined>(() => window.history.state?.checkInDate)
+  const [checkIns, setCheckIns] = useState<DailyCheckInState>({ startedOn: '', alcoholFreeDates: [] })
+  const checkInRepository = useMemo(() => new IndexedDbDailyCheckInRepository(), [])
   const [resultId, setResultId] = useState<string | null>(() => new URLSearchParams(window.location.search).get('record'))
   const [templateFailed, setTemplateFailed] = useState(
     () => window.history.state?.savedTemplateFailed === true,
@@ -81,11 +95,15 @@ export function ManualDrinkPage({ initialView = 'record' }: { initialView?: 'rec
   // source of truth; it never repeats a write or fabricates a successful result.
   useEffect(() => {
     const restore = () => {
+      setCaptureDate(readCaptureDate())
+      setHistoryDate(window.history.state?.checkInDate)
       setResultId(new URLSearchParams(window.location.search).get('record'))
       setTemplateFailed(window.history.state?.savedTemplateFailed === true)
       setHistoryView(applicationPath() === '/trends')
     }
     const returnToRecordHome = () => {
+      setCaptureDate(null)
+      setHistoryView(false)
       setResultId(null)
       setTemplateFailed(false)
     }
@@ -103,30 +121,42 @@ export function ManualDrinkPage({ initialView = 'record' }: { initialView?: 'rec
     const heading = document.getElementById('record-result-title')
     if (resultId && heading) { heading.focus(); heading.scrollIntoView?.({ block: 'start' }) }
   }, [resultId, hydrationStatus])
-  function showRecordedResult(record: DrinkingRecord, failed: boolean) {
-    // Show the committed record on its own result page before the user
-    // continues to History.
-    window.history.pushState(
-      { savedTemplateFailed: failed },
-      '',
-      applicationHref('/record?record=' + encodeURIComponent(record.id)),
-    )
-    setTemplateFailed(failed)
-    setResultId(record.id)
-    setHistoryView(false)
-  }
-  function continueToHistory() {
-    window.history.pushState(
-      { savedRecordId: resultId },
-      '',
-      applicationHref('/trends#history'),
-    )
-    setResultId(null)
-    setTemplateFailed(false)
-    setHistoryView(true)
+  // Navigation happens only after the local transaction commits. Route state
+  // selects the exact History month/page; reload never replays the write.
+  function showHistory(date: string, record?: DrinkingRecord, failed = false, saved = true) {
+    window.history.pushState({ checkInDate: date, checkInSaved: saved, savedRecordId: record?.id, savedTemplateFailed: failed }, '', applicationHref('/trends#history'))
+    setHistoryDate(date); setHistoryView(true); setCaptureDate(null)
+    setResultId(null); setTemplateFailed(failed)
     window.dispatchEvent(new PopStateEvent('popstate'))
   }
+  function showRecordedResult(record: DrinkingRecord, failed: boolean) {
+    if (!isMounted.current) return
+    // Only a committed record can open the result. Its ID lets reload recover
+    // the same local snapshot without submitting the form a second time.
+    window.history.pushState({ savedTemplateFailed: failed }, '', applicationHref('/record?record=' + encodeURIComponent(record.id)))
+    setCaptureDate(null); setHistoryView(false)
+    setResultId(record.id); setTemplateFailed(failed)
+    window.dispatchEvent(new PopStateEvent('popstate'))
+  }
+  function startDrinking(date: string) {
+    window.history.pushState({ fromHistory: historyView }, '', applicationHref('/record?date=' + date))
+    setCaptureDate(date); setHistoryView(false); setResultId(null)
+    window.dispatchEvent(new PopStateEvent('popstate'))
+    window.scrollTo?.({ top: 0 })
+  }
+  async function confirmAlcoholFree(date: string) {
+    await checkInRepository.confirmAlcoholFree(date)
+    if (isMounted.current) {
+      setCheckIns(current => ({ ...current, alcoholFreeDates: [...new Set([...current.alcoholFreeDates, date])] }))
+      showHistory(date)
+    }
+  }
+  function continueToHistory() {
+    // A backfilled drink belongs to its consumed date, not today's page.
+    if (lastRecord) showHistory(getRecordLocalCalendarDateKey(lastRecord), lastRecord, templateFailed)
+  }
   function returnToBrowse() {
+    setCaptureDate(null)
     window.history.pushState({}, '', applicationHref('/record'))
     setResultId(null)
     setTemplateFailed(false)
@@ -142,14 +172,16 @@ export function ManualDrinkPage({ initialView = 'record' }: { initialView?: 'rec
       try {
         // Read both personal-data stores before showing the feature so the UI
         // starts from one consistent browser-local persistence snapshot.
-        const [storedRecords, storedSavedDrinks] = await Promise.all([
+        const [storedRecords, storedSavedDrinks, storedCheckIns] = await Promise.all([
           drinkingRecordRepository.list(),
           savedDrinkRepository.list(),
+          checkInRepository.initialize(),
         ])
 
         if (isMounted.current) {
           setRecords(storedRecords)
           setSavedDrinks(storedSavedDrinks)
+          setCheckIns(storedCheckIns)
           setHydrationStatus('ready')
         }
       } catch {
@@ -166,7 +198,7 @@ export function ManualDrinkPage({ initialView = 'record' }: { initialView?: 'rec
       // but React state must not be updated after this page unmounts.
       isMounted.current = false
     }
-  }, [drinkingRecordRepository, savedDrinkRepository])
+  }, [drinkingRecordRepository, savedDrinkRepository, checkInRepository])
 
   // Public reference loading is independent from IndexedDB hydration. A Neon
   // outage therefore cannot erase, rewrite or block reading personal history.
@@ -255,6 +287,7 @@ export function ManualDrinkPage({ initialView = 'record' }: { initialView?: 'rec
     const persistedRecords = await drinkingRecordRepository.add(record)
     if (isMounted.current) {
       setRecords(persistedRecords)
+      setCheckIns(current => ({ ...current, alcoholFreeDates: current.alcoholFreeDates.filter(date => date !== getRecordLocalCalendarDateKey(record)) }))
     }
   }
 
@@ -262,6 +295,7 @@ export function ManualDrinkPage({ initialView = 'record' }: { initialView?: 'rec
     const persistedRecords = await drinkingRecordRepository.update(record)
     if (isMounted.current) {
       setRecords(persistedRecords)
+      setCheckIns(current => ({ ...current, alcoholFreeDates: current.alcoholFreeDates.filter(date => date !== getRecordLocalCalendarDateKey(record)) }))
     }
   }
 
@@ -310,16 +344,24 @@ export function ManualDrinkPage({ initialView = 'record' }: { initialView?: 'rec
           <section className="manual-drink-card">
             <div className="form-notice form-notice--error" role="alert">
               Drinks saved on this device could not be loaded. Reload the page
-              to try again. Nothing has been changed.
+              to try again. If another SipAware tab is open, close it before reloading. Nothing has been changed.
             </div>
           </section>
         )}
 
         {hydrationStatus === 'ready' && (
-          (initialView === 'history' || historyView) ? (
+          historyView ? (
+            <>
+            {templateFailed && <p className="check-in-error check-in-save-feedback" role="alert">Drinking record saved on this device, but the drink could not be saved to My Drinks. Do not record the same occasion again.</p>}
             <ReferenceHistoryTrends
               records={records}
               initialRecordId={savedRecord?.id}
+              initialDateKey={historyDate}
+              savedDay={window.history.state?.checkInSaved === true}
+              alcoholFreeDates={checkIns.alcoholFreeDates}
+              startDate={historyStartDate(checkIns, records, currentLocalDateKey)}
+              onNoAlcohol={confirmAlcoholFree}
+              onAddDrink={startDrinking}
               referenceCategories={referenceCategories}
               onUpdate={updateRecord}
               onDelete={deleteRecord}
@@ -328,6 +370,13 @@ export function ManualDrinkPage({ initialView = 'record' }: { initialView?: 'rec
               onRetryGuidelines={retryGuidelines}
               todayKey={currentLocalDateKey}
             />
+            {savedRecord && <details className="check-in-save-feedback">
+              <summary>Drink saved · View summary{consumptionSummary.hasEligibleDrinkingRecordToday ? ' · Avoid drinking and driving' : ''}</summary>
+              <AlcoholConsumptionSummary presentation="reference" summary={consumptionSummary} guidelines={guidelines}
+                guidelineStatus={guidelineStatus} onRetryGuidelines={retryGuidelines} showRelatedInformation={false} />
+              {consumptionSummary.hasEligibleDrinkingRecordToday && <DrivingSafetyGuidance />}
+            </details>}
+            </>
           ) : resultId ? (
             lastRecord ? <ReferenceRecordResult record={lastRecord} templateFailed={templateFailed} onDone={continueToHistory}>
               <AlcoholConsumptionSummary presentation="reference" summary={consumptionSummary} guidelines={guidelines}
@@ -337,7 +386,19 @@ export function ManualDrinkPage({ initialView = 'record' }: { initialView?: 'rec
               <h1>Record unavailable</h1><p>This record is no longer available on this device.</p>
               <button type="button" className="primary-button" onClick={returnToBrowse}>Back to Record</button>
             </section>
-          ) : <ManualDrinkForm
+          ) : !captureDate ? <DailyCheckIn key={currentLocalDateKey} date={currentLocalDateKey}
+            hasDrinks={records.some(record => getRecordLocalCalendarDateKey(record) === currentLocalDateKey)}
+            onNoAlcohol={confirmAlcoholFree} onDrink={startDrinking} /> : <>
+            <div className="check-in-capture-context">
+              <span>{displayCheckInDate(captureDate)}</span>
+              <button type="button" onClick={() => {
+                if (window.history.state?.fromHistory) showHistory(captureDate, undefined, false, false)
+                else returnToBrowse()
+              }}>{window.history.state?.fromHistory ? 'Cancel · Back to History' : 'Back to daily check-in'}</button>
+            </div>
+            <ManualDrinkForm
+            key={captureDate}
+            selectedDate={captureDate}
             startInBrowse
             referenceCategories={referenceCategories}
             referenceStatus={referenceStatus}
@@ -348,7 +409,7 @@ export function ManualDrinkPage({ initialView = 'record' }: { initialView?: 'rec
             onSaveSavedDrink={saveDrinkForFutureUse}
             onUpdateSavedDrink={updateSavedDrink}
             onDeleteSavedDrink={deleteSavedDrink}
-          />
+          /></>
         )}
       </main>
 

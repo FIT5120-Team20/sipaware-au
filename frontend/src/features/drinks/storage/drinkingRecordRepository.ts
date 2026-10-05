@@ -3,7 +3,8 @@
  * React code depends on this asynchronous contract rather than IndexedDB APIs,
  * and no operation in this module reads or mutates the SavedDrink store.
  */
-import type { IDBPTransaction } from 'idb'
+import { clearAlcoholFree, withDailyDataLock } from './dailyCheckInDatabase'
+import { getRecordLocalCalendarDateKey } from '../utils/localCalendarDate'
 
 import { isDrinkType } from '../config/drinkTypes'
 import { isRecordSource, type DrinkingRecord } from '../types/drinkingRecord'
@@ -11,7 +12,6 @@ import {
   DRINKING_RECORDS_STORE_NAME,
   openSipAwareDatabase,
   type SipAwareDatabaseProvider,
-  type SipAwareDatabaseSchema,
 } from './indexedDb'
 
 /**
@@ -79,19 +79,7 @@ function sortRecords(records: DrinkingRecord[]): DrinkingRecord[] {
   )
 }
 
-type DrinkingRecordWriteTransaction = IDBPTransaction<
-  SipAwareDatabaseSchema,
-  ['drinking_records'],
-  'readwrite'
->
 
-async function listFromTransaction(
-  transaction: DrinkingRecordWriteTransaction,
-): Promise<DrinkingRecord[]> {
-  return sortRecords(await transaction.store.getAll())
-}
-
-/** IndexedDB implementation used by the active Epic 1 application runtime. */
 export class IndexedDbDrinkingRecordRepository
   implements DrinkingRecordRepository
 {
@@ -106,6 +94,10 @@ export class IndexedDbDrinkingRecordRepository
   }
 
   async add(record: DrinkingRecord): Promise<DrinkingRecord[]> {
+    return withDailyDataLock(() => this.addUnlocked(record))
+  }
+
+  private async addUnlocked(record: DrinkingRecord): Promise<DrinkingRecord[]> {
     if (!isDrinkingRecord(record)) {
       throw new Error('Cannot save an invalid drinking record.')
     }
@@ -115,16 +107,26 @@ export class IndexedDbDrinkingRecordRepository
       DRINKING_RECORDS_STORE_NAME,
       'readwrite',
     )
+    // Observe aborts even when an individual request rejects first; the caller
+    // still receives that rejection and success still awaits transaction.done.
+    void transaction.done.catch(() => undefined)
 
     // Keep the write and refreshed list in one transaction so UI state only
     // changes after IndexedDB has accepted the complete record snapshot.
-    await transaction.store.add(record)
-    const records = await listFromTransaction(transaction)
+    await transaction.objectStore(DRINKING_RECORDS_STORE_NAME).add(record)
+    const records = sortRecords(await transaction.objectStore(DRINKING_RECORDS_STORE_NAME).getAll())
     await transaction.done
+    // The drink is already committed. A check-in cleanup failure must not
+    // invite the user to save it again; reads give the drink precedence.
+    await clearAlcoholFree(getRecordLocalCalendarDateKey(record)).catch(() => undefined)
     return records
   }
 
   async update(record: DrinkingRecord): Promise<DrinkingRecord[]> {
+    return withDailyDataLock(() => this.updateUnlocked(record))
+  }
+
+  private async updateUnlocked(record: DrinkingRecord): Promise<DrinkingRecord[]> {
     if (!isDrinkingRecord(record)) {
       throw new Error('Cannot update an invalid drinking record.')
     }
@@ -134,9 +136,12 @@ export class IndexedDbDrinkingRecordRepository
       DRINKING_RECORDS_STORE_NAME,
       'readwrite',
     )
+    // Observe aborts even when an individual request rejects first; the caller
+    // still receives that rejection and success still awaits transaction.done.
+    void transaction.done.catch(() => undefined)
     // The ID selects the snapshot being corrected. createdAt remains immutable
     // so a correction cannot masquerade as a newly recorded occasion.
-    const existingRecord = await transaction.store.get(record.id)
+    const existingRecord = await transaction.objectStore(DRINKING_RECORDS_STORE_NAME).get(record.id)
 
     if (!existingRecord) {
       transaction.abort()
@@ -161,13 +166,20 @@ export class IndexedDbDrinkingRecordRepository
       throw new Error('The original database drink information cannot be changed.')
     }
 
-    await transaction.store.put(record)
-    const records = await listFromTransaction(transaction)
+    await transaction.objectStore(DRINKING_RECORDS_STORE_NAME).put(record)
+    const records = sortRecords(await transaction.objectStore(DRINKING_RECORDS_STORE_NAME).getAll())
     await transaction.done
+    // The drink is already committed. A check-in cleanup failure must not
+    // invite the user to save it again; reads give the drink precedence.
+    await clearAlcoholFree(getRecordLocalCalendarDateKey(record)).catch(() => undefined)
     return records
   }
 
   async delete(recordId: string): Promise<DrinkingRecord[]> {
+    return withDailyDataLock(() => this.deleteUnlocked(recordId))
+  }
+
+  private async deleteUnlocked(recordId: string): Promise<DrinkingRecord[]> {
     if (!isNonEmptyString(recordId)) {
       throw new Error('A drinking record ID is required for deletion.')
     }
@@ -175,6 +187,10 @@ export class IndexedDbDrinkingRecordRepository
     // Only the history store participates in this transaction; deleting a
     // record therefore cannot remove or rewrite a My Drinks template.
     const database = await this.openDatabase()
+    const existing = await database.get(DRINKING_RECORDS_STORE_NAME, recordId)
+    // Clear stale zero metadata before deletion so a failed earlier cleanup
+    // cannot resurrect an alcohol-free confirmation after the drink is gone.
+    if (existing) await clearAlcoholFree(getRecordLocalCalendarDateKey(existing))
     const transaction = database.transaction(
       DRINKING_RECORDS_STORE_NAME,
       'readwrite',
@@ -187,7 +203,7 @@ export class IndexedDbDrinkingRecordRepository
     }
 
     await transaction.store.delete(recordId)
-    const records = await listFromTransaction(transaction)
+    const records = sortRecords(await transaction.objectStore(DRINKING_RECORDS_STORE_NAME).getAll())
     await transaction.done
     return records
   }

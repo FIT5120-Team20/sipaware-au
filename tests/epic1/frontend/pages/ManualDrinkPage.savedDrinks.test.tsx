@@ -74,6 +74,7 @@ async function storeSavedDrinks(savedDrinks: readonly SavedDrink[]) {
 }
 
 async function renderHydratedPage(manual = true) {
+  window.history.replaceState({ fromHistory: true }, '', '/record?date=2026-08-26')
   const view = render(<ManualDrinkPage />)
   await screen.findByLabelText('Drink type')
   if (manual) fireEvent.click(await screen.findByRole('button', { name: 'Record Manually' }))
@@ -90,10 +91,13 @@ describe('ManualDrinkPage saved drinks', () => {
 
     await user.click(screen.getByRole('checkbox', { name: /Save this drink to My Drinks/ }))
     fireEvent.change(screen.getByLabelText('Number of servings consumed'), { target: { value: '1' } })
+    fireEvent.change(screen.getByLabelText('Time'), { target: { value: '18:00' } })
     await user.click(screen.getByRole('button', { name: 'Record Drink' }))
 
+    await screen.findByRole('heading', { name: 'Drink recorded' })
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }))
     expect(
-      await screen.findByText('Drinking record saved on this device.'),
+      await screen.findByRole('heading', { name: 'History & Trends' }),
     ).toBeInTheDocument()
     const savedDrinks = await new IndexedDbSavedDrinkRepository().list()
 
@@ -160,15 +164,13 @@ describe('ManualDrinkPage saved drinks', () => {
     fireEvent.change(screen.getByLabelText('Number of servings consumed'), {
       target: { value: '2' },
     })
-    fireEvent.change(screen.getByLabelText('Date'), {
-      target: { value: '2026-08-26' },
-    })
+    expect(screen.getByLabelText('Date')).toHaveTextContent('26 August 2026')
     fireEvent.change(screen.getByLabelText('Time'), {
       target: { value: '22:17' },
     })
 
     expect(screen.getByLabelText('Number of servings consumed')).toHaveValue(2)
-    expect(screen.getByLabelText('Date')).toHaveValue('2026-08-26')
+    expect(screen.getByLabelText('Date')).toHaveTextContent('26 August 2026')
     expect(screen.getByLabelText('Time')).toHaveValue('22:17')
     await user.click(
       screen.getByRole('button', { name: 'Back to Record' }),
@@ -179,11 +181,11 @@ describe('ManualDrinkPage saved drinks', () => {
     expect(screen.getByLabelText('Drink type')).toBeEnabled()
     expect(screen.getByLabelText('Drink type')).toHaveValue('')
     expect(screen.getByLabelText('Drink name')).toHaveValue('')
-    // Leaving a draft and starting another record must not carry over the old occasion.
+    // Discarding a draft clears its amount/time but keeps the History-selected date.
     expect(screen.getByLabelText('Number of servings consumed')).toHaveValue(null)
-    expect(screen.getByLabelText('Date')).not.toHaveValue('2026-08-26')
-    expect(screen.getByLabelText('Date')).not.toHaveValue('')
-    expect(screen.getByLabelText('Time')).not.toHaveValue('')
+    expect(screen.getByLabelText('Date')).toHaveTextContent('26 August 2026')
+    expect(screen.getByLabelText('Date')).toHaveTextContent('26 August 2026')
+    expect(screen.getByLabelText('Time')).toHaveValue('')
     await expect(new IndexedDbDrinkingRecordRepository().list()).resolves.toEqual([])
   })
 
@@ -201,9 +203,7 @@ describe('ManualDrinkPage saved drinks', () => {
     fireEvent.change(screen.getByLabelText('Number of servings consumed'), {
       target: { value: '2' },
     })
-    fireEvent.change(screen.getByLabelText('Date'), {
-      target: { value: '2026-08-26' },
-    })
+    expect(screen.getByLabelText('Date')).toHaveTextContent('26 August 2026')
     fireEvent.change(screen.getByLabelText('Time'), {
       target: { value: '22:17' },
     })
@@ -211,8 +211,10 @@ describe('ManualDrinkPage saved drinks', () => {
       screen.getByRole('button', { name: 'Record Drink' }),
     )
 
+    await screen.findByRole('heading', { name: 'Drink recorded' })
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }))
     expect(
-      await screen.findByText('Drinking record saved on this device.'),
+      await screen.findByRole('heading', { name: 'History & Trends' }),
     ).toBeInTheDocument()
     const records = await new IndexedDbDrinkingRecordRepository().list()
     expect(records).toHaveLength(2)
@@ -282,6 +284,7 @@ describe('ManualDrinkPage saved drinks', () => {
 
     await user.click(screen.getByRole('checkbox', { name: /Save this drink to My Drinks/ }))
     fireEvent.change(screen.getByLabelText('Number of servings consumed'), { target: { value: '1' } })
+    fireEvent.change(screen.getByLabelText('Time'), { target: { value: '18:00' } })
     await user.click(screen.getByRole('button', { name: 'Record Drink' }))
 
     expect(
@@ -302,6 +305,7 @@ describe('ManualDrinkForm saved-drink failures', () => {
   it('reports a template failure after saving history and clears the consumed amount to avoid duplication', async () => {
     render(
       <ManualDrinkForm
+        selectedDate="2026-08-26"
         referenceCategories={DRINK_REFERENCE_CATEGORIES}
         referenceStatus="loaded"
         onRetryReferenceData={() => undefined}
@@ -318,6 +322,7 @@ describe('ManualDrinkForm saved-drink failures', () => {
 
     await user.click(screen.getByRole('checkbox', { name: /Save this drink to My Drinks/ }))
     fireEvent.change(screen.getByLabelText('Number of servings consumed'), { target: { value: '1' } })
+    fireEvent.change(screen.getByLabelText('Time'), { target: { value: '18:00' } })
     await user.click(screen.getByRole('button', { name: 'Record Drink' }))
 
     expect(
