@@ -2,8 +2,6 @@
  * These controls request actions; only the page/repository can persist a day.
  * Decorative logos never replace the readable, keyboard-accessible choices. */
 import { useRef, useState } from 'react'
-import { IcoCalendar } from './ReferenceRecordBrowser'
-import { displayCheckInDate } from '../types/dailyCheckIn'
 import '../dailyCheckIn.css'
 
 export function CheckInLogo({ kind }: { kind: 'zero' | 'drink' }) {
@@ -54,7 +52,7 @@ export function DailyCheckIn({ date, compact = false, hasDrinks = false, onNoAlc
     finally { pending.current = false; setBusy(false) }
   }
   return <section className={compact ? 'daily-check-in daily-check-in--compact' : 'daily-check-in'} aria-label={compact ? 'Add entry for ' + date : 'Record daily check-in'}>
-    {!compact && <><h1 className="reference-sr-only">Record</h1><p className="check-in-date"><IcoCalendar /><span>Today · {displayCheckInDate(date)}</span></p></>}
+    {!compact && <h1 className="reference-sr-only">Record</h1>}
     <div className="check-in-choices" aria-busy={busy}>
       <button type="button" className="check-in-choice check-in-choice--zero" disabled={busy} onClick={() => void saveZero()}>
         <span className="check-in-choice-content"><CheckInLogo kind="zero" />
