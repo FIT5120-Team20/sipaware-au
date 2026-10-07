@@ -22,5 +22,5 @@ export function applicationHref(path: string): string {
   const mount = entryMount(window.location.pathname)
   const route = path.split(/[?#]/, 1)[0]
   if (!mount || !APP_ROUTES.has(route)) return path
-  return mount + (route === '/' ? path.slice(1) : path)
+  return mount + path
 }

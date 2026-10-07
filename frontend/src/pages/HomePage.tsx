@@ -1,11 +1,12 @@
 /**
  * HomePage.tsx from alcohol-health-prototype (f5711b15) supplies the four-card
  * introduction and feature links. Plain CSS replaces its Tailwind dependency.
- * Artwork is served locally; this page never loads personal records or sends
+ * Artwork is served locally; the check-in section reads local records without sending
  * browsing data to image/font providers. Topic links use the existing API-backed
  * destinations rather than duplicating the prototype's health claims.
  */
 import { useRef, useState } from 'react'
+import { HomeCheckIn } from '../features/drinks/components/HomeCheckIn'
 import { HomeFooter } from '../components/HomeFooter'
 import { applicationHref } from '../app/entryPaths'
 import { ReferenceDialog } from '../features/drinks/components/ReferenceDialog'
@@ -79,6 +80,7 @@ const [showAbout, setShowAbout] = useState(false)
         <button className="reference-help" type="button" aria-label="About this app"
          aria-expanded={showAbout} onClick={() => setShowAbout(true)}>?</button>
       </header>
+      <HomeCheckIn />
       <div className="home-story-grid" ref={track} aria-label="Explore SipAware" onScroll={() => {
         if (track.current && window.innerWidth < 768) {
           const width = (track.current.firstElementChild as HTMLElement)?.offsetWidth ?? 318
