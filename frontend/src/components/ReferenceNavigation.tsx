@@ -46,6 +46,11 @@ function NavTrends({ active }: { active: boolean }) {
 }
 
 
+function NavAwards({ active }: { active: boolean }) {
+  return <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={active ? '#1A5FCC' : '#687888'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M7 3h10v5a5 5 0 0 1-10 0V3ZM7 5H3v2a4 4 0 0 0 4 4M17 5h4v2a4 4 0 0 1-4 4M12 13v5M8 21h8M9 18h6v3H9z" />
+  </svg>
+}
 interface ReferenceNavigationProps {
   path?: string
   onNavigate?: (path: string) => void
@@ -64,6 +69,7 @@ export function ReferenceNavigation({
     },
     { label: 'Record', href: '/record', Icon: NavRecord },
     { label: 'Trends', href: '/trends', Icon: NavTrends },
+    { label: 'Awards', href: '/awards', Icon: NavAwards },
   ]
 
   return (

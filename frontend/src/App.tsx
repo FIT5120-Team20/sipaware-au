@@ -8,6 +8,7 @@ import { applicationPath, applicationHref, RECORD_HOME_EVENT } from './app/entry
 import { ManualDrinkPage } from './features/drinks/pages/ManualDrinkPage'
 import { AlcoholInformationPage } from './features/drinks/pages/AlcoholInformationPage'
 import { ReferenceNavigation } from './components/ReferenceNavigation'
+import { AwardsPage } from './features/awards/AwardsPage'
 import { HomePage } from './pages/HomePage'
 
 function App() {
@@ -65,6 +66,8 @@ function App() {
           <ManualDrinkPage key="record" />
         ) : path === '/trends' ? (
           <ManualDrinkPage key="trends" initialView="history" />
+        ) : path === '/awards' ? (
+          <AwardsPage key="awards" />
         ) : path === '/alcohol-guidelines' ? (
           <AlcoholInformationPage key="learn" />
         ) : (
