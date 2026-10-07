@@ -22,7 +22,7 @@ export const AWARDS: readonly AwardDefinition[] = [
   { id: 'building-a-habit', name: 'Building a Habit', condition: 'Create check-ins on 14 different days. They do not need to be consecutive.', metric: 'creation-days', target: 14 },
   { id: 'alcohol-free-start', name: 'Alcohol-Free Start', condition: 'Record your first alcohol-free day.', metric: 'alcohol-free-days', target: 1 },
   { id: 'alcohol-free-progress', name: 'Alcohol-Free Progress', condition: 'Record 5 different alcohol-free days. Past dates count too.', metric: 'alcohol-free-days', target: 5 },
-  { id: 'know-your-patterns', name: 'Know Your Patterns', condition: 'View Trends when enough valid check-in history is available.', metric: 'trends-view', target: 1 },
+  { id: 'know-your-patterns', name: 'Know Your Patterns', condition: 'View Trends after recording check-ins for 7 different dates.', metric: 'trends-view', target: 1 },
 ]
 
 export interface AwardProgress extends AwardDefinition {
@@ -38,7 +38,7 @@ export interface AwardInput {
   earnedIds: readonly AwardId[]
   now: Date
   viewedTrends?: boolean
-  // Deliberately unset until the team approves a definition of sufficient history.
+  // The app supplies the approved threshold of 7; pure callers must provide a threshold.
   trendsMinimumDays?: number
 }
 

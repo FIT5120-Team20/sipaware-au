@@ -32,3 +32,11 @@
 .award-detail .primary-button { width: 100%; margin-top: 12px; }
 @media (min-width: 1000px) { .awards-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 360px) { .awards-page { padding-inline: 12px; } .award-card { padding: 16px 10px; } }
+
+.award-live-feedback { position: fixed; z-index: 30; right: 16px; bottom: calc(90px + env(safe-area-inset-bottom)); width: min(390px, calc(100vw - 32px)); }
+.award-live-feedback-card { border: 1px solid #94b6a2; background: #eff8f2; color: #24563b; padding: 16px; border-radius: 14px; box-shadow: 0 4px 18px #0002; }
+.award-live-feedback-card--error { background: #fff8ec; border-color: #c7a66a; color: #6b4917; }
+.award-live-feedback-card p { margin: 0 0 10px; }
+.award-live-feedback-card > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.award-live-feedback-card button { background: transparent; border: 1px solid currentColor; border-radius: 8px; padding: 8px 12px; min-height: 44px; color: inherit; cursor: pointer; }
+@media (min-width: 768px) { .award-live-feedback { bottom: 24px; } }

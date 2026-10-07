@@ -1,107 +1,62 @@
-# Epic 6: award rules foundation
+# Epic 6: awards
 
-This foundation implements calculation and a standalone local earned-award repository.
-The Awards page now evaluates and persists eligible awards on entry and on
-returning to the tab. Record/Trends action hooks remain a separate integration step.
+## Implemented behavior
 
-## Contract
+The Awards page displays all six awards, current progress, recently earned awards
+and accessible detail dialogs. The active route is `/iteration3/awards`.
 
-`frontend/src/features/awards/awardRules.ts` exports `AWARDS` and
-`calculateAwards`. The caller supplies valid local records, check-in rows,
-previously earned award IDs and an explicit current time. Invalid rows and
-future calendar dates are excluded. Tracking-start metadata is not a check-in.
+After successful drinking-record additions, edits, deletions and No alcohol
+confirmations, awards are evaluated and persisted without requiring an Awards
+page visit. A polite, dismissible App-level notice survives navigation. Failed
+award storage never rejects an already committed history write or asks the user
+to record it again. My Drinks templates do not grant awards.
 
-- Engagement counts distinct creation dates: `createdAt` for drinks and
-  `confirmedAt` for No alcohol. Backfilling multiple days in one session counts
-  as one creation day. Days need not be consecutive.
-- Alcohol-free progress counts explicit No alcohol dates. Missing dates never
-  qualify. Existing drink records require positive ABV, servings and volume;
-  they override stale No alcohol rows even when display rounding produces 0.0.
-- Unearned progress is recalculated. Supplied earned IDs stay earned, even
-  after every source record is deleted. The caller must persist new earned IDs
-  after a successful evaluation; this function does not store them.
-- No rule rewards drinking quantity or product variety.
+Know Your Patterns now requires **7 distinct eligible represented dates** and an
+actual view of the Trends tab. This threshold was explicitly approved by the
+project owner. Backfilled and No alcohol dates count; missing and future dates do
+not. Opening History, Report or Awards is not a Trends view. Changing records
+while viewing Trends also reevaluates eligibility.
 
-## Decisions required before integration
+## Rules and local storage
 
-Creation-day grouping currently uses the device timezone at evaluation time.
-Existing data stores consumption offsets, but not creation-time timezone offsets.
-Do not claim that unearned creation-day progress is invariant across travel.
+`awardRules.ts` contains the definitions and pure calculation. Creation dates use
+`createdAt` for drinks and `confirmedAt` for No alcohol. Multiple retrospective
+entries created on one day count as only one engagement day. Days need not be
+consecutive. No award rewards drinking quantity or variety.
 
-The document does not define sufficient history for Know Your Patterns. The
-caller must supply a positive integer `trendsMinimumDays` and confirm an actual
-Trends view. Leaving that threshold unset disables new grants of that award.
-Seven days in the tests is an example parameter, not an approved product rule.
+Explicit alcohol-free dates count toward alcohol-free awards. Any valid positive
+alcohol record overrides conflicting No alcohol metadata, even if displayed
+standard drinks round to 0.0. Tracking-start metadata is not a check-in.
 
-The production check-in repository currently removes No alcohol metadata when
-alcohol is recorded on the same date. This evaluator matches that reconciliation
-rule. A future durable engagement-event ledger would require a separate decision.
+`awardRepository.ts` stores `{ id, earnedAt }` in the separate `sipaware_awards`
+version-1 IndexedDB database. It never upgrades the retained drink database.
+One transaction serializes grants across connections, preserves the first earning
+time, and either commits the whole batch or none. Corrupt saved awards produce
+an error rather than being silently replaced. There is no award delete/update API.
 
-## Validation
+Earned awards remain earned after history changes. Unearned progress is derived
+from current history. Clearing site data removes local awards; other browsers or
+devices do not share them. No backend request or notification permission is used.
+Creation-day grouping uses the current device timezone because historical records
+do not store creation-time timezone offsets; unearned grouping may change when
+travelling across timezones.
 
-From `frontend/`:
+`awardOverview.ts` reads committed history under the current app's daily-data
+lock, calculates eligibility and saves grants before returning earned status.
+`awardFeedbackEvents.ts` handles award failures separately from history writes.
+`AwardNotice.tsx` displays nonblocking feedback with View Awards and Dismiss.
 
-```powershell
-npm run lint
-npm test -- ../tests/epic6/frontend/awardRules.test.ts
-npm test
-npm run build
-```
+## Verification
 
-In restricted Windows execution environments, Vite config bundling or process
-workers may be blocked. These equivalent validation commands avoid those paths:
+From `frontend/`, run `npm run lint`, `npm test`, and `npm run build`.
+For restricted Windows environments use:
 
 ```powershell
 npm test -- --configLoader native --pool threads --maxWorkers 2
 npm run build -- --configLoader native
 ```
 
-Tests cover creation-date deduplication, nonconsecutive thresholds, backfill,
-No alcohol conflicts, tiny positive consumption, deletion, retained earned IDs,
-future/invalid data, local midnight, consumption offsets and Trends prerequisites.
-There is no new browser UI to manually exercise in this foundation change.
-
-## Earned-award storage (second slice)
-
-`awardRepository.ts` stores `{ id, earnedAt }` in the `earned_awards` object store
-of a separate version-1 `sipaware_awards` IndexedDB database. It does not upgrade
-or write to the retained drink database and does not send personal data anywhere.
-
-- `list()` reads validated earned rows. A corrupt row produces an error rather
-  than silently making an earned award disappear or assigning it a new date.
-- `grant(ids, now)` is for IDs already qualified by the rule calculator. It
-  cannot establish eligibility itself. All IDs are validated before writing.
-- A single read/write transaction preserves the first grant timestamp, serializes
-  competing connections, and commits the whole batch or none of it.
-- The result includes all `earned` rows plus only this transaction's
-  `newlyEarned` rows. UI feedback must wait for the returned promise to resolve.
-- There is deliberately no update/delete operation. Progress toward unearned
-  awards is still calculated from current history, not stored in this database.
-- Persistence is local to this browser and origin. Clearing site data removes
-  awards, and another browser/device does not share them. This is not cloud sync.
-
-The Awards page now calls the calculator and repository. Importing the storage
-module alone does not grant awards. The page persists eligible IDs before
-displaying earned status and newly-earned feedback.
-Storage errors must not cause users to resubmit an already saved drink.
-
-## Awards page (third slice)
-
-The main navigation links to `/awards`, preserving `/iteration3` on the active
-build. The page follows the supplied mobile prototype's progress summary,
-recent-award feature and two-column cards, with three columns on wide screens.
-All six badges have accessible detail dialogs; displayed values are real local
-data rather than prototype examples. No backend request is needed.
-
-`awardOverview.ts` reads the two local history stores under the current app's
-daily-data lock, calculates eligibility, persists grants, then returns the view.
-The page refreshes on focus/visibility return and supports loading/error/retry.
-Do not interpret these page-entry checks as complete automatic grant integration:
-a user who earns an award and deletes qualifying history before visiting Awards
-will not have that event captured yet. Record-change hooks are still required.
-Know Your Patterns is not newly granted until the team approves its threshold
-and the actual Trends-view event is connected.
-
-Test coverage includes empty state, populated progress, detail dialogs, retained
-awards after deletion/reopen, failed load/retry, focus refresh, iteration-aware
-navigation and preventing an Awards visit from granting the Trends badge.
+Coverage includes backfill/creation-date deduplication, thresholds, positive
+alcohol conflicts, invalid/future rows, atomic storage failure and concurrency,
+retention after history deletion, page error/retry, automatic grants and feedback,
+and History-versus-Trends activation at six and seven represented dates.

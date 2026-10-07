@@ -6,6 +6,7 @@
  * repositories. Keeping persistence here prevents UI controls from depending
  * directly on IndexedDB and keeps SavedDrink and DrinkingRecord state separate.
  */
+import { updateAwardsAfterCheckIn } from '../../awards/awardFeedbackEvents'
 import { applicationHref, applicationPath, RECORD_HOME_EVENT } from '../../../app/entryPaths'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
@@ -146,6 +147,7 @@ export function ManualDrinkPage({ initialView = 'record' }: { initialView?: 'rec
   }
   async function confirmAlcoholFree(date: string) {
     await checkInRepository.confirmAlcoholFree(date)
+    await updateAwardsAfterCheckIn()
     if (isMounted.current) {
       setCheckIns(current => ({ ...current, alcoholFreeDates: [...new Set([...current.alcoholFreeDates, date])] }))
       showHistory(date)
@@ -289,6 +291,7 @@ export function ManualDrinkPage({ initialView = 'record' }: { initialView?: 'rec
       setRecords(persistedRecords)
       setCheckIns(current => ({ ...current, alcoholFreeDates: current.alcoholFreeDates.filter(date => date !== getRecordLocalCalendarDateKey(record)) }))
     }
+    await updateAwardsAfterCheckIn()
   }
 
   async function updateRecord(record: DrinkingRecord): Promise<void> {
@@ -297,6 +300,7 @@ export function ManualDrinkPage({ initialView = 'record' }: { initialView?: 'rec
       setRecords(persistedRecords)
       setCheckIns(current => ({ ...current, alcoholFreeDates: current.alcoholFreeDates.filter(date => date !== getRecordLocalCalendarDateKey(record)) }))
     }
+    await updateAwardsAfterCheckIn()
   }
 
   async function deleteRecord(recordId: string): Promise<void> {
@@ -304,6 +308,7 @@ export function ManualDrinkPage({ initialView = 'record' }: { initialView?: 'rec
     if (isMounted.current) {
       setRecords(persistedRecords)
     }
+    await updateAwardsAfterCheckIn()
   }
 
   // SavedDrink operations update only the reusable-template collection. They
