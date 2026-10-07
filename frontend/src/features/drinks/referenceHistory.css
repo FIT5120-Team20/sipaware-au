@@ -1165,3 +1165,11 @@
 .history-trends-page h1 { font-family:'DM Serif Display',serif; font-weight:400; }
 .history-trends-page .ht-card-heading h3 { font-weight:400; }
 .history-trends-page .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; }
+
+.history-past-entry { margin: 0 0 16px; min-height: 44px; }
+.history-past-form { display: grid; gap: 10px; margin: 18px 0; }
+.history-past-form label { font-weight: 600; }
+.history-past-form input { width: 100%; min-width: 0; box-sizing: border-box; min-height: 48px; padding: 10px 12px; border: 1px solid #c8c4be; border-radius: 10px; background: white; color: #1c1c1a; font: inherit; }
+.history-past-form [role="alert"] { color: #96392c; }
+.history-past-options { margin: 16px 0; }
+.history-past-options h3 { font-size: 20px; }

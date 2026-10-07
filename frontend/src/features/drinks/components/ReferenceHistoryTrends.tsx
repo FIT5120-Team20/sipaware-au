@@ -15,6 +15,7 @@ import type { AlcoholGuidelinesResponseDto, GuidelineLoadStatus } from '../types
 import { DrinkingRecordEditor } from './DrinkingRecordEditor'
 import { ReferenceDialog } from './ReferenceDialog'
 import { DailyCheckIn } from './DailyCheckIn'
+import { HistoricalCheckIn } from './HistoricalCheckIn'
 import { displayCheckInDate, historyMonthDates } from '../types/dailyCheckIn'
 import { ReferenceBackBar } from './ReferenceBackBar'
 import '../referenceHistory.css'
@@ -288,6 +289,10 @@ function HistoryTab({
       <div className="ht-section-heading-row">
         <h2 id="history-heading" tabIndex={-1} className="ht-section-title">Your drinking records</h2>
       </div>
+
+      {onNoAlcohol && onAddDrink && <HistoricalCheckIn today={todayKey}
+        drinkingDates={records.map(record => record.date)} alcoholFreeDates={alcoholFreeDates}
+        onNoAlcohol={onNoAlcohol} onAddDrink={onAddDrink} />}
 
       <div className="history-month-nav" aria-label="History month navigation">
         <button className="history-month-arrow" onClick={() => moveMonth(-1)} aria-label="Previous month">‹</button>
