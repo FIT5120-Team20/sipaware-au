@@ -1,0 +1,8 @@
+.reminder-entry { margin: 0 0 24px; }
+.reminder-entry button, .reminder-settings button { min-height: 44px; padding: 10px 16px; border: 1px solid #28605c; border-radius: 10px; background: white; color: #22544f; font: inherit; cursor: pointer; }
+.reminder-settings { line-height: 1.6; }
+.reminder-settings label { display: block; font-weight: 600; }
+.reminder-settings input { box-sizing: border-box; max-width: 100%; min-height: 44px; padding: 8px 12px; border: 1px solid #52665f; border-radius: 8px; font: inherit; }
+.reminder-settings-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.reminder-settings [role=alert] { color: #9b3020; }
+.reminder-entry button:focus-visible, .reminder-settings :focus-visible { outline: 3px solid #1a5fcc; outline-offset: 3px; }

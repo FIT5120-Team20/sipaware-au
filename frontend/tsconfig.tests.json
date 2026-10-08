@@ -22,6 +22,7 @@
     "src/vite-env.d.ts",
     "../tests/epic1/frontend",
     "../tests/epic2/frontend",
+    "../tests/epic5/frontend",
     "../tests/epic6/frontend",
     "../tests/epic7/frontend",
     "../tests/shared/frontend"

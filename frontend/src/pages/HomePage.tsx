@@ -1,3 +1,4 @@
+import { ReminderSettings } from '../features/reminders/ReminderSettings'
 /**
  * HomePage.tsx from alcohol-health-prototype (f5711b15) supplies the four-card
  * introduction and feature links. Plain CSS replaces its Tailwind dependency.
@@ -81,6 +82,7 @@ const [showAbout, setShowAbout] = useState(false)
          aria-expanded={showAbout} onClick={() => setShowAbout(true)}>?</button>
       </header>
       <HomeCheckIn />
+      <ReminderSettings />
       <div className="home-story-grid" ref={track} aria-label="Explore SipAware" onScroll={() => {
         if (track.current && window.innerWidth < 768) {
           const width = (track.current.firstElementChild as HTMLElement)?.offsetWidth ?? 318
