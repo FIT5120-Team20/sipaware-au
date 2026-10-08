@@ -1,3 +1,4 @@
+import { ReminderSuggestionPrompt } from './ReminderSuggestionPrompt'
 import { useState } from 'react'
 import { ReferenceDialog } from '../drinks/components/ReferenceDialog'
 import { clearReminderPreference, isReminderTime, readReminderPreference, saveReminderPreference } from './reminderPreference'
@@ -59,6 +60,7 @@ export function ReminderSettings() {
   const [open, setOpen] = useState(false)
   return <div className="reminder-entry">
     <button type="button" onClick={() => setOpen(true)}>Recording reminder settings</button>
+    <ReminderSuggestionPrompt onChooseTime={() => setOpen(true)} />
     {open && <SettingsDialog onClose={() => setOpen(false)} />}
   </div>
 }
