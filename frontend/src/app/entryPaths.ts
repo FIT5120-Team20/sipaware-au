@@ -7,7 +7,7 @@
 export const RECORD_HOME_EVENT = 'sipaware:record-home'
 const ENTRY_PATH = '/iteration3'
 const LIVE_MOUNTS = [ENTRY_PATH]
-const APP_ROUTES = new Set(['/', '/record', '/trends', '/alcohol-guidelines'])
+const APP_ROUTES = new Set(['/', '/record', '/trends', '/alcohol-guidelines', '/awards'])
 
 function entryMount(pathname: string): string | undefined {
   return LIVE_MOUNTS.find(mount => pathname === mount || pathname.startsWith(mount + '/'))
@@ -22,5 +22,5 @@ export function applicationHref(path: string): string {
   const mount = entryMount(window.location.pathname)
   const route = path.split(/[?#]/, 1)[0]
   if (!mount || !APP_ROUTES.has(route)) return path
-  return mount + (route === '/' ? path.slice(1) : path)
+  return mount + path
 }

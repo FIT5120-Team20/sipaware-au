@@ -4,9 +4,10 @@
  * offsets and full-precision calculation are preserved. Reference thresholds
  * arrive only through the existing validated public API, never sample data.
  */
+import { updateAwardsAfterCheckIn } from '../../awards/awardFeedbackEvents'
 import { downloadDrinkingReportPdf } from '../utils/drinkingReportPdf'
 import { applicationHref } from '../../../app/entryPaths'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import { calculateStandardDrinks } from '../calculations/standardDrinks'
 import { getRecordLocalCalendarDateKey, getRecordedLocalWallClockDate, differenceInLocalCalendarDays, type LocalCalendarDateKey } from '../utils/localCalendarDate'
 import type { DrinkingRecord } from '../types/drinkingRecord'
@@ -15,6 +16,7 @@ import type { AlcoholGuidelinesResponseDto, GuidelineLoadStatus } from '../types
 import { DrinkingRecordEditor } from './DrinkingRecordEditor'
 import { ReferenceDialog } from './ReferenceDialog'
 import { DailyCheckIn } from './DailyCheckIn'
+import { HistoricalCheckIn } from './HistoricalCheckIn'
 import { displayCheckInDate, historyMonthDates } from '../types/dailyCheckIn'
 import { ReferenceBackBar } from './ReferenceBackBar'
 import '../referenceHistory.css'
@@ -241,7 +243,7 @@ function HistoryTab({
   if (page !== currentPage) setPage(currentPage)
   const pageStart = (currentPage - 1) * HISTORY_DATES_PER_PAGE
   const visibleGroups = groupedRecords.slice(pageStart, pageStart + HISTORY_DATES_PER_PAGE)
-  useEffect(() => {
+  useLayoutEffect(() => {
     const target = initialDateKey ? document.getElementById('history-day-' + initialDateKey)
       : initialRecordId ? document.getElementById('history-record-' + initialRecordId) : null
     target?.focus({ preventScroll: true })
@@ -288,6 +290,10 @@ function HistoryTab({
       <div className="ht-section-heading-row">
         <h2 id="history-heading" tabIndex={-1} className="ht-section-title">Your drinking records</h2>
       </div>
+
+      {onNoAlcohol && onAddDrink && <HistoricalCheckIn today={todayKey}
+        drinkingDates={records.map(record => record.date)} alcoholFreeDates={alcoholFreeDates}
+        onNoAlcohol={onNoAlcohol} onAddDrink={onAddDrink} />}
 
       <div className="history-month-nav" aria-label="History month navigation">
         <button className="history-month-arrow" onClick={() => moveMonth(-1)} aria-label="Previous month">‹</button>
@@ -799,6 +805,9 @@ export function ReferenceHistoryTrends({ records, initialRecordId, referenceCate
  const [editingId, setEditingId] = useState<string | null>(null)
  useEffect(() => { const restore = () => setActiveTab(readTab()); window.addEventListener('hashchange', restore); window.addEventListener('popstate', restore)
   return () => { window.removeEventListener('hashchange', restore); window.removeEventListener('popstate', restore) } }, [])
+ useEffect(() => {
+  if (activeTab === 'trends' && !editingId) void updateAwardsAfterCheckIn({ viewedTrends: true })
+ }, [activeTab, editingId, records, checkInHistory.alcoholFreeDates, todayKey])
  const views = records.map(projectHistoryRecord)
  const eligible = views.filter(record => record.date <= todayKey)
  const editingRecord = records.find(record => record.id === editingId)

@@ -19,7 +19,8 @@ describe('standalone and active iteration navigation', () => {
 
   it.each(['', '/iteration3'])('keeps navigation, query and hash in entry %s', (mount) => {
     window.history.replaceState({}, '', mount + '/record')
-    expect(applicationHref('/')).toBe(mount || '/')
+    expect(applicationHref('/')).toBe(mount + '/')
+    expect(applicationHref('/?source=home#todays-check-in')).toBe(mount + '/?source=home#todays-check-in')
     expect(applicationHref('/record?record=synthetic-id')).toBe(mount + '/record?record=synthetic-id')
     expect(applicationHref('/alcohol-guidelines#STANDARD_DRINK')).toBe(mount + '/alcohol-guidelines#STANDARD_DRINK')
     expect(applicationHref('/trends#history')).toBe(mount + '/trends#history')
