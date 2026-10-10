@@ -1,3 +1,4 @@
+import { isReminderScheduler } from './security/reminderScheduler.mjs';
 /** Deployment-wide access boundary, including assets, APIs and retained origins.
  * Identical gate/configuration must be deployed on the retained copy as well.
  * Existing Vercel rewrites remain responsible for choosing the content version.
@@ -9,6 +10,7 @@ export const config = { runtime: 'nodejs' };
 
 export default async function middleware(request) {
   try {
+    if (isReminderScheduler(request)) return next({ headers: privateHeaders });
     return await accessGate(request) || next({ headers: privateHeaders });
   } catch {
     // Never leak password material or bypass the gate after a crypto/runtime error.

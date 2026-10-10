@@ -1,3 +1,4 @@
+import { ReminderSync } from './features/reminders/ReminderSync'
 /**
  * Reference-derived Home/Learn/Record shell, with real native destinations.
  * Navigation updates the browser URL without reloading the React application.
@@ -60,6 +61,7 @@ function App() {
     <div className="reference-app">
       <ReferenceNavigation path={path} onNavigate={navigate} />
       <AwardFeedback />
+      <ReminderSync />
 
       <div className="reference-content">
         {path === '/' ? (
