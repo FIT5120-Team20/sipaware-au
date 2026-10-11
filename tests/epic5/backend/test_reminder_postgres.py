@@ -51,7 +51,7 @@ def database(monkeypatch):
             yield db
     try:
         with connect() as db:
-            for name in ('001_reminders.sql','002_reminder_delivery.sql','003_reminder_appointments.sql'):
+            for name in ('001_reminders.sql','002_reminder_delivery.sql','003_reminder_appointments.sql','004_reminder_alarm_claims.sql'):
                 db.execute((Path(__file__).resolve().parents[3]/'backend/migrations'/name).read_text(encoding='utf-8'))
         monkeypatch.setattr(store,'connection',connect)
         monkeypatch.setattr(delivery,'connection',connect)
@@ -131,3 +131,104 @@ def test_disable_before_delayed_first_enable_leaves_ordering_tombstone(database)
     assert not sent
     assert repo.enable(DEVICE_KEY,settings(21))['enabled'] is True
     assert len(sent)==1
+
+
+# Exercise the actual SQL claim/update ordering, not an in-memory simulation.
+# Synthetic clock changes model deliberate same-day edits after a due callback.
+def alarm(database, checked_in=False):
+    published=[];clock=[NOW]
+    def publish(row):
+        published.append(row.copy())
+        return 'message-'+str(len(published))
+    repo=store.ReminderRepository(publisher=publish,canceller=lambda _:None,clock=lambda:clock[0])
+    repo.enable(DEVICE_KEY,settings(1,checked_in=checked_in))
+    def appointment():
+        row=published[-1]
+        return SimpleNamespace(device=row['token_hash'],generation=row['schedule_generation'],due_at=row['next_due_at'])
+    return repo,clock,appointment
+
+
+@pytest.mark.parametrize('first_outcome', ['accepted','failed','skipped'])
+def test_explicit_new_time_can_notify_again_today(database,first_outcome):
+    repo,clock,current=alarm(database,checked_in=first_outcome=='skipped')
+    first=current();clock[0]=first.due_at;sent=[]
+    def sender(*_):sent.append(1);return first_outcome
+    assert delivery.dispatch(first,sender=sender,now=clock[0],repo=repo)['outcome']==first_outcome
+    assert delivery.dispatch(first,sender=sender,now=clock[0],repo=repo)['outcome']=='already-processed'
+    # Deletion synchronization alone is not an instruction to ring immediately.
+    repo.sync(DEVICE_KEY,settings(2,checked_in=False))
+    assert delivery.dispatch(first,sender=sender,now=clock[0],repo=repo)['outcome']=='already-processed'
+    repo.enable(DEVICE_KEY,settings(3,time='20:01'))
+    second=current()
+    assert second.generation!=first.generation and second.due_at==first.due_at+timedelta(minutes=1)
+    clock[0]=second.due_at
+    assert delivery.dispatch(first,sender=sender,now=clock[0],repo=repo)['outcome']=='superseded'
+    def accepted(*_):sent.append(1);return 'accepted'
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        outcomes=list(pool.map(lambda _:delivery.dispatch(second,sender=accepted,now=clock[0],repo=repo)['outcome'],range(2)))
+    assert set(outcomes)=={'accepted','already-processed'}
+    assert len(sent)==(1 if first_outcome=='skipped' else 2)
+
+
+def test_unchanged_enable_and_passive_status_do_not_rearm(database):
+    repo,clock,current=alarm(database);first=current();clock[0]=first.due_at
+    assert delivery.dispatch(first,sender=lambda *_:'accepted',now=clock[0],repo=repo)['outcome']=='accepted'
+    before=repo.status(DEVICE_KEY)
+    assert repo.enable(DEVICE_KEY,settings(2))==before
+    assert current().generation==first.generation
+    assert repo.status(DEVICE_KEY)==before
+    assert delivery.dispatch(first,sender=lambda *_:pytest.fail('Duplicate push'),now=clock[0],repo=repo)['outcome']=='already-processed'
+    # Selecting a time already passed schedules tomorrow, not an immediate send.
+    changed=repo.enable(DEVICE_KEY,settings(3,time='19:59'))
+    assert datetime.fromisoformat(changed['next_due_at'])==first.due_at+timedelta(days=1,minutes=-1)
+
+
+def test_still_checked_in_skips_even_after_explicit_time_change(database):
+    repo,clock,current=alarm(database,checked_in=True);first=current();clock[0]=first.due_at
+    assert delivery.dispatch(first,sender=lambda *_:pytest.fail('Checked-in push'),now=clock[0],repo=repo)['outcome']=='skipped'
+    repo.enable(DEVICE_KEY,settings(2,time='20:01',checked_in=True));second=current();clock[0]=second.due_at
+    assert delivery.dispatch(second,sender=lambda *_:pytest.fail('Checked-in push'),now=clock[0],repo=repo)['outcome']=='skipped'
+
+
+def test_legacy_daily_claim_requires_a_later_explicit_settings_change(database):
+    repo,clock,current=alarm(database);first=current();clock[0]=first.due_at
+    with database() as db:
+        db.execute('UPDATE reminder_subscriptions SET updated_at=%s WHERE token_hash=%s',(NOW,first.device))
+        db.execute("INSERT INTO reminder_deliveries(token_hash,local_date,claimed_at,outcome) VALUES (%s,%s,%s,'accepted')",(first.device,first.due_at.date(),NOW+timedelta(minutes=1)))
+    assert delivery.dispatch(first,sender=lambda *_:pytest.fail('Legacy duplicate'),now=clock[0],repo=repo)['outcome']=='already-processed'
+    repo.enable(DEVICE_KEY,settings(2))
+    assert delivery.dispatch(first,sender=lambda *_:pytest.fail('Unchanged legacy duplicate'),now=clock[0],repo=repo)['outcome']=='already-processed'
+    repo.enable(DEVICE_KEY,settings(3,time='20:01'));second=current();clock[0]=second.due_at
+    assert delivery.dispatch(second,sender=lambda *_:'accepted',now=clock[0],repo=repo)['outcome']=='accepted'
+
+
+def test_late_old_outcome_cannot_overwrite_new_generation(database,monkeypatch):
+    repo,clock,current=alarm(database);first=current();clock[0]=first.due_at;calls=[0];second=[None]
+    @contextmanager
+    def interleaved():
+        calls[0]+=1
+        if calls[0]==2:
+            # Deliberately run a newer appointment between the old callback's
+            # committed claim and its state recheck, then let the old one finish.
+            repo.enable(DEVICE_KEY,settings(2,time='20:01'))
+            second[0]=current();clock[0]=second[0].due_at
+            assert delivery.dispatch(second[0],sender=lambda *_:'accepted',now=clock[0],repo=repo)['outcome']=='accepted'
+        with database() as db:yield db
+    monkeypatch.setattr(delivery,'connection',interleaved)
+    assert delivery.dispatch(first,sender=lambda *_:pytest.fail('Superseded push'),now=first.due_at,repo=repo)['outcome']=='skipped'
+    with database() as db:
+        row=db.execute('SELECT outcome,schedule_generation FROM reminder_deliveries WHERE token_hash=%s',(first.device,)).fetchone()
+    assert row==dict(outcome='accepted',schedule_generation=second[0].generation)
+
+
+def test_additive_migration_preserves_existing_claims_and_old_writer(database):
+    repo,_,current=alarm(database);first=current()
+    with database() as db:
+        db.execute('ALTER TABLE reminder_deliveries DROP COLUMN schedule_generation')
+        db.execute("INSERT INTO reminder_deliveries(token_hash,local_date,outcome) VALUES (%s,%s,'failed')",(first.device,first.due_at.date()))
+        before=db.execute('SELECT * FROM reminder_deliveries').fetchone()
+        migration=(Path(__file__).resolve().parents[3]/'backend/migrations/004_reminder_alarm_claims.sql').read_text()
+        db.execute(migration);db.execute(migration)
+        after=db.execute('SELECT * FROM reminder_deliveries').fetchone()
+        assert after.pop('schedule_generation') is None and after==before
+        assert db.execute('INSERT INTO reminder_deliveries(token_hash,local_date) VALUES (%s,%s) ON CONFLICT DO NOTHING RETURNING token_hash',(first.device,first.due_at.date())).fetchone() is None

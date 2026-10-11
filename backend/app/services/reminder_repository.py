@@ -112,6 +112,15 @@ class ReminderRepository:
             row = db.execute('SELECT * FROM reminder_subscriptions WHERE token_hash=%s FOR UPDATE', (device,)).fetchone()
             if row and value.revision <= row['revision']:
                 generation = row['schedule_generation']
+            elif row and row['enabled'] and row['reminder_time'] == value.time and row['timezone'] == value.timezone:
+                # Re-saving the same active alarm is not a new appointment.
+                # Refresh keys/check-in metadata and revision without resetting
+                # next_due_at or bypassing an already consumed delivery claim.
+                generation = row['schedule_generation']
+                db.execute("""UPDATE reminder_subscriptions SET endpoint=%s,p256dh=%s,auth=%s,
+                  revision=%s,checkin_date=%s,checked_in=%s,synced_at=now()
+                  WHERE token_hash=%s""",
+                  (value.endpoint,value.p256dh,value.auth,value.revision,value.date,value.checked_in,device))
             else:
                 obsolete = row['queue_message_id'] if row else None
                 db.execute("""INSERT INTO reminder_subscriptions

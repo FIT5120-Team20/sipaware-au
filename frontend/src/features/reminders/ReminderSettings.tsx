@@ -5,6 +5,7 @@ import {
   refreshRecordingReminder, reminderPresentation, selectedReminderTime,
   updateRecordingReminderTime, useRecordingReminder,
 } from './recordingReminderState'
+import { nextReminderLabel } from './nextReminder'
 import './reminderSettings.css'
 
 /** One settings surface, backed by the existing acknowledged push operations. */
@@ -67,6 +68,8 @@ export function ReminderSettings() {
           : reminder.service === 'checking' && reminder.support.available ? 'Checking reminder availability…'
           : reminder.status?.needs_attention ? 'Turn on Daily reminder to restore your reminder.' : ''}
       </p>
+      {reminder.verified && presentation.ringing && !busy && reminder.status &&
+        <p role="status">{nextReminderLabel(reminder.status)}</p>}
     </section>
 
     <section className="recording-reminder-card recording-reminder-time-card" aria-label="Reminder time settings">
@@ -78,9 +81,10 @@ export function ReminderSettings() {
           onBlur={event => { void confirmTime(event.currentTarget.value) }}
           onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); event.currentTarget.blur() } }} />
       </div>
-      <p id={id + '-time-help'}>{enabled ? 'Changes apply when you finish choosing a time.' : 'Choose a time to use when you turn on Daily reminder.'}</p>
+      <p id={id + '-time-help'}>{enabled ? 'Changing the time sets a new reminder, even if one was sent today. Changes apply when you finish choosing a time.' : 'Choose a time to use when you turn on Daily reminder.'}</p>
     </section>
 
+    <p className="recording-reminder-guidance">Reminders are skipped if you have already checked in for the day.</p>
     {reminder.support.message && <p className="recording-reminder-guidance">{reminder.support.message}</p>}
     {reminder.service === 'unavailable' && <p className="recording-reminder-guidance">The reminder service is temporarily unavailable. Check your connection and retry.</p>}
     {reminder.error && <p className="recording-reminder-error" role="alert">{reminder.error}</p>}
