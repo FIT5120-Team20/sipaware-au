@@ -1,6 +1,6 @@
-"""One callback addresses one device. Daily claims prevent duplicate delivery.
-The next appointment is queued BEFORE a push attempt; uncertain push outcomes are
-not retried that day. Provider acceptance does not prove device display.
+"""One callback addresses one device and one version of its daily schedule.
+Claims consume an attempt, even on uncertain outcomes; a deliberate time change
+may claim again. Provider acceptance does not prove device display.
 """
 import json
 from datetime import datetime, timezone
@@ -44,8 +44,20 @@ def dispatch(appointment, sender=send_push, now=None, repo=None):
         day = due_at.astimezone(zone).date()
         if day != current_time().astimezone(zone).date():
             return {'outcome': 'past-day-skipped'}
-        claim = db.execute("""INSERT INTO reminder_deliveries(token_hash,local_date)
-          VALUES (%s,%s) ON CONFLICT DO NOTHING RETURNING token_hash""", (device,day)).fetchone()
+        # Keep the daily PK for old deployments, but replace its slot only for a
+        # new explicit schedule generation. The subscription lock fences stale
+        # callbacks. NULL identifies an old writer: only a later settings change
+        # can reclaim it. Passive check-in sync never changes updated_at.
+        claim = db.execute("""INSERT INTO reminder_deliveries
+          (token_hash,local_date,schedule_generation) VALUES (%s,%s,%s)
+          ON CONFLICT(token_hash,local_date) DO UPDATE SET
+            schedule_generation=EXCLUDED.schedule_generation,
+            claimed_at=now(),outcome='claimed'
+          WHERE (reminder_deliveries.schedule_generation IS NOT NULL
+                 AND reminder_deliveries.schedule_generation <> EXCLUDED.schedule_generation)
+             OR (reminder_deliveries.schedule_generation IS NULL
+                 AND reminder_deliveries.claimed_at < %s)
+          RETURNING token_hash""", (device,day,generation,row['updated_at'])).fetchone()
         if not claim:
             return {'outcome': 'already-processed'}
     # Commit the unique claim first. The second lock orders a concurrent disable
@@ -58,7 +70,11 @@ def dispatch(appointment, sender=send_push, now=None, repo=None):
             result = 'skipped'
         else:
             result = sender(row,config,day)
-        db.execute('UPDATE reminder_deliveries SET outcome=%s WHERE token_hash=%s AND local_date=%s', (result,device,day))
+        # A settings change can win between transactions. Never replace the
+        # outcome of the newer claim with this callback's skipped/failed result.
+        db.execute("""UPDATE reminder_deliveries SET outcome=%s
+          WHERE token_hash=%s AND local_date=%s AND schedule_generation=%s""",
+          (result,device,day,generation))
         if result == 'expired':
             db.execute('UPDATE reminder_subscriptions SET enabled=false,queue_pending=false WHERE token_hash=%s', (device,))
     return {'outcome': result}

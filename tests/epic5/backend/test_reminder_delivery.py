@@ -1,5 +1,5 @@
 """Dispatch contracts: current-day suppression, authenticated callbacks and a
-committed daily claim before a push. Unit fakes are not real-device evidence.
+committed appointment claim before a push. Unit fakes are not real-device evidence.
 """
 import asyncio
 from datetime import datetime, timezone, timedelta
@@ -48,13 +48,13 @@ def test_new_local_day_resets_completed_status():
     assert eligible(row(checked_in=True), NOW+timedelta(days=1))
 
 
-def test_dispatch_claims_once_per_local_day_and_rechecks_state(monkeypatch):
+def test_dispatch_claims_once_per_schedule_day_and_rechecks_state(monkeypatch):
     from contextlib import contextmanager
     from app.services import reminder_dispatch as service
     from types import SimpleNamespace
     from uuid import UUID
     generation = UUID('00000000-0000-0000-0000-000000000001')
-    state = row(token_hash='device', schedule_generation=generation, checked_in=True,
+    state = row(token_hash='device', schedule_generation=generation, updated_at=NOW-timedelta(days=3), checked_in=True,
                 checkin_date=(NOW-timedelta(days=2)).date())
     claims = set()
     sends = []

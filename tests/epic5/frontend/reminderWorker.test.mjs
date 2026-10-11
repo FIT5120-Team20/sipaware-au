@@ -12,6 +12,10 @@ test('worker shows a generic notification and ignores payload navigation URLs', 
  handlers.push({data:{json:()=>({url:'https://evil.test'})},waitUntil:p=>work=p});await work;
  assert.equal(shown[0][0],'SipAware daily check-in');
  assert.equal(shown[0][1].data.url,'/iteration3/record');
+ handlers.push({waitUntil:p=>work=p});await work;
+ assert.equal(shown.length,2);
+ assert.equal(shown[1][1].tag,shown[0][1].tag);
+ assert.equal(shown[1][1].renotify,true,'A new appointment must alert even if its previous card remains visible');
  let closed=false;
  handlers.notificationclick({notification:{close:()=>closed=true,data:{url:'https://evil.test'}},waitUntil:p=>work=p});await work;
  assert.equal(closed,true);assert.deepEqual(opened,['/iteration3/record']);

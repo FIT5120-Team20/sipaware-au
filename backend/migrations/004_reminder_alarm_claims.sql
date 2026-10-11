@@ -1,0 +1,11 @@
+-- Apply in the dedicated reminder database before deploying alarm-style code.
+-- Retain the daily primary key, rows, outcomes and grants for rolling compatibility.
+-- The row holds the latest claim for that device/day; each deliberate settings
+-- generation may replace it. This is a deduplication slot, not a delivery audit log.
+ALTER TABLE reminder_deliveries ADD COLUMN IF NOT EXISTS schedule_generation uuid;
+-- Keep pre-migration attempts consumed for the current schedule. A subsequent
+-- explicit time change rotates generation. Do not relabel older NULL claims on
+-- migration reruns: NULL claims from a still-running old writer are handled by
+-- the new dispatcher using settings updated_at > claimed_at.
+-- No backfill is needed: the conservative NULL compatibility rule also applies
+-- to existing rows and preserves unknown outcomes until an intentional change.

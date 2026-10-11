@@ -2,7 +2,9 @@
 self.addEventListener('push',event=>{
   event.waitUntil(self.registration.showNotification('SipAware daily check-in',{
     body:'If you have not checked in today, record a drink or confirm No alcohol.',
-    tag:'sipaware-daily-check-in',renotify:false,
+    // A deliberate new time may notify again today. Replace the old card,
+    // but alert again; duplicate appointment attempts are fenced server-side.
+    tag:'sipaware-daily-check-in',renotify:true,
     data:{url:'/iteration3/record'},
   }));
 });
