@@ -6,6 +6,7 @@
  * never fill catalog results. SavedDrink cards render only under My Drinks.
  */
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { revealContent } from '../../../app/revealContent'
 import { recordHelpPreference } from '../storage/recordHelpPreference'
 import { CatalogResults } from './CatalogResults'
 import type { CatalogCategory, CatalogProduct } from '../catalog/catalogApi'
@@ -119,13 +120,20 @@ export function ReferenceRecordBrowser({ selectedDateTime, onBackToCheckIn, save
       window.visualViewport?.removeEventListener('resize', updateViewport)
     }
   }, [])
+  const revealCategory = useRef(false)
+  useEffect(() => {
+    if (!revealCategory.current) return
+    const frame = window.requestAnimationFrame(() => {
+      revealCategory.current = false
+      if (resultsRef.current) revealContent(resultsRef.current, false)
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [category])
   const selectCategory = (item: string) => {
     if (item === category) return
+    // Wait for the selected category to render; search typing never moves focus.
+    revealCategory.current = true
     setCategory(item)
-    // Category navigation starts at the results; touch scrolling stays entirely native.
-    if (window.matchMedia('(max-width: 767px)').matches) {
-      resultsRef.current?.scrollIntoView({ block: 'start', inline: 'nearest' })
-    }
   }
   // All dismissal paths acknowledge onboarding. Record navigation no longer
   // reopens it; the question-mark button remains available for deliberate help.
@@ -177,7 +185,7 @@ export function ReferenceRecordBrowser({ selectedDateTime, onBackToCheckIn, save
           </div>)}
         </div>
       </nav>
-      <div className="prototype-record-results" ref={resultsRef} role="region" aria-label="Drink browser results">
+      <div className="prototype-record-results" ref={resultsRef} tabIndex={-1} role="region" aria-label="Drink browser results">
         {!isMyDrinks ? <CatalogResults key={`${category}:${query.trim()}`} category={category.toLowerCase() as CatalogCategory} query={query.trim()} onSelect={onProduct} /> : <>
         <div className="prototype-results-header"><h2>My Drinks</h2><span>{filtered.length} saved {filtered.length === 1 ? 'drink' : 'drinks'}</span></div>
         {filtered.length ? children(filtered) : <div className="prototype-empty">

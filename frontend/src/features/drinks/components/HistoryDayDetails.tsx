@@ -13,7 +13,7 @@ export function HistoryDayDetails({ date, group, savedDate, onRecordDate, onDele
   onDeleteRecord: (id: string) => Promise<void>
   onEditRecord: (record: HistoryRecord) => void
 }) {
-  return <section id="history-day-details" className={'history-selected-detail' + (date && !group ? ' history-selected-detail--empty' : '')} hidden={!date} aria-label="Selected day records" aria-live="polite">
+  return <section id="history-day-details" tabIndex={-1} className={'history-selected-detail' + (date && !group ? ' history-selected-detail--empty' : '')} hidden={!date} aria-label="Selected day records" aria-live="polite">
     {date && (group ? <HistoryRecordList key={date} groups={[group]} savedDate={savedDate}
         onDeleteRecord={onDeleteRecord} onEditRecord={onEditRecord} />
       : <div className="history-unrecorded-day">
