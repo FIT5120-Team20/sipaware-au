@@ -6,6 +6,7 @@
  */
 import { updateAwardsAfterCheckIn } from '../../awards/awardFeedbackEvents'
 import { downloadDrinkingReportPdf } from '../utils/drinkingReportPdf'
+import { revealContent } from '../../../app/revealContent'
 import { applicationHref } from '../../../app/entryPaths'
 import { captureNavigationScroll, prepareNavigationScroll, requestNavigationScroll, type NavigationScrollPosition } from '../../../app/navigationScroll'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -206,36 +207,8 @@ function HistoryTab({ records, todayKey, initialDateKey, savedDay, alcoholFreeDa
       if (pendingDetailsScroll.current !== date) return
       pendingDetailsScroll.current = null
       consumeHistoryDetailsScroll(date)
-      if (!window.matchMedia('(max-width: 767px)').matches) return
-      const section = historySectionRef.current
-      const details = section?.querySelector<HTMLElement>('#history-day-details')
-      if (!details || details.hidden) return
-
-      const viewportTop = window.visualViewport?.offsetTop ?? 0
-      const viewportBottom = viewportTop + (window.visualViewport?.height ?? window.innerHeight)
-      const tabs = section?.closest('.history-trends-inner')?.querySelector<HTMLElement>('.history-trends-tabs')
-      const tabStyle = tabs ? window.getComputedStyle(tabs) : null
-      const stickyInset = tabs && (tabStyle?.position === 'sticky' || tabStyle?.position === 'fixed')
-        ? tabs.getBoundingClientRect().height + Math.max(0, parseFloat(tabStyle.top) || 0) : 0
-      const navigation = section?.closest('.reference-app')?.querySelector<HTMLElement>('.reference-navigation')
-      const navigationRect = navigation?.getBoundingClientRect()
-      const visibleTop = viewportTop + stickyInset + 12
-      const visibleBottom = Math.min(viewportBottom,
-        navigationRect && navigationRect.bottom > viewportTop ? navigationRect.top : viewportBottom) - 12
-      if (visibleBottom <= visibleTop) return
-
-      const bounds = details.getBoundingClientRect()
-      // Keep the current position when the heading and a useful portion are visible.
-      const minimumVisibleHeight = Math.min(bounds.height, 160, (visibleBottom - visibleTop) / 2)
-      if (bounds.top >= visibleTop && bounds.top + minimumVisibleHeight <= visibleBottom) return
-      // Reveal the details just above the bottom navigation, with the smallest movement.
-      const scrollDelta = bounds.top < visibleTop ? bounds.top - visibleTop
-        : bounds.top + minimumVisibleHeight - visibleBottom
-      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-      window.scrollTo({
-        top: Math.max(0, window.scrollY + scrollDelta),
-        behavior: !reduceMotion && 'scrollBehavior' in document.documentElement.style ? 'smooth' : 'instant',
-      })
+      const details = historySectionRef.current?.querySelector<HTMLElement>('#history-day-details')
+      if (details) revealContent(details)
     })
     return () => {
       window.cancelAnimationFrame(frame)
@@ -587,6 +560,23 @@ export function ReferenceHistoryTrends({ records, initialRecordId, referenceCate
  const [editingId, setEditingId] = useState<string | null>(null)
  const historyViewRef = useRef<HTMLElement>(null)
  const historyScroll = useRef<NavigationScrollPosition | null>(null)
+ const [returnFocus, setReturnFocus] = useState<{ id: string; action: 'edit' | 'delete' } | null>(null)
+ // Editors/dialogs remove their controls. Resume keyboard use at the surviving
+ // record action, or the selected day when the record was moved or deleted.
+ useEffect(() => {
+  if (!returnFocus || editingId) return
+  const frame = window.requestAnimationFrame(() => {
+   const row = document.getElementById('history-record-' + returnFocus.id)
+   const target = row?.querySelector<HTMLElement>('button') ?? document.getElementById('history-day-details')
+   if (target && !target.hidden) {
+    // Deleting/moving the last record can make the empty panel taller.
+    // Reveal its replacement action rather than leaving it under navigation.
+    if (!row) revealContent(target)
+    else target.focus({ preventScroll: true })
+   }
+  })
+  return () => window.cancelAnimationFrame(frame)
+ }, [returnFocus, editingId])
  const openRecordEditor = (id: string) => {
   historyScroll.current = captureNavigationScroll(historyViewRef.current)
   prepareNavigationScroll()
@@ -595,6 +585,7 @@ export function ReferenceHistoryTrends({ records, initialRecordId, referenceCate
  }
  const closeRecordEditor = () => {
   prepareNavigationScroll()
+  setReturnFocus(editingId ? { id: editingId, action: 'edit' } : null)
   setEditingId(null)
   requestNavigationScroll(historyScroll.current
    ? { kind: 'restore', position: historyScroll.current } : { kind: 'preserve' })
@@ -632,7 +623,7 @@ export function ReferenceHistoryTrends({ records, initialRecordId, referenceCate
    </nav>
    {activeTab === 'history' && <HistoryTab {...checkInHistory} todayKey={todayKey} records={views}
     selection={historySelection} onSelectionChange={setHistorySelection} daily={daily} weekly={weekly}
-    onDeleteRecord={onDelete} onEditRecord={record => openRecordEditor(record.id)} />}
+    onDeleteRecord={async id => { await onDelete(id); setReturnFocus({ id, action: 'delete' }) }} onEditRecord={record => openRecordEditor(record.id)} />}
    {activeTab === 'trends' && <TrendsTab key={todayKey} alcoholFreeDates={checkInHistory.alcoholFreeDates} records={eligible} daily={daily} weekly={weekly} />}
    {activeTab !== 'history' && <footer className="ht-recorded-data-note">
     <p>Based on drinks recorded on this device. Missing records do not mean no alcohol was consumed. Future-dated records are excluded from feedback.</p>

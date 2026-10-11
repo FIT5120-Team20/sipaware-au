@@ -43,6 +43,33 @@ function noOldHistory() {
 }
 
 describe('calendar selection and inline day details', () => {
+  it('focuses explicit selections including repeat activation, but leaves passive loading and month browsing alone', async () => {
+    await seed([record('focus-record', 5)], ['2026-10-04'])
+    await calendar()
+    expect(document.activeElement).not.toBe(document.getElementById('history-day-details'))
+    for (const date of ['2026-10-03', '2026-10-04', '2026-10-05', '2026-10-05']) {
+      cell(date).focus()
+      fireEvent.click(cell(date))
+      await waitFor(() => expect(detail()).toHaveFocus())
+    }
+    const previous = screen.getByRole('button', { name: 'Previous month' })
+    previous.focus(); fireEvent.click(previous)
+    await waitFor(() => expect(previous).toHaveFocus())
+    expect(document.getElementById('history-day-details')).not.toBeVisible()
+  })
+
+  it('restores edit focus on cancellation and selected-day focus after deleting its last record', async () => {
+    await seed([record('focus-delete', 5)])
+    await calendar(); fireEvent.click(cell('2026-10-05'))
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Saved focus-delete' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Edit Saved focus-delete' })).toHaveFocus())
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Saved focus-delete' }))
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }))
+    await waitFor(() => expect(detail()).toHaveFocus())
+    expect(within(detail()).getByText('No records for this day')).toBeVisible()
+  })
+
   it('shows the complete month and four raw-precision states, then selects only one day without navigation', async () => {
     await seed([record('below', 5, 3.999), record('above', 6, 4.001), record('part-a', 7, 2), record('part-b', 7, 2)], ['2026-10-04'])
     await calendar()
