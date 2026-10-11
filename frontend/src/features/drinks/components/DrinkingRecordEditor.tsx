@@ -5,7 +5,7 @@
  * to the parent; cancelling emits nothing, and SavedDrink templates are outside
  * this component's data flow.
  */
-import { ConsumptionDateTimeFields } from './ConsumptionDateTimeFields'
+import { useConsumptionTimeLimit } from '../hooks/useConsumptionTimeLimit'
 import { calculateStandardDrinks } from '../calculations/standardDrinks'
 import { type FormEvent, useEffect, useId, useRef, useState } from 'react'
 
@@ -92,6 +92,7 @@ export function DrinkingRecordEditor({
   const formId = useId()
   const formRef = useRef<HTMLFormElement>(null)
   const recordLimitNoticeRef = useRef<HTMLDivElement>(null)
+  const timeLimit = useConsumptionTimeLimit()
   const [values, setValues] = useState<ManualDrinkFormValues>(() =>
     createEditorValues(record),
   )
@@ -640,12 +641,49 @@ export function DrinkingRecordEditor({
         </div>
       )}
 
-      <ConsumptionDateTimeFields
-        idPrefix={formId}
-        values={values}
-        errors={errors}
-        onChange={updateValue}
-      />
+      <fieldset className="date-time-fields">
+        <legend>When was this drink consumed?</legend>
+        <div className="date-time-grid">
+          <div className="form-field">
+            <label htmlFor={fieldId('date')}>Date</label>
+            <input
+              id={fieldId('date')}
+              name="date"
+              type="date"
+              max={timeLimit.date}
+              onFocus={timeLimit.refresh}
+              value={values.date}
+              onChange={(event) => updateValue('date', event.target.value)}
+              aria-invalid={Boolean(errors.date)}
+              aria-describedby={
+                errors.date ? fieldId('date-error') : undefined
+              }
+              required
+            />
+            <FieldError id={fieldId('date-error')} message={errors.date} />
+          </div>
+
+          <div className="form-field">
+            <label htmlFor={fieldId('time')}>Time</label>
+            <input
+              id={fieldId('time')}
+              name="time"
+              type="time"
+              max={values.date === timeLimit.date ? timeLimit.time : undefined}
+              onFocus={timeLimit.refresh}
+              step="60"
+              value={values.time}
+              onChange={(event) => updateValue('time', event.target.value)}
+              aria-invalid={Boolean(errors.time)}
+              aria-describedby={
+                errors.time ? fieldId('time-error') : undefined
+              }
+              required
+            />
+            <FieldError id={fieldId('time-error')} message={errors.time} />
+          </div>
+        </div>
+      </fieldset>
 
       <div className="management-actions">
         <button className="primary-button" type="submit" disabled={isSaving || overLimit}>

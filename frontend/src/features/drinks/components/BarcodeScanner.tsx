@@ -85,7 +85,7 @@ export function BarcodeScanner({
     }
   }, [])
 
-  useEffect(() => { heading.current?.focus({ preventScroll: true }) }, [view.kind])
+  useEffect(() => { heading.current?.focus() }, [view.kind])
 
   useEffect(() => {
     if (view.kind !== 'scanner' || !video.current) return

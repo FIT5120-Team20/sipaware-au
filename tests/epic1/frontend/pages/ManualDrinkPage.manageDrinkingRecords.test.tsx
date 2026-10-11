@@ -95,14 +95,14 @@ function historyAction(action: 'Edit' | 'Delete', name: string) {
   window.history.replaceState({ checkInDate: '2026-08-26' }, '', '/trends#history')
   fireEvent.popState(window)
   pageView.rerender(<ManualDrinkPage initialView="history" />)
-  return screen.getByRole('button', { name: action + ' ' + name })
+  fireEvent.click(screen.getByRole('button', { name: 'Actions for ' + name }))
+  return screen.getByRole('button', { name: action })
 }
 
-function getRecentRecordsSection(date = '2026-08-26'): HTMLElement {
+function getRecentRecordsSection(): HTMLElement {
   window.history.replaceState({ checkInDate: '2026-08-26' }, '', '/trends#history')
   fireEvent.popState(window)
   pageView.rerender(<ManualDrinkPage initialView="history" />)
-  fireEvent.click(document.querySelector('.history-calendar-day[data-date="' + date + '"]')!)
   const heading = screen.getByRole('heading', { name: 'Your drinking records' })
   const section = heading.closest('section')
   if (!(section instanceof HTMLElement)) {
@@ -245,7 +245,7 @@ describe('ManualDrinkPage drinking-record management', () => {
     expect(records[1].createdAt).toBe(createdSkyRecord.createdAt)
     await expect(readSavedDrinks()).resolves.toEqual([savedSky])
 
-    const recentRecords = getRecentRecordsSection('2026-08-25')
+    const recentRecords = getRecentRecordsSection()
     expect(within(recentRecords).getByText('Sky Test')).toBeInTheDocument()
     expect(
       within(recentRecords).getByText('10:29 pm'),
@@ -254,7 +254,7 @@ describe('ManualDrinkPage drinking-record management', () => {
     view.unmount()
     await renderHydratedPage()
     expect(
-      within(getRecentRecordsSection('2026-08-25')).getByText('Sky Test'),
+      within(getRecentRecordsSection()).getByText('Sky Test'),
     ).toBeInTheDocument()
     await expect(readSavedDrinks()).resolves.toEqual([savedSky])
   })
@@ -318,7 +318,7 @@ describe('ManualDrinkPage drinking-record management', () => {
 
     await expect(readRecords()).resolves.toEqual([shirazRecord])
     await expect(readSavedDrinks()).resolves.toEqual([savedSky])
-    const recentRecords = getRecentRecordsSection('2026-08-25')
+    const recentRecords = getRecentRecordsSection()
     expect(within(recentRecords).queryByText('Sky')).not.toBeInTheDocument()
     expect(within(recentRecords).getByText('Shiraz')).toBeInTheDocument()
     window.history.replaceState({}, '', '/record?date=2026-08-26')

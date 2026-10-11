@@ -6,8 +6,7 @@
  * later viewer timezone does not change the time the user intended to record.
  */
 import type { DrinkingRecord } from '../types/drinkingRecord'
-import type { ConsumptionDateTimeValues } from '../types/manualDrinkForm'
-import { getCurrentLocalCalendarDateKey, getRecordedLocalWallClockDate } from './localCalendarDate'
+import { getRecordedLocalWallClockDate } from './localCalendarDate'
 
 // UTC formatting is intentional after the shared helper has shifted the instant
 // back to the recorded wall clock; another timezone would reintroduce the
@@ -24,13 +23,6 @@ const australianEnglishDateTimeFormatter = new Intl.DateTimeFormat('en-AU', {
 
 function padDateTimePart(value: number): string {
   return String(value).padStart(2, '0')
-}
-
-export function getCurrentLocalDateTimeInputValues(now = new Date()): ConsumptionDateTimeValues {
-  return {
-    date: getCurrentLocalCalendarDateKey(now),
-    time: `${padDateTimePart(now.getHours())}:${padDateTimePart(now.getMinutes())}`,
-  }
 }
 
 /** Return stable YYYY-MM-DD/HH:mm strings for the correction form controls. */
