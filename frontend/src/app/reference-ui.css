@@ -23,7 +23,8 @@
   --shadow-card: none;
   --page-top-spacing: 12px;
   --page-inline-spacing: 20px;
-  --page-content-max-width: 1120px;
+  /* Fill the content column; individual text and controls keep their own limits. */
+  --page-content-max-width: 100%;
   --page-heading-spacing: 20px;
   font-family: 'Outfit', 'Segoe UI', sans-serif;
 }
@@ -107,7 +108,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .reference-nav-items a[aria-current="page"] .reference-nav-icon {
   background: #e0eeff;
 }
-.reference-home, .manual-drink-shell, .alcohol-information-shell { width: 100%; max-width: 1200px; margin-inline: auto; padding: var(--page-top-spacing) 20px 22px; }
+.reference-home, .manual-drink-shell, .alcohol-information-shell { width: 100%; max-width: var(--page-content-max-width); margin-inline: auto; padding: var(--page-top-spacing) 20px 22px; }
 .reference-page-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--page-heading-spacing); }
 .reference-page-heading h1, .feature-header h1, .alcohol-information-header h1,
 .awards-page > header h1, .prototype-record-top h1, .prototype-form-heading h1 {
@@ -335,12 +336,12 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 
 /* RecordPage / AddDrinkPage / LearnHub at f5711b15: utility-to-CSS port.
    Data acquisition, validation and persistence remain SipAware boundaries. */
-.manual-drink-shell { max-width: 1200px; padding: var(--page-top-spacing) 0 28px; }
+.manual-drink-shell { max-width: var(--page-content-max-width); padding: var(--page-top-spacing) 0 28px; }
 .manual-drink-layout { display: block; }
 .manual-drink-primary { display: block; }
 .prototype-capture { border-radius: 0; }
 .prototype-capture--browse { max-width: var(--page-content-max-width); margin-inline: auto; }
-.prototype-capture--manual { max-width: 760px; padding: 0 20px; margin: auto; }
+.prototype-capture--manual { max-width: var(--page-content-max-width); padding: 0 20px; margin: auto; }
 .manual-drink-shell:has(> .prototype-capture--manual > .prototype-sticky-back),
 .manual-drink-shell:has(.prototype-capture--browse .my-drinks-panel > .reference-edit-page > .prototype-sticky-back) { padding-top: 0; }
 .prototype-record-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 var(--page-inline-spacing); margin-bottom: var(--page-heading-spacing); }
@@ -585,7 +586,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 /* Reference RecordResultPage and HistoryTab layouts. Existing I1 calculations,
    reference provenance and repository boundaries stay in their owning modules. */
 .reference-sr-only { position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0 }
-.reference-record-result { max-width:760px;margin:0 auto;padding:24px 20px 112px }
+.reference-record-result { max-width: var(--page-content-max-width);margin:0 auto;padding:24px 20px 112px }
 .reference-result-heading { display:flex;align-items:center;gap:16px;margin-bottom:28px }
 .reference-result-heading h1 { font:400 31px/1.2 "DM Serif Display",Georgia,serif;margin:0 }
 /* This heading receives programmatic route focus; it is not a keyboard control. */
@@ -625,7 +626,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .reference-flow-dialog p { font-size:16px;line-height:1.65 }
 .reference-flow-dialog .primary-button { width:100%;min-height:56px;margin-top:24px }
 .reference-sheet-handle { width:40px;height:4px;border-radius:99px;background:#d8d4cf;margin:0 auto 24px }
-.reference-history-page { max-width:1080px;padding:24px 28px 112px;margin:0 auto }
+.reference-history-page { max-width: var(--page-content-max-width);padding:24px 28px 112px;margin:0 auto }
 .reference-history-page > header h1 { font:400 36px/1.2 "DM Serif Display",Georgia,serif;margin:0 }
 .reference-history-page > header p { margin:8px 0 24px;color:#647280 }
 .reference-history-tabs { display:flex;gap:4px;border-bottom:1px solid #e2ddd8;margin:0 0 28px }
@@ -648,7 +649,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .reference-history-menu button { min-height:44px;text-align:left;background:white;border:0;padding:8px 14px;border-radius:8px;color:#1a5fcc }
 .reference-history-menu button:last-child { color:#b42318 }
 .reference-history-empty { border:1px solid #e2ddd8;border-radius:18px;padding:40px 24px;text-align:center }
-.reference-edit-page { max-width:760px;padding:16px 20px 100px;margin:0 auto }
+.reference-edit-page { max-width: var(--page-content-max-width);padding:16px 20px 100px;margin:0 auto }
 .prototype-capture .my-drinks-panel > .reference-edit-page { padding-top: 0; }
 .reference-edit-page h1 { font:34px/1.2 "DM Serif Display",serif;margin:18px 0 28px }
 .reference-edit-page :is(.drinking-record-editor,.saved-drink-editor) { border:0;background:transparent;padding:0;display:grid;grid-template-columns:1fr;gap:24px }
@@ -749,4 +750,122 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 @media(min-width:1024px) {
   .reference-flow-dialog { width:calc(100vw - 220px) }
   .reference-flow-dialog::backdrop { background:linear-gradient(to right,transparent 0 220px,rgba(0,0,0,.45) 220px 100%) }
+}
+
+/* Desktop overview panels share spare viewport height; minimum sizes allow
+   short windows and enlarged text to scroll. Mobile keeps its existing layout. */
+@media (min-width: 1024px) {
+  .alcohol-information-shell:not(.reference-reading-shell):has(.prototype-learn-grid) { min-height: calc(100dvh - 28px); display: flex; flex-direction: column; }
+  .alcohol-information-shell > div:has(> .prototype-learn-grid):not([hidden]) { display: flex; flex-direction: column; flex: 1; }
+  .prototype-learn-grid { flex: 1; }
+  .prototype-learn-topics { display: flex; flex-direction: column; }
+  .prototype-learn-topics ul { flex: 1; display: grid; grid-auto-rows: 1fr; }
+  .prototype-learn-topics li { display: flex; }
+  .prototype-learn-topics a { width: 100%; padding: 20px; gap: 18px; }
+  .prototype-learn-topics .prototype-topic-icon { width: 56px; height: 56px; flex-basis: 56px; }
+  .prototype-learn-topics .prototype-topic-copy strong { font-size: clamp(20px, 1.15vw, 24px); }
+  .prototype-learn-topics .prototype-topic-copy > span { font-size: 18px; line-height: 1.45; }
+  .prototype-learn-feature-copy { padding: 24px; }
+  .prototype-learn-feature-copy h2 { font-size: clamp(28px, 1.65vw, 36px); }
+  .prototype-learn-feature-copy > span, .prototype-learn-trust p { font-size: 19px; }
+  .prototype-learn-trust { margin-bottom: 0; }
+  .alcohol-information-shell:not(.reference-reading-shell) .alcohol-information-header h1,
+  .daily-check-in .reference-page-heading h1,
+  .history-trends-inner:has(.history-section) .history-trends-header h1 { font-size: 42px; }
+
+  .manual-drink-page .daily-check-in { min-height: calc(100dvh - var(--page-top-spacing)); display: flex; flex-direction: column; }
+  .daily-check-in > .check-in-choices { flex: 1; }
+  .daily-check-in .check-in-choice { justify-content: center; padding: clamp(24px, 4vh, 48px); }
+  .daily-check-in .check-in-logo { width: clamp(160px, 23vh, 240px); margin-bottom: 24px; }
+  .daily-check-in .check-in-title { font-size: clamp(32px, 2vw, 40px); }
+  .daily-check-in .check-in-copy { font-size: 20px; margin: 16px 0 28px; }
+  .daily-check-in .check-in-cta { max-width: 320px; min-height: 60px; margin-top: 0; font-size: 20px; }
+  .daily-check-in .date-time-grid label, .daily-check-in .date-time-grid input { font-size: 19px; }
+
+  .history-trends-inner:has(.history-section) { min-height: calc(100dvh - var(--page-top-spacing) - 56px); display: flex; flex-direction: column; padding-bottom: 0; }
+  .history-trends-inner > .history-section { flex: 1; display: flex; flex-direction: column; }
+  .history-section .history-calendar-card { flex: 1; display: flex; flex-direction: column; }
+  .history-section .history-calendar-section { flex: 1; display: flex; flex-direction: column; }
+  .history-section .history-calendar { flex: 1; }
+  .history-section .history-calendar th { font-size: 17px; }
+  .history-section .history-calendar td { height: 60px; }
+  .history-section .history-calendar-day { width: min(100%, 60px); font-size: 20px; }
+  .history-section .history-month-label { font-size: 28px; }
+  .history-section .ht-section-title { font-size: 24px; }
+  .history-section .history-section-subtitle { font-size: 18px; }
+  .history-section .history-calendar-legend li { font-size: 16px; }
+  .history-trends-inner:has(.history-section) .history-trends-tabs button { font-size: 19px; }
+}
+
+/* One desktop type scale across routes and dialogs. Keep mobile and print
+   typography intact; quantities retain their distinct data-display sizes. */
+@media screen and (min-width: 1024px) {
+  .reference-app {
+    --type-page: 42px;
+    --type-section: 30px;
+    --type-card: 22px;
+    --type-body: 20px;
+    --type-secondary: 18px;
+    --type-caption: 16px;
+  }
+  #root .reference-app { font-size: var(--type-body); }
+  #root .reference-app h1,
+  #root .reference-app .reference-topic-heading h2 { font-size: var(--type-page); line-height: 1.2; }
+  #root .reference-app h2 { font-size: var(--type-section); line-height: 1.3; }
+  #root .reference-app h3, #root .reference-app h4 { font-size: var(--type-card); line-height: 1.35; }
+  #root .reference-app p { font-size: var(--type-body); line-height: 1.55; }
+  #root .reference-app :is(button, input, select, textarea, label) { font-size: var(--type-body); }
+  #root .reference-app :is(.reference-nav-items a, .prototype-back, .home-footer,
+    .check-in-cta, .history-record-day-link, .reference-topic-source a,
+    .reference-topic-resources a, .reference-result-links a,
+    .prototype-learn-feature-copy > span, .prototype-save-template strong,
+    .prototype-estimate strong, .reference-this-drink > span,
+    .ht-primary-button, .ht-secondary-button, .ht-export-button) { font-size: var(--type-body); }
+  #root .reference-app :is(.home-feature-card strong, .prototype-topic-copy strong,
+    .prototype-card-copy strong, .saved-drink-button strong, .prototype-drink-summary strong,
+    .reference-history-drink h3, .reference-topic-point h4, .reference-topic-source strong,
+    .reference-topic-advice strong, .reference-record-help-list strong,
+    .history-check-in-copy strong, .history-unrecorded-date,
+    .trend-insight-card h3, .award-card h3, .home-footer-information h3,
+    .prototype-empty h3, .prototype-scan-card-title h2,
+    .reference-record-result .driving-safety-card h2) { font-size: var(--type-card); line-height: 1.35; }
+  #root .reference-app :is(.home-feature-card span span, .prototype-topic-copy > span,
+    .prototype-card-copy > span, .saved-drink-button span, .field-description, .field-help,
+    .field-error, .prototype-form-heading p, .prototype-drink-summary p,
+    .prototype-save-template span span, .prototype-estimate p, .prototype-estimate span,
+    .prototype-amount-panel > p, .prototype-amount-stepper > span,
+    .reference-result-heading p, .reference-this-drink > p:last-child,
+    .reference-history-time, .reference-history-drink p, .reference-record-help-list span,
+    .history-section-subtitle, .history-check-in-copy small, .history-empty-message p,
+    .history-calendar-comparison-note, .awards-page header p, .award-card p,
+    .awards-note, .award-status, .award-details-link, .home-footer p,
+    .reference-topic-heading p, .reference-topic-disclaimer p,
+    .reference-result-comparisons .consumption-history-message,
+    .reference-result-comparisons .consumption-comparison__status,
+    .consumption-comparison__reference, .consumption-comparison__support,
+    .trend-kpi-card span, .trend-pattern-grid span, .trend-insight-card span,
+    .report-meta-grid span, .report-metric-grid span, .report-guideline-grid span,
+    .ht-modal-subtitle) { font-size: var(--type-secondary); line-height: 1.5; }
+  #root .reference-app :is(small, .awards-eyebrow, .prototype-results-header h2,
+    .prototype-results-header > span, .prototype-catalog-status,
+    .prototype-catalog-pagination > span, .prototype-learn-topics h2,
+    .prototype-learn-feature-copy > p, .prototype-learn-image > span,
+    .reference-result-links h3, .reference-this-drink > p:first-child,
+    .consumption-comparison__label, .reference-history-total > span,
+    .reference-topic-source h3, .reference-topic-more > h4, .reference-topic-point small,
+    .reference-topic-resources small, .ht-kicker, .ht-card-kicker,
+    .ht-recorded-data-note, .ht-recorded-data-note p, .guideline-context,
+    .history-saved-tag, .ht-benchmark-chip, .trend-bar-value,
+    .trend-bar-column > span, .trend-guideline span) { font-size: var(--type-caption); line-height: 1.5; }
+  #root .reference-app .trend-guideline span { top: -28px; }
+  #root .reference-app :is(.daily-check-in > .date-time-fields > legend,
+    .reference-history-edit .date-time-fields legend, .reference-edit-amount h3,
+    .history-calendar th, .history-calendar-legend li) { font-size: var(--type-secondary); }
+  #root .reference-app .history-month-label { font-size: var(--type-section); }
+  #root .reference-app .check-in-title { font-size: 36px; }
+  #root .reference-app .prototype-amount-stepper input { font-size: 46px; }
+  #root .reference-app .prototype-estimate .prototype-estimate-value { font-size: 32px; }
+  #root .reference-app .prototype-amount-stepper > button { font-size: 24px; }
+  #root .reference-app :is(.reference-help, .reference-history-more, .prototype-record-search > button) { font-size: 24px; }
+  #root .reference-app .reference-menu-label { font-size: var(--type-section); }
 }
