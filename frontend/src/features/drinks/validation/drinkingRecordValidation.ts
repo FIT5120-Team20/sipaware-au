@@ -10,6 +10,8 @@ import { isDrinkType } from '../config/drinkTypes'
 import type { DrinkType } from '../types/drinkingRecord'
 import {
   CUSTOM_SERVING_SIZE,
+  type ConsumptionDateTimeErrors,
+  type ConsumptionDateTimeValues,
   type ManualDrinkFormErrors,
   type ManualDrinkFormValues,
   type ReusableDrinkFormErrors,
@@ -114,6 +116,40 @@ export function buildConsumedAtIso(date: string, time: string): string | null {
   }
 
   return consumedAt.toISOString()
+}
+
+export function validateConsumptionDate(date: string, now = new Date()): string | undefined {
+  if (!date) return 'Enter the date consumed.'
+  if (!parseDateParts(date)) return 'Enter a valid date.'
+  if (date > getCurrentLocalCalendarDateKey(now)) return 'Choose today or an earlier date.'
+  return undefined
+}
+
+export function validateConsumptionDateTime(
+  values: ConsumptionDateTimeValues,
+  now = new Date(),
+): ConsumptionDateTimeErrors {
+  const errors: ConsumptionDateTimeErrors = {}
+  const dateError = validateConsumptionDate(values.date, now)
+  if (dateError) errors.date = dateError
+
+  const dateParts = parseDateParts(values.date)
+  const timeParts = parseTimeParts(values.time)
+  if (!values.time) {
+    errors.time = 'Enter the time consumed.'
+  } else if (!timeParts) {
+    errors.time = 'Enter a valid time.'
+  }
+
+  const consumedAt = buildConsumedAtIso(values.date, values.time)
+  if (dateParts && timeParts && !consumedAt) {
+    errors.time = 'Enter a valid local date and time.'
+  }
+  // Recheck against the clock at submission, not just the picker maximum.
+  if (!errors.date && consumedAt && new Date(consumedAt).getTime() > now.getTime()) {
+    errors.time = 'Choose the current time or an earlier time.'
+  }
+  return errors
 }
 
 /**
@@ -262,37 +298,13 @@ export function validateManualDrinkInput(
     }
   }
 
-  const dateParts = parseDateParts(values.date)
-  if (!values.date) {
-    errors.date = 'Enter the date consumed.'
-  } else if (!dateParts) {
-    errors.date = 'Enter a valid date.'
-  }
-
-  const timeParts = parseTimeParts(values.time)
-  if (!values.time) {
-    errors.time = 'Enter the time consumed.'
-  } else if (!timeParts) {
-    errors.time = 'Enter a valid time.'
-  }
-
+  Object.assign(errors, validateConsumptionDateTime(values, now))
   const consumedAt = buildConsumedAtIso(values.date, values.time)
   // Capture the offset for this particular date, including daylight-saving
   // rules, so later formatting can preserve the entered wall-clock value.
   const consumedTimezoneOffsetMinutes = consumedAt
     ? new Date(consumedAt).getTimezoneOffset()
     : undefined
-  if (dateParts && timeParts && !consumedAt) {
-    errors.time = 'Enter a valid local date and time.'
-  }
-
-  // Recheck against the clock at submission, not just the picker maximum.
-  // This is an entry rule: old stored records remain readable and are not deleted.
-  if (dateParts && values.date > getCurrentLocalCalendarDateKey(now)) {
-    errors.date = 'Choose today or an earlier date.'
-  } else if (consumedAt && new Date(consumedAt).getTime() > now.getTime()) {
-    errors.time = 'Choose the current time or an earlier time.'
-  }
 
   if (
     !reusableDrinkResult.success ||

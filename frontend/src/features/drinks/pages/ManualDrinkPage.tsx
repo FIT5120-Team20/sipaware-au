@@ -8,6 +8,7 @@
  */
 import { updateAwardsAfterCheckIn } from '../../awards/awardFeedbackEvents'
 import { applicationHref, applicationPath, RECORD_HOME_EVENT } from '../../../app/entryPaths'
+import { prepareNavigationScroll, requestNavigationScroll } from '../../../app/navigationScroll'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { getDrinkOptions } from '../../../services/drinkReferenceApi'
@@ -32,10 +33,12 @@ import type {
   GuidelineLoadStatus,
 } from '../types/alcoholGuideline'
 import type { SavedDrink } from '../types/savedDrink'
+import type { ConsumptionDateTimeValues } from '../types/manualDrinkForm'
 import { DailyCheckIn } from '../components/DailyCheckIn'
 import { IndexedDbDailyCheckInRepository } from '../storage/dailyCheckInRepository'
-import { displayCheckInDate, historyStartDate, isCalendarDate, type DailyCheckInState } from '../types/dailyCheckIn'
+import { isCalendarDate, type DailyCheckInState } from '../types/dailyCheckIn'
 import { getCurrentLocalCalendarDateKey, getRecordLocalCalendarDateKey } from '../utils/localCalendarDate'
+import { getCurrentLocalDateTimeInputValues } from '../utils/formatConsumedDateTime'
 import '../manualDrink.css'
 
 // The URL carries only a validated date, never an uncommitted personal record.
@@ -44,13 +47,34 @@ function readCaptureDate() {
   return isCalendarDate(date) && date <= getCurrentLocalCalendarDateKey() ? date : null
 }
 
+type RecordFlow = {
+  dateTime: ConsumptionDateTimeValues
+  step: 'check-in' | 'drinks'
+}
+
+function readRecordFlow(): RecordFlow {
+  const date = readCaptureDate()
+  const stored = window.history.state?.recordDateTime
+  if (date !== null && stored?.date === date && typeof stored.time === 'string') {
+    return {
+      dateTime: { date, time: stored.time },
+      step: window.history.state?.recordStep === 'drinks' ? 'drinks' : 'check-in',
+    }
+  }
+  const currentDateTime = getCurrentLocalDateTimeInputValues()
+  return {
+    dateTime: { ...currentDateTime, date: date ?? currentDateTime.date },
+    step: 'check-in',
+  }
+}
+
 type HydrationStatus = 'loading' | 'ready' | 'error'
 
 export function ManualDrinkPage({ initialView = 'record' }: { initialView?: 'record' | 'history' }) {
-
-  const [captureDate, setCaptureDate] = useState<string | null>(readCaptureDate)
+  const returningToCheckIn = useRef(false)
+  const [recordFlow, setRecordFlow] = useState<RecordFlow>(readRecordFlow)
   const [historyDate, setHistoryDate] = useState<string | undefined>(() => window.history.state?.checkInDate)
-  const [checkIns, setCheckIns] = useState<DailyCheckInState>({ startedOn: '', alcoholFreeDates: [] })
+  const [checkIns, setCheckIns] = useState<DailyCheckInState>({ alcoholFreeDates: [] })
   const checkInRepository = useMemo(() => new IndexedDbDailyCheckInRepository(), [])
   const [resultId, setResultId] = useState<string | null>(() => new URLSearchParams(window.location.search).get('record'))
   const [templateFailed, setTemplateFailed] = useState(
@@ -92,18 +116,22 @@ export function ManualDrinkPage({ initialView = 'record' }: { initialView?: 'rec
   // itself is always read from IndexedDB, including after reload.
   const savedRecord = records.find(record => record.id === window.history.state?.savedRecordId)
 
-  // URLs identify only committed local records. Reload/back rehydrates the same
-  // source of truth; it never repeats a write or fabricates a successful result.
+  // Draft date/time navigation state never writes a personal record. Result IDs
+  // still identify only committed snapshots, so reload/back cannot repeat a save.
   useEffect(() => {
     const restore = () => {
-      setCaptureDate(readCaptureDate())
+      const flow = readRecordFlow()
+      const returnToTop = returningToCheckIn.current && applicationPath() === '/record' && flow.step === 'check-in'
+      returningToCheckIn.current = false
+      setRecordFlow(flow)
       setHistoryDate(window.history.state?.checkInDate)
       setResultId(new URLSearchParams(window.location.search).get('record'))
       setTemplateFailed(window.history.state?.savedTemplateFailed === true)
       setHistoryView(applicationPath() === '/trends')
+      if (returnToTop) requestNavigationScroll({ kind: 'top' })
     }
     const returnToRecordHome = () => {
-      setCaptureDate(null)
+      setRecordFlow({ dateTime: getCurrentLocalDateTimeInputValues(), step: 'check-in' })
       setHistoryView(false)
       setResultId(null)
       setTemplateFailed(false)
@@ -118,32 +146,52 @@ export function ManualDrinkPage({ initialView = 'record' }: { initialView?: 'rec
     }
   }, [])
 
-  useEffect(() => {
-    const heading = document.getElementById('record-result-title')
-    if (resultId && heading) { heading.focus(); heading.scrollIntoView?.({ block: 'start' }) }
-  }, [resultId, hydrationStatus])
-  // Navigation happens only after the local transaction commits. Route state
-  // selects the exact History month/page; reload never replays the write.
-  function showHistory(date: string, record?: DrinkingRecord, failed = false, saved = true) {
-    window.history.pushState({ checkInDate: date, checkInSaved: saved, savedRecordId: record?.id, savedTemplateFailed: failed }, '', applicationHref('/trends#history'))
-    setHistoryDate(date); setHistoryView(true); setCaptureDate(null)
+  // Route state selects the exact History month/date. Saved hints mark committed
+  // data only; opening History never replays a write.
+  function showHistory(date: string, record?: DrinkingRecord, failed = false, saved = true, revealDetails = saved) {
+    prepareNavigationScroll()
+    window.history.pushState({ checkInDate: date, checkInSaved: saved, savedRecordId: record?.id, savedTemplateFailed: failed,
+      revealHistoryDetails: revealDetails ? date : undefined }, '', applicationHref('/trends#history'))
+    setHistoryDate(date); setHistoryView(true)
     setResultId(null); setTemplateFailed(failed)
     window.dispatchEvent(new PopStateEvent('popstate'))
+    requestNavigationScroll({ kind: 'preserve' })
   }
   function showRecordedResult(record: DrinkingRecord, failed: boolean) {
     if (!isMounted.current) return
+    prepareNavigationScroll()
     // Only a committed record can open the result. Its ID lets reload recover
     // the same local snapshot without submitting the form a second time.
     window.history.pushState({ savedTemplateFailed: failed }, '', applicationHref('/record?record=' + encodeURIComponent(record.id)))
-    setCaptureDate(null); setHistoryView(false)
+    setHistoryView(false)
     setResultId(record.id); setTemplateFailed(failed)
     window.dispatchEvent(new PopStateEvent('popstate'))
+    requestNavigationScroll({ kind: 'top' })
   }
-  function startDrinking(date: string) {
-    window.history.pushState({ fromHistory: historyView }, '', applicationHref('/record?date=' + date))
-    setCaptureDate(date); setHistoryView(false); setResultId(null)
+  function startRecordForDate(date: string) {
+    prepareNavigationScroll()
+    window.history.replaceState({ ...window.history.state, checkInDate: date, checkInSaved: false, savedRecordId: undefined }, '')
+    const dateTime = { ...getCurrentLocalDateTimeInputValues(), date }
+    window.history.pushState({ fromHistory: true, recordDateTime: dateTime, recordStep: 'check-in' }, '', applicationHref('/record?date=' + date))
+    setRecordFlow({ dateTime, step: 'check-in' }); setHistoryView(false); setResultId(null)
     window.dispatchEvent(new PopStateEvent('popstate'))
-    window.scrollTo?.({ top: 0 })
+    requestNavigationScroll({ kind: 'top' })
+  }
+  function updateRecordDateTime(field: keyof ConsumptionDateTimeValues, value: string) {
+    const dateTime = { ...recordFlow.dateTime, [field]: value }
+    setRecordFlow({ dateTime, step: 'check-in' })
+    window.history.replaceState({ ...window.history.state, recordDateTime: dateTime, recordStep: 'check-in' }, '', applicationHref('/record?date=' + encodeURIComponent(dateTime.date)))
+  }
+  function startDrinking(dateTime: ConsumptionDateTimeValues) {
+    prepareNavigationScroll()
+    const selectionState = { ...window.history.state, recordDateTime: dateTime, recordStep: 'check-in', fromCheckIn: false }
+    const href = applicationHref('/record?date=' + encodeURIComponent(dateTime.date))
+    // Keep the chosen occasion in both entries so Back restores the first screen.
+    window.history.replaceState(selectionState, '', href)
+    window.history.pushState({ ...selectionState, recordStep: 'drinks', fromCheckIn: true }, '', href)
+    setRecordFlow({ dateTime, step: 'drinks' }); setHistoryView(false); setResultId(null)
+    window.dispatchEvent(new PopStateEvent('popstate'))
+    requestNavigationScroll({ kind: 'top' })
   }
   async function confirmAlcoholFree(date: string) {
     await checkInRepository.confirmAlcoholFree(date)
@@ -157,11 +205,34 @@ export function ManualDrinkPage({ initialView = 'record' }: { initialView?: 'rec
     // A backfilled drink belongs to its consumed date, not today's page.
     if (lastRecord) showHistory(getRecordLocalCalendarDateKey(lastRecord), lastRecord, templateFailed)
   }
-  function returnToBrowse() {
-    setCaptureDate(null)
-    window.history.pushState({}, '', applicationHref('/record'))
+  function returnToBrowse(preserveSelection = false) {
+    prepareNavigationScroll()
+    const dateTime = preserveSelection ? recordFlow.dateTime : getCurrentLocalDateTimeInputValues()
+    setRecordFlow({ dateTime, step: 'check-in' })
+    window.history.pushState({ fromHistory: preserveSelection && window.history.state?.fromHistory === true, recordDateTime: dateTime, recordStep: 'check-in' }, '', applicationHref('/record?date=' + encodeURIComponent(dateTime.date)))
     setResultId(null)
     setTemplateFailed(false)
+    requestNavigationScroll({ kind: 'top' })
+  }
+
+  function returnToCheckIn() {
+    prepareNavigationScroll()
+    if (window.history.state?.fromCheckIn === true) {
+      // The preceding entry is the check-in with this same selected occasion.
+      returningToCheckIn.current = true
+      window.history.back()
+      return
+    }
+    // Older browser entries may lack the navigation marker. Replace that entry
+    // so Back cannot reopen an abandoned drink browser or reset the occasion.
+    const dateTime = recordFlow.dateTime
+    window.history.replaceState({ ...window.history.state, recordDateTime: dateTime, recordStep: 'check-in', fromCheckIn: false }, '', applicationHref('/record?date=' + encodeURIComponent(dateTime.date)))
+    setRecordFlow({ dateTime, step: 'check-in' })
+    setHistoryView(false)
+    setResultId(null)
+    setTemplateFailed(false)
+    window.dispatchEvent(new PopStateEvent('popstate'))
+    requestNavigationScroll({ kind: 'top' })
   }
 
   // IndexedDB reads are asynchronous. The feature stays in a loading state
@@ -337,7 +408,7 @@ export function ManualDrinkPage({ initialView = 'record' }: { initialView?: 'rec
   }
 
   return (
-    <div className="manual-drink-page">
+    <div className="manual-drink-page" data-navigation-scroll-ready={hydrationStatus !== 'loading'}>
       <main className="manual-drink-shell">
         {hydrationStatus === 'loading' && (
           <section className="manual-drink-card" role="status">
@@ -364,9 +435,7 @@ export function ManualDrinkPage({ initialView = 'record' }: { initialView?: 'rec
               initialDateKey={historyDate}
               savedDay={window.history.state?.checkInSaved === true}
               alcoholFreeDates={checkIns.alcoholFreeDates}
-              startDate={historyStartDate(checkIns, records, currentLocalDateKey)}
-              onNoAlcohol={confirmAlcoholFree}
-              onAddDrink={startDrinking}
+              onRecordDate={startRecordForDate}
               referenceCategories={referenceCategories}
               onUpdate={updateRecord}
               onDelete={deleteRecord}
@@ -389,21 +458,17 @@ export function ManualDrinkPage({ initialView = 'record' }: { initialView?: 'rec
               {consumptionSummary.hasEligibleDrinkingRecordToday && <DrivingSafetyGuidance />}
             </ReferenceRecordResult> : <section className="reference-record-result">
               <h1>Record unavailable</h1><p>This record is no longer available on this device.</p>
-              <button type="button" className="primary-button" onClick={returnToBrowse}>Back to Record</button>
+              <button type="button" className="primary-button" onClick={() => returnToBrowse()}>Back to Record</button>
             </section>
-          ) : !captureDate ? <DailyCheckIn key={currentLocalDateKey} date={currentLocalDateKey}
-            hasDrinks={records.some(record => getRecordLocalCalendarDateKey(record) === currentLocalDateKey)}
+          ) : recordFlow.step === 'check-in' ? <DailyCheckIn dateTime={recordFlow.dateTime}
+            onDateTimeChange={updateRecordDateTime}
+            hasDrinks={records.some(record => getRecordLocalCalendarDateKey(record) === recordFlow.dateTime.date)}
+            onViewRecords={date => showHistory(date, undefined, false, false, true)}
             onNoAlcohol={confirmAlcoholFree} onDrink={startDrinking} /> : <>
-            <div className="check-in-capture-context">
-              <span>{displayCheckInDate(captureDate)}</span>
-              <button type="button" onClick={() => {
-                if (window.history.state?.fromHistory) showHistory(captureDate, undefined, false, false)
-                else returnToBrowse()
-              }}>{window.history.state?.fromHistory ? 'Cancel · Back to History' : 'Back to daily check-in'}</button>
-            </div>
             <ManualDrinkForm
-            key={captureDate}
-            selectedDate={captureDate}
+            key={`${recordFlow.dateTime.date}T${recordFlow.dateTime.time}`}
+            selectedDateTime={recordFlow.dateTime}
+            onBackToCheckIn={returnToCheckIn}
             startInBrowse
             referenceCategories={referenceCategories}
             referenceStatus={referenceStatus}

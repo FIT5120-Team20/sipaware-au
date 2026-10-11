@@ -45,8 +45,8 @@ const presentation: Record<AlcoholInformationTopicCode, { title: string; image: 
  ALCOHOL_GUIDELINES: {title:'Australian Alcohol Guidelines',image:'learn-guidelines.jpg',section:'Understanding the Australian alcohol guidelines'},
  ALCOHOL_AGEING: {title:'Alcohol & Ageing',image:'home-ageing.svg',section:'Why can alcohol affect you differently as you age?'},
  ALCOHOL_DRIVING: {title:'Alcohol & Driving',image: 'learn-driving.jpg',section:'What you need to know about alcohol and driving'},
- ALCOHOL_MEDICINES: {title:'Alcohol & Medicines',image:'learn-medicines.svg',section:'Why extra care may be needed with medicines'},
- ALCOHOL_LEGAL: {title:'Alcohol & Legal Information',image:'home-know.svg',section:'What you need to know about alcohol laws'},
+ ALCOHOL_MEDICINES: {title:'Alcohol & Medicines',image:'learn-medicines-photo.png',section:'Why extra care may be needed with medicines'},
+ ALCOHOL_LEGAL: {title:'Alcohol & Legal Information',image:'learn-legal-photo.png',section:'What you need to know about alcohol laws'},
 }
 export function AlcoholInformationSection({ topic }: { topic: AlcoholInformationTopicDto }) {
  const view = presentation[topic.topicCode]

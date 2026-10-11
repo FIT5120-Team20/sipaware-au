@@ -6,18 +6,22 @@
  * boundary and the separation from historical DrinkingRecords.
  */
 import type { CatalogProduct } from '../catalog/catalogApi'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { captureNavigationScroll, prepareNavigationScroll, requestNavigationScroll, type NavigationScrollPosition } from '../../../app/navigationScroll'
 import { ReferenceRecordBrowser, DrinkThumb, IcoChevron } from './ReferenceRecordBrowser'
 
 import { getDrinkTypeLabel } from '../config/drinkTypes'
 import type { DrinkReferenceCategory } from '../types/drinkReference'
 import type { SavedDrink } from '../types/savedDrink'
+import type { ConsumptionDateTimeValues } from '../types/manualDrinkForm'
 import { SavedDrinkEditor } from './SavedDrinkEditor'
 import { ReferenceDialog } from './ReferenceDialog'
 import { ReferenceBackBar } from './ReferenceBackBar'
 
 interface SavedDrinkPickerProps {
   browserActions?: { onScan: () => void; onManual: () => void; onProduct: (product: CatalogProduct) => void }
+  selectedDateTime?: ConsumptionDateTimeValues
+  onBackToCheckIn?: () => void
   referenceCategories: readonly DrinkReferenceCategory[]
   savedDrinks: readonly SavedDrink[]
   selectedSavedDrinkId: string | null
@@ -33,6 +37,8 @@ type ManagementStatus =
 
 export function SavedDrinkPicker({
   browserActions,
+  selectedDateTime,
+  onBackToCheckIn,
   referenceCategories,
   savedDrinks,
   selectedSavedDrinkId,
@@ -41,6 +47,8 @@ export function SavedDrinkPicker({
   onUpdate,
   onDelete,
 }: SavedDrinkPickerProps) {
+  const pickerRef = useRef<HTMLElement>(null)
+  const browsingScroll = useRef<NavigationScrollPosition | null>(null)
   const [editingSavedDrinkId, setEditingSavedDrinkId] = useState<string | null>(
     null,
   )
@@ -55,16 +63,31 @@ export function SavedDrinkPicker({
   )
 
   function beginEditing(savedDrinkId: string) {
+    if (browserActions) {
+      browsingScroll.current = captureNavigationScroll(pickerRef.current,
+        pickerRef.current?.querySelector<HTMLElement>('.prototype-record-results'))
+      prepareNavigationScroll()
+    }
     setEditingSavedDrinkId(savedDrinkId)
     setPendingDeleteId(null)
     setManagementStatus(null)
+    if (browserActions) requestNavigationScroll({ kind: 'top' })
+  }
+
+  function closeEditor() {
+    if (browserActions) {
+      prepareNavigationScroll()
+    }
+    setEditingSavedDrinkId(null)
+    if (browserActions) requestNavigationScroll(browsingScroll.current
+      ? { kind: 'restore', position: browsingScroll.current } : { kind: 'top' })
   }
 
   async function saveEditedDrink(savedDrink: SavedDrink) {
     // Editing changes only the reusable template. If it is currently selected,
     // ManualDrinkForm separately refreshes the prefilled reusable controls.
     await onUpdate(savedDrink)
-    setEditingSavedDrinkId(null)
+    closeEditor()
     setManagementStatus({
       kind: 'success',
       message: `${savedDrink.drinkName} was updated in My Drinks.`,
@@ -152,7 +175,7 @@ export function SavedDrinkPicker({
                     referenceCategories={referenceCategories}
                     savedDrink={savedDrink}
                     onSave={saveEditedDrink}
-                    onCancel={() => setEditingSavedDrinkId(null)}
+                    onCancel={closeEditor}
                   />
                 )}
 
@@ -193,6 +216,7 @@ export function SavedDrinkPicker({
   const pending = savedDrinks.find(drink => drink.id === pendingDeleteId)
   return (
     <section
+      ref={pickerRef}
       className={`my-drinks-panel${savedDrinks.length === 0 ? ' my-drinks-panel--empty' : ''}`}
       aria-labelledby="my-drinks-title"
     >
@@ -215,8 +239,8 @@ export function SavedDrinkPicker({
       )}
 
       {browserActions && editing && <section className="reference-edit-page">
-        <ReferenceBackBar label="Back to My Drinks" onClick={() => setEditingSavedDrinkId(null)} />
-        <h1>Edit Drink</h1><SavedDrinkEditor key={editing.id} referenceCategories={referenceCategories} savedDrink={editing} onSave={saveEditedDrink} onCancel={() => setEditingSavedDrinkId(null)} />
+        <ReferenceBackBar label="Back to My Drinks" onClick={closeEditor} />
+        <h1>Edit Drink</h1><SavedDrinkEditor key={editing.id} referenceCategories={referenceCategories} savedDrink={editing} onSave={saveEditedDrink} onCancel={closeEditor} />
       </section>}
       {browserActions && pending && <ReferenceDialog title="Delete this drink?" alert onClose={() => { if (!deletingSavedDrinkId) setPendingDeleteId(null) }}>
         <p>{pending.drinkName} will be removed from My Drinks. Your previous drinking records will be kept.</p>
@@ -228,7 +252,7 @@ export function SavedDrinkPicker({
            onClick={() => confirmDelete(pending)}>{deletingSavedDrinkId ? 'Deleting…' : 'Delete'}</button>
        </div>
       </ReferenceDialog>}
-      {browserActions ? <div hidden={Boolean(editing)}><ReferenceRecordBrowser savedDrinks={savedDrinks} onScan={browserActions.onScan} onManual={browserActions.onManual} onProduct={browserActions.onProduct}>{renderCards}</ReferenceRecordBrowser></div> : savedDrinks.length === 0 ? (
+      {browserActions ? <div hidden={Boolean(editing)}><ReferenceRecordBrowser selectedDateTime={selectedDateTime} onBackToCheckIn={onBackToCheckIn} savedDrinks={savedDrinks} onScan={browserActions.onScan} onManual={browserActions.onManual} onProduct={browserActions.onProduct}>{renderCards}</ReferenceRecordBrowser></div> : savedDrinks.length === 0 ? (
         <p className="empty-state">
           No saved drinks yet. Enter drink details and choose Save this
           drink to My Drinks.

@@ -30,7 +30,7 @@ async function fillDrink() {
   fireEvent.change(screen.getByLabelText('Number of servings consumed'), { target:{ value:'1' } })
 }
 
-describe('daily entry and History backfill', () => {
+describe('daily entry and saved-only History', () => {
   it('opens the minimal entry, saves a real zero status and retains it after reload', async () => {
     window.history.replaceState({}, '', '/iteration3/record')
     const view = render(<App />)
@@ -48,13 +48,21 @@ describe('daily entry and History backfill', () => {
     expect(screen.queryByText('No trend data yet.')).not.toBeInTheDocument()
   })
 
-  it('keeps cancelled past days unknown and requires an explicit time before saving to the selected date', async () => {
+  it('keeps date-aware Record saving and cancellation without offering History backfill', async () => {
     await beginHistory()
-    fireEvent.click(within(day('2026-10-04')).getByRole('button', { name:'Add entry' }))
-    fireEvent.click(within(day('2026-10-04')).getByRole('button', { name:'Cancel' }))
-    expect(within(day('2026-10-04')).getByText('No data')).toBeInTheDocument()
-    fireEvent.click(within(day('2026-10-04')).getByRole('button', { name:'Add entry' }))
-    fireEvent.click(within(day('2026-10-04')).getByRole('button', { name:/I drank/ }))
+    expect(document.querySelectorAll('.history-day')).toHaveLength(0)
+    expect(document.querySelectorAll('.history-calendar-day')).toHaveLength(31)
+    expect(document.querySelectorAll('.history-calendar-day[href]')).toHaveLength(0)
+    expect(screen.queryByRole('button', { name:'Add a past check-in' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name:'Add entry' })).not.toBeInTheDocument()
+    window.history.pushState({}, '', '/iteration3/record?date=2026-10-04')
+    fireEvent(window, new PopStateEvent('popstate'))
+    await screen.findByRole('button', { name:'Back to daily check-in' })
+    fireEvent.click(screen.getByRole('button', { name:'Back to daily check-in' }))
+    expect(await screen.findByRole('button', { name:/No alcohol today/ })).toBeVisible()
+    expect(await new IndexedDbDrinkingRecordRepository().list()).toEqual([])
+    window.history.pushState({}, '', '/iteration3/record?date=2026-10-04')
+    fireEvent(window, new PopStateEvent('popstate'))
     await fillDrink()
     expect(screen.getByLabelText('Date')).toHaveTextContent('4 October 2026')
     expect(screen.getByLabelText('Time')).toHaveValue('')
@@ -68,17 +76,21 @@ describe('daily entry and History backfill', () => {
     await screen.findByRole('heading', { name:'Your drinking records' })
     expect(within(day('2026-10-04')).getByText('Backfilled test drink')).toBeInTheDocument()
     expect(within(day('2026-10-04')).getByText('Saved')).toBeInTheDocument()
-    expect(within(day('2026-10-05')).getByText('No data')).toBeInTheDocument()
+    expect(day('2026-10-05')).toBeNull()
+    expect(document.querySelectorAll('.history-day')).toHaveLength(1)
     const records = await new IndexedDbDrinkingRecordRepository().list()
     expect(records).toHaveLength(1); expect(getRecordLocalCalendarDateKey(records[0])).toBe('2026-10-04')
   })
 
-  it('opens a past-month result before Done selects the correct History month and page', async () => {
-    await beginHistory()
-    fireEvent.click(screen.getByRole('button', { name:'Previous month' }))
-    fireEvent.click(screen.getByRole('button', { name:'Next' }))
-    fireEvent.click(within(day('2026-09-20')).getByRole('button', { name:'Add entry' }))
-    fireEvent.click(within(day('2026-09-20')).getByRole('button', { name:/I drank/ }))
+  it('opens a past-month result before Done selects its actual saved History date', async () => {
+    const repo = new IndexedDbDrinkingRecordRepository()
+    for (let date = 21; date <= 30; date++) {
+      const time = new Date(2026,8,date,18)
+      await repo.add({ id:'seed-'+date, drinkType:'beer', drinkName:'Existing drink '+date, servingVolumeMl:330, abvPercent:5, amountConsumed:1,
+        consumedAt:time.toISOString(), consumedTimezoneOffsetMinutes:time.getTimezoneOffset(), createdAt:time.toISOString() })
+    }
+    window.history.replaceState({}, '', '/iteration3/record?date=2026-09-20')
+    render(<App />)
     await fillDrink()
     fireEvent.change(screen.getByLabelText('Time'), { target:{ value:'18:30' } })
     fireEvent.click(screen.getByRole('button', { name:'Record Drink' }))
@@ -87,21 +99,26 @@ describe('daily entry and History backfill', () => {
     fireEvent.click(screen.getByRole('button', { name:'Done' }))
     await screen.findByRole('heading', { name:'Your drinking records' })
     expect(within(day('2026-09-20')).getByText('Backfilled test drink')).toBeInTheDocument()
-    expect(screen.getByText(/Page 2 of 5/)).toBeInTheDocument()
-    expect(day('2026-09-20')).toHaveFocus()
-    expect(await new IndexedDbDrinkingRecordRepository().list()).toHaveLength(1)
+    expect(screen.queryByRole('navigation', { name:'History pages' })).not.toBeInTheDocument()
+    expect(document.querySelector('.history-calendar-day[data-date="2026-09-20"]')).toHaveAttribute('aria-pressed', 'true')
+    expect(await repo.list()).toHaveLength(11)
   })
 
-  it('returns to the correct month and page after an alcohol-free backfill, with no fake drinking records', async () => {
+  it('preserves saved past confirmations while legacy metadata cannot create missing-day entries', async () => {
+    await new IndexedDbDailyCheckInRepository().confirmAlcoholFree('2026-09-20')
     await beginHistory()
+    expect(screen.getByText('Select a date on the calendar to view your records.')).toBeVisible()
+    expect(document.querySelectorAll('.history-day')).toHaveLength(0)
     fireEvent.click(screen.getByRole('button', { name:'Previous month' }))
-    fireEvent.click(screen.getByRole('button', { name:'Next' }))
-    fireEvent.click(within(day('2026-09-20')).getByRole('button', { name:'Add entry' }))
-    fireEvent.click(within(day('2026-09-20')).getByRole('button', { name:/No alcohol/ }))
-    await waitFor(() => expect(within(day('2026-09-20')).getByText('Alcohol-free day')).toBeInTheDocument())
-    expect(screen.getByText(/Page 2 of 5/)).toBeInTheDocument()
-    expect(day('2026-09-20')).toHaveFocus()
+    fireEvent.click(document.querySelector('button.history-calendar-day[data-date="2026-09-20"]')!)
+    expect(within(day('2026-09-20')).getByText('Alcohol-free day')).toBeInTheDocument()
+    expect(within(day('2026-09-20')).getByText('0.0')).toBeInTheDocument()
+    expect(document.querySelectorAll('.history-day')).toHaveLength(1)
+    expect(day('2026-09-19')).toBeNull()
+    expect(window.location.pathname).toBe('/iteration3/trends')
+    expect(screen.queryByRole('button', { name:/Add entry|Add drink|Add a past check-in/ })).not.toBeInTheDocument()
     expect(await new IndexedDbDrinkingRecordRepository().list()).toEqual([])
+    expect((await new IndexedDbDailyCheckInRepository().initialize()).alcoholFreeDates).toEqual(['2026-09-20'])
   })
 
   it('does not navigate or create a zero day on persistence failure', async () => {
