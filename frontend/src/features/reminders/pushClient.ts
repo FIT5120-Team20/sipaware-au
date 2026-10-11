@@ -97,6 +97,7 @@ export async function disablePush() {
     const registration=await navigator.serviceWorker?.getRegistration(import.meta.env.BASE_URL)
     await registration?.pushManager.getSubscription().then(s=>s?.unsubscribe()).catch(()=>undefined)
     window.dispatchEvent(new Event(PUSH_CHANGED))
+    return result
   })
 }
 /** Event-triggered only; ACK is written after success, so failures remain retryable. */

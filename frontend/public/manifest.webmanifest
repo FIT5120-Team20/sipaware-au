@@ -1,6 +1,6 @@
 {
   "name": "SipAware AU", "short_name": "SipAware",
   "id": "./", "start_url": "./record", "scope": "./",
-  "display": "standalone", "background_color": "#ffffff", "theme_color": "#22544f",
+  "display": "standalone", "background_color": "#ffffff", "theme_color": "#ffffff",
   "icons": [{"src": "reminder-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}]
 }

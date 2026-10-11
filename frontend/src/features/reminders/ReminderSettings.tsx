@@ -1,83 +1,97 @@
-/** Home settings reuse the current feature trigger and dialog. Saving a local
- * time preference never enables or reschedules background delivery. */
-import { PushSettingsControl } from './PushSettingsControl'
-import { NotificationPermissionControl } from './NotificationPermissionControl'
+import { useEffect, useId, useState } from 'react'
 import { ReminderSuggestionPrompt } from './ReminderSuggestionPrompt'
-import { useRef, useState, type ReactNode } from 'react'
-import { ReferenceDialog } from '../drinks/components/ReferenceDialog'
-import { clearReminderPreference, isReminderTime, readReminderPreference, saveReminderPreference } from './reminderPreference'
+import {
+  checkRecordingReminderService, disableRecordingReminder, enableRecordingReminder,
+  refreshRecordingReminder, reminderPresentation, selectedReminderTime,
+  updateRecordingReminderTime, useRecordingReminder,
+} from './recordingReminderState'
 import './reminderSettings.css'
 
-function SettingsDialog({ onClose, showSuggestions = false }: { onClose: () => void; showSuggestions?: boolean }) {
-  const timeInput = useRef<HTMLInputElement>(null)
-  const [initial] = useState(() => {
-    try { return { time: readReminderPreference()?.time ?? '', failed: false } }
-    catch { return { time: '', failed: true } }
-  })
-  const [time, setTime] = useState(initial.time)
-  const [saved, setSaved] = useState(initial.time)
-  const [error, setError] = useState(initial.failed ? 'Your saved time could not be read. You can try saving a new preference.' : '')
+/** One settings surface, backed by the existing acknowledged push operations. */
+export function ReminderSettings() {
+  const reminder = useRecordingReminder()
+  const presentation = reminderPresentation(reminder)
+  const time = selectedReminderTime(reminder)
+  const [draftTime, setDraftTime] = useState<string | null>(null)
+  const [editingTime, setEditingTime] = useState(false)
   const [message, setMessage] = useState('')
-  function save(event: React.FormEvent) {
-    event.preventDefault()
+  const id = useId()
+  const busy = reminder.pending !== null
+  const enabled = reminder.status?.enabled === true
+  const canEnable = reminder.support.available && reminder.support.permission !== 'denied' && reminder.service === 'available'
+  const disabled = busy || reminder.checking || !reminder.verified || (!enabled && !canEnable)
+  const unavailable = !enabled && (!reminder.support.available || reminder.service === 'unavailable')
+  const label = presentation.label === 'Off' && unavailable ? 'Unavailable' : presentation.label
+
+  useEffect(() => { void checkRecordingReminderService() }, [])
+
+  function toggle() {
     setMessage('')
-    if (!isReminderTime(time)) { setError('Choose a valid reminder time.'); return }
-    try {
-      saveReminderPreference(time)
-      setSaved(time)
-      setError('')
-      setMessage('Preferred time saved. Background reminder settings are unchanged.')
-    } catch { setError('Your time could not be saved. Please try again.'); }
+    if (enabled) void disableRecordingReminder()
+    else void enableRecordingReminder(time)
   }
-  function clear() {
+  async function confirmTime(value: string) {
+    setEditingTime(false)
+    setDraftTime(null)
     setMessage('')
-    try {
-      clearReminderPreference()
-      setTime(''); setSaved(''); setError('')
-      setMessage('Saved time removed. Background reminder settings are unchanged.')
-    } catch { setError('Your saved time could not be removed. Please try again.'); }
+    if (value !== time && await updateRecordingReminderTime(value)) {
+      setMessage(enabled ? 'Reminder time updated.' : 'Reminder time saved.')
+    }
   }
-  return <ReferenceDialog title="Recording reminder" onClose={onClose}>
-    <div className="reminder-settings">
-      <p>Saving a preferred time does not enable or change a background reminder. Use the background reminder controls to apply it.</p>
-      <NotificationPermissionControl />
-      {showSuggestions && <ReminderSuggestionPrompt onChooseTime={() => timeInput.current?.focus()}
-        onSaved={nextTime => { setTime(nextTime); setSaved(nextTime); setError(''); setMessage('') }} />}
-      <form onSubmit={save} noValidate>
-        <label htmlFor="reminder-time">Preferred daily reminder time</label>
-        <input ref={timeInput} id="reminder-time" type="time" value={time} onChange={event => { setTime(event.target.value); setMessage('') }} />
-        <p>This is a time preference for this browser. No drinking records are created.</p>
-        {saved && <p>Saved time: {saved}</p>}
-        {error && <p role="alert">{error}</p>}
-        {message && <p role="status">{message}</p>}
-        <div className="reminder-settings-actions">
-          <button type="submit">Save preferred time</button>
-          {(saved || initial.failed) && <button type="button" onClick={clear}>Remove saved time</button>}
-          <button type="button" onClick={onClose}>Close</button>
+  function retry() {
+    void refreshRecordingReminder()
+    void checkRecordingReminderService()
+  }
+
+  return <div className="reminder-settings recording-reminder-settings" aria-busy={busy}>
+    <section className="recording-reminder-card" aria-labelledby={id + '-daily'}>
+      <div className="recording-reminder-toggle-row">
+        <div className="recording-reminder-copy">
+          <h2 id={id + '-daily'}>Daily reminder</h2>
+          <p id={id + '-description'}>Remind me to check in each day</p>
         </div>
-      </form>
-      <PushSettingsControl time={time} />
-    </div>
-  </ReferenceDialog>
-}
-export function ReminderSettings({ renderTrigger }: { renderTrigger?: (open: () => void) => ReactNode }) {
-  const [open, setOpen] = useState(false)
-  const entry = useRef<HTMLDivElement>(null)
-  const [opener, setOpener] = useState<HTMLElement | null>(null)
-  function showSettings() {
-    setOpener(document.activeElement instanceof HTMLElement ? document.activeElement : null)
-    setOpen(true)
-  }
-  function closeSettings() {
-    setOpen(false)
-    window.requestAnimationFrame(() => {
-      const target = opener?.isConnected ? opener : entry.current?.querySelector('button')
-      target?.focus({ preventScroll: true })
-    })
-  }
-  return <div ref={entry} className={renderTrigger ? 'reminder-feature-entry' : 'reminder-entry'}>
-    {renderTrigger ? renderTrigger(showSettings) : <button type="button" onClick={showSettings}>Recording reminder settings</button>}
-    {!renderTrigger && <ReminderSuggestionPrompt onChooseTime={showSettings} />}
-    {open && <SettingsDialog onClose={closeSettings} showSuggestions={Boolean(renderTrigger)} />}
+        <button type="button" role="switch" className="recording-reminder-switch"
+          aria-checked={enabled} aria-labelledby={id + '-daily'}
+          aria-describedby={id + '-description ' + id + '-status'}
+          disabled={disabled} onClick={toggle}>
+          <span className="recording-reminder-switch-track" aria-hidden="true"><span /></span>
+        </button>
+      </div>
+      <p id={id + '-status'} className="recording-reminder-status" role="status">
+        <span className={'recording-reminder-status-label' + (label === 'On' ? ' recording-reminder-status-label--on' : '')}>
+          {!reminder.verified && reminder.checking ? 'Checking reminder…' : label}
+        </span>
+        {reminder.pending === 'disable' ? 'Turning off…'
+          : reminder.pending === 'time' ? 'Updating time…'
+          : presentation.ringing ? presentation.subtitle
+          : reminder.service === 'checking' && reminder.support.available ? 'Checking reminder availability…'
+          : reminder.status?.needs_attention ? 'Turn on Daily reminder to restore your reminder.' : ''}
+      </p>
+    </section>
+
+    <section className="recording-reminder-card recording-reminder-time-card" aria-label="Reminder time settings">
+      <div className="recording-reminder-time-row">
+        <label htmlFor={id + '-time'}>Reminder time</label>
+        <input id={id + '-time'} type="time" step={60} value={draftTime ?? time}
+          disabled={busy} aria-describedby={id + '-time-help'}
+          onFocus={() => setEditingTime(true)} onChange={event => setDraftTime(event.target.value)}
+          onBlur={event => { void confirmTime(event.currentTarget.value) }}
+          onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); event.currentTarget.blur() } }} />
+      </div>
+      <p id={id + '-time-help'}>{enabled ? 'Changes apply when you finish choosing a time.' : 'Choose a time to use when you turn on Daily reminder.'}</p>
+    </section>
+
+    {reminder.support.message && <p className="recording-reminder-guidance">{reminder.support.message}</p>}
+    {reminder.service === 'unavailable' && <p className="recording-reminder-guidance">The reminder service is temporarily unavailable. Check your connection and retry.</p>}
+    {reminder.error && <p className="recording-reminder-error" role="alert">{reminder.error}</p>}
+    {reminder.preferenceError && <p className="recording-reminder-error" role="alert">{reminder.preferenceError}</p>}
+    {!reminder.verified && !reminder.checking && <p className="recording-reminder-guidance">Your current reminder status could not be confirmed. Your last confirmed setting is shown.</p>}
+    {(!reminder.verified || reminder.service === 'unavailable' || reminder.error || presentation.label === 'Needs attention') &&
+      <button type="button" className="secondary-button recording-reminder-retry" disabled={busy || reminder.checking || reminder.service === 'checking'} onClick={retry}>Retry reminder status</button>}
+    {message && <p role="status" className="recording-reminder-message">{message}</p>}
+
+    <ReminderSuggestionPrompt currentTime={draftTime ?? time} busy={busy || reminder.checking || !reminder.verified}
+      canPrompt={!editingTime && !busy && !reminder.checking && reminder.verified}
+      onApplyTime={updateRecordingReminderTime} />
   </div>
 }

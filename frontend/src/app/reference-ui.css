@@ -200,6 +200,11 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 [hidden] { display: none !important; }
 
 @media (min-width: 768px) {
+  /* Keep page alignment consistent whether its content needs a scrollbar or not. */
+  html {
+    scrollbar-gutter: stable;
+  }
+
   .home-feature-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .home-feature-card { padding:16px;border:1px solid #e8e4df;border-radius:16px; }
   :root {
@@ -342,6 +347,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .prototype-capture--browse { max-width: var(--page-content-max-width); margin-inline: auto; }
 .prototype-capture--manual { max-width: 760px; padding: 0 20px; margin: auto; }
 .manual-drink-shell:has(> .prototype-capture--manual > .prototype-sticky-back),
+.manual-drink-shell:has(> .reference-edit-page > .prototype-sticky-back),
 .manual-drink-shell:has(.prototype-capture--browse .my-drinks-panel > .reference-edit-page > .prototype-sticky-back) { padding-top: 0; }
 .prototype-record-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 var(--page-inline-spacing); margin-bottom: var(--page-heading-spacing); }
 .prototype-record-top h1,
@@ -648,7 +654,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .reference-history-menu button { min-height:44px;text-align:left;background:white;border:0;padding:8px 14px;border-radius:8px;color:#1a5fcc }
 .reference-history-menu button:last-child { color:#b42318 }
 .reference-history-empty { border:1px solid #e2ddd8;border-radius:18px;padding:40px 24px;text-align:center }
-.reference-edit-page { max-width:760px;padding:16px 20px 100px;margin:0 auto }
+.reference-edit-page { max-width:760px;padding:0 20px 100px;margin:0 auto }
 .prototype-capture .my-drinks-panel > .reference-edit-page { padding-top: 0; }
 .reference-edit-page h1 { font:34px/1.2 "DM Serif Display",serif;margin:18px 0 28px }
 .reference-edit-page :is(.drinking-record-editor,.saved-drink-editor) { border:0;background:transparent;padding:0;display:grid;grid-template-columns:1fr;gap:24px }
@@ -669,7 +675,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
  .reference-history-total { padding-right:30px }
  .reference-history-total strong { font-size:27px }
  .reference-history-total > span { font-size:11px }
- .reference-edit-page { padding:12px 20px 108px }
+ .reference-edit-page { padding:0 20px 108px }
  .reference-history-page .reference-edit-page { padding-inline:0 }
 }
 
