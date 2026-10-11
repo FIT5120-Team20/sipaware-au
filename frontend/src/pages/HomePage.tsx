@@ -1,6 +1,6 @@
 import { HomeFooter } from '../components/HomeFooter'
 import { applicationHref } from '../app/entryPaths'
-import { ReminderSettings } from '../features/reminders/ReminderSettings'
+import { reminderPresentation, useRecordingReminder } from '../features/reminders/recordingReminderState'
 import './homePage.css'
 
 function FiDrink() {
@@ -43,22 +43,27 @@ const features = [
   { title: 'Record your drinks', subtitle: 'Understand what you’re drinking', icon: 'record', path: '/record' },
   { title: 'Learn about alcohol', subtitle: 'Alcohol, ageing and guidelines', icon: 'learn', path: '/alcohol-guidelines' },
   { title: 'Understand your patterns', subtitle: 'Review your drinking over time', icon: 'trends', path: '/trends' },
-  { title: 'Set a reminder', subtitle: 'Set a time for your daily check-in', icon: 'reminder', path: null },
+  { title: 'Set a reminder', subtitle: 'Set a time for your daily check-in', icon: 'reminder', path: '/recording-reminder' },
   { title: 'Earn awards', subtitle: 'Celebrate your progress and milestones', icon: 'awards', path: '/awards' },
 ] as const
 
-function FeatureContent({ feature }: { feature: typeof features[number] }) {
+function FeatureContent({ feature, reminder }: { feature: typeof features[number]; reminder: ReturnType<typeof reminderPresentation> }) {
   const OriginalIcon = feature.icon === 'record' ? FiDrink : feature.icon === 'learn' ? FiBook : feature.icon === 'trends' ? FiTrend : null
   return <>
     <span className={'home-feature-icon home-feature-icon--' + (feature.icon === 'trends' ? 'trend' : feature.icon)} aria-hidden="true">
-      {OriginalIcon ? <OriginalIcon /> : <img src={import.meta.env.BASE_URL + 'reference-ui/home-' + feature.icon + '.svg'} alt="" width="22" height="22" />}
+      {OriginalIcon ? <OriginalIcon /> : feature.icon === 'reminder' && reminder.ringing
+        ? <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1A5FCC" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4M2 8a10 10 0 0 1 2-5M22 8a10 10 0 0 0-2-5" />
+        </svg>
+        : <img src={import.meta.env.BASE_URL + 'reference-ui/home-' + feature.icon + '.svg'} alt="" width="22" height="22" />}
     </span>
-    <span className="home-feature-copy"><strong>{feature.title}</strong><span>{feature.subtitle}</span></span>
+    <span className="home-feature-copy"><strong>{feature.title}</strong><span>{feature.icon === 'reminder' ? reminder.subtitle : feature.subtitle}</span></span>
     <Chevron />
   </>
 }
 
-export function HomePage() {
+export function HomePage({ onNavigate }: { onNavigate?: (path: string) => void } = {}) {
+  const reminder = reminderPresentation(useRecordingReminder())
   return <main className="reference-home home-page">
     <header className="home-hero">
       <img src={import.meta.env.BASE_URL + 'reference-ui/home-hero-lime.png'} alt="" width="1680" height="936" fetchPriority="high" />
@@ -68,15 +73,14 @@ export function HomePage() {
       <section className="home-features" aria-labelledby="home-features-title">
         <h2 id="home-features-title">What you can do here</h2>
         <div className="home-feature-grid">
-          {features.map(feature => feature.path === null
-            ? <ReminderSettings key={feature.icon} renderTrigger={open => (
-              <button type="button" className="home-feature-card" aria-haspopup="dialog" onClick={open}>
-                <FeatureContent feature={feature} />
-              </button>
-            )} />
-            : <a key={feature.icon} href={applicationHref(feature.path)} className="home-feature-card">
-              <FeatureContent feature={feature} />
-            </a>)}
+          {features.map(feature => <a key={feature.icon} href={applicationHref(feature.path)} className="home-feature-card"
+            onClick={event => {
+              if (feature.icon !== 'reminder' || !onNavigate || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+              event.preventDefault()
+              onNavigate(feature.path)
+            }}>
+            <FeatureContent feature={feature} reminder={reminder} />
+          </a>)}
         </div>
       </section>
       <HomeFooter />

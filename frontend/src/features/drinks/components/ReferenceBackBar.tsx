@@ -16,7 +16,11 @@ export function ReferenceBackBar({ label, href, onClick }: ReferenceBackBarProps
 
   return <div className="prototype-sticky-back">
     {href
-      ? <a className="prototype-back" href={href}>{content}</a>
+      ? <a className="prototype-back" href={href} onClick={onClick ? event => {
+        if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+        event.preventDefault()
+        onClick()
+      } : undefined}>{content}</a>
       : <button type="button" className="prototype-back" onClick={onClick}>{content}</button>}
   </div>
 }

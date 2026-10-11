@@ -14,6 +14,7 @@ import { ReferenceNavigation } from './components/ReferenceNavigation'
 import { AwardFeedback } from './features/awards/AwardNotice'
 import { AwardsPage } from './features/awards/AwardsPage'
 import { HomePage } from './pages/HomePage'
+import { RecordingReminderPage } from './features/reminders/RecordingReminderPage'
 
 function App() {
   const [path, setPath] = useState(() => applicationPath())
@@ -67,7 +68,9 @@ function App() {
         <ReminderSync />
         <div className="navigation-scroll-start" data-navigation-scroll-start aria-hidden="true" />
         {path === '/' ? (
-          <HomePage key="home" />
+          <HomePage key="home" onNavigate={navigate} />
+        ) : path === '/recording-reminder' ? (
+          <RecordingReminderPage onNavigate={navigate} />
         ) : path === '/record' ? (
           <ManualDrinkPage key="record" />
         ) : path === '/trends' ? (

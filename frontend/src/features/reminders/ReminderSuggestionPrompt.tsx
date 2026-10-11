@@ -1,47 +1,103 @@
-/** Suggestions read committed local history only. Applying a saved suggestion
- * to background delivery still requires the explicit settings action. */
 import { useEffect, useState } from 'react'
 import { openSipAwareDatabase, DRINKING_RECORDS_STORE_NAME } from '../drinks/storage/indexedDb'
 import { openCheckInDatabase, withDailyDataLock } from '../drinks/storage/dailyCheckInDatabase'
-import { readReminderPreference, saveReminderPreference } from './reminderPreference'
+import { ReferenceDialog } from '../drinks/components/ReferenceDialog'
+import { isReminderTime, readReminderPreference, saveReminderPreference } from './reminderPreference'
 import { suggestReminder, type ReminderSuggestion } from './reminderSuggestion'
+import { formatReminderTime } from './recordingReminderState'
 
-export function ReminderSuggestionPrompt({ onChooseTime, onSaved }: { onChooseTime: () => void; onSaved?: (time: string) => void }) {
+const PRESENTED_KEY = 'sipaware.reminder-suggestion-presented.v1'
+function materiallyDifferent(time: string, previous: string) {
+  const minutes = (value: string) => { const [hour, minute] = value.split(':').map(Number); return hour * 60 + minute }
+  const difference = Math.abs(minutes(time) - minutes(previous))
+  return Math.min(difference, 1440 - difference) >= 30
+}
+function presentedTime() {
+  try {
+    const previous = localStorage.getItem(PRESENTED_KEY)
+    return previous === null || isReminderTime(previous) ? previous : 'unavailable'
+  } catch { return 'unavailable' }
+}
+interface SuggestionPromptProps {
+  currentTime?: string
+  busy?: boolean
+  canPrompt?: boolean
+  onApplyTime?: (time: string) => Promise<boolean>
+  onChooseTime?: () => void
+  onSaved?: (time: string) => void
+}
+
+/** Uses the existing recommendation algorithm and committed history unchanged. */
+export function ReminderSuggestionPrompt({ currentTime, busy = false, canPrompt = true, onApplyTime, onSaved }: SuggestionPromptProps) {
   const [suggestion, setSuggestion] = useState<ReminderSuggestion | null>(null)
-  const [message, setMessage] = useState('')
+  const [presented, setPresented] = useState(presentedTime)
+  const [sheet, setSheet] = useState(false)
+  const [applying, setApplying] = useState(false)
   const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
+  const selectedTime = currentTime ?? (() => { try { return readReminderPreference()?.time ?? '' } catch { return '' } })()
+  const pending = busy || applying
+  const candidate = suggestion && suggestion.time !== selectedTime ? suggestion : null
+
   useEffect(() => {
     let active = true
-    withDailyDataLock(async () => {
-      const records = await (await openSipAwareDatabase()).getAll(DRINKING_RECORDS_STORE_NAME)
-      const checkIns = await (await openCheckInDatabase()).getAll('daily_checkins')
-      const result = suggestReminder(records, checkIns)
-      const saved = readReminderPreference()
-      if (active && result?.time !== saved?.time) setSuggestion(result)
-    }).catch(() => { /* No reliable history means no personalised suggestion. */ })
-    return () => { active = false }
+    const load = () => {
+      void withDailyDataLock(async () => {
+        const records = await (await openSipAwareDatabase()).getAll(DRINKING_RECORDS_STORE_NAME)
+        const checkIns = await (await openCheckInDatabase()).getAll('daily_checkins')
+        const result = suggestReminder(records, checkIns)
+        if (active) setSuggestion(result)
+      }).catch(() => { if (active) setSuggestion(null) })
+    }
+    load()
+    window.addEventListener('sipaware:history-committed', load)
+    return () => { active = false; window.removeEventListener('sipaware:history-committed', load) }
   }, [])
-  function accept() {
-    if (!suggestion) return
+
+  useEffect(() => {
+    if (!canPrompt || pending || !candidate || presented === 'unavailable'
+      || (presented !== null && !materiallyDifferent(candidate.time, presented))) return
+    let active = true
+    queueMicrotask(() => {
+      if (!active) return
+      try {
+        // Remember presentation after the page commits. Dismissal and reload
+        // cannot repeat this prompt; the inline suggestion remains available.
+        localStorage.setItem(PRESENTED_KEY, candidate.time)
+        setPresented(candidate.time)
+        setSheet(true)
+      } catch { setPresented('unavailable') }
+    })
+    return () => { active = false }
+  }, [canPrompt, pending, candidate, presented])
+
+  async function accept() {
+    if (!candidate || pending) return
+    setApplying(true); setError(''); setMessage('')
     try {
-      saveReminderPreference(suggestion.time)
-      onSaved?.(suggestion.time)
-      setSuggestion(null)
-      setMessage('Suggested time saved. Apply this time using the background reminder controls.')
-    } catch { setError('The suggested time could not be saved. Your previous preference has not been changed.') }
+      const applied = onApplyTime ? await onApplyTime(candidate.time) : (() => { saveReminderPreference(candidate.time); return true })()
+      if (!applied) { setError('The suggested time could not be confirmed. Check the reminder status and try again.'); return }
+      onSaved?.(candidate.time)
+      setSheet(false)
+      setMessage('Reminder time updated.')
+    } catch { setError('The suggested time could not be saved. Your current setting has been kept.') }
+    finally { setApplying(false) }
   }
+  function keepTime() { setSheet(false); setError('') }
+  const formatted = candidate ? formatReminderTime(candidate.time) : ''
   return <>
-    {suggestion && <section className="reminder-settings" aria-label="Suggested reminder time">
-      <h3>A time that may suit you</h3>
-      <p>Your first check-ins on {suggestion.matchingDays} of {suggestion.totalDays} days fall within a two-hour window. Based on those check-ins, try {suggestion.time}.</p>
-      <p>This saves a preferred time only. Apply it in reminder settings to change background delivery.</p>
-      {error && <p role="alert">{error}</p>}
-      <div className="reminder-settings-actions">
-        <button type="button" onClick={accept}>Save suggested time {suggestion.time}</button>
-        <button type="button" onClick={() => { setSuggestion(null); onChooseTime() }}>Choose another time</button>
-        <button type="button" onClick={() => setSuggestion(null)}>Keep current settings</button>
-      </div>
+    {candidate && <section className="recording-reminder-card recording-reminder-suggestion" aria-labelledby="reminder-suggestion-title">
+      <h2 id="reminder-suggestion-title">Suggested reminder time</h2>
+      <p>Based on your check-in patterns, {formatted} may be a convenient time for your daily reminder.</p>
+      <button type="button" className="secondary-button" disabled={pending} onClick={() => { void accept() }}>{applying ? 'Applying…' : `Use ${formatted}`}</button>
+      {error && !sheet && <p role="alert">{error}</p>}
     </section>}
-    {message && <p role="status">{message}</p>}
+    {sheet && candidate && <ReferenceDialog title="We found a time that may suit you" onClose={keepTime}>
+      <p>Based on when you usually check in, {formatted} may be a convenient time for your daily reminder.</p>
+      {error && <p role="alert">{error}</p>}
+      <button type="button" className="primary-button" disabled={pending} onClick={() => { void accept() }}>{applying ? 'Applying…' : `Use ${formatted}`}</button>
+      <button type="button" className="secondary-button recording-reminder-sheet-secondary" disabled={applying} onClick={keepTime}>Keep my current time</button>
+    </ReferenceDialog>}
+    {message && <p role="status" className="recording-reminder-message">{message}</p>}
   </>
 }

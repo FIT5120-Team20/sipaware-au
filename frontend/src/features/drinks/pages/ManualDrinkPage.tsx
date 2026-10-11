@@ -444,12 +444,6 @@ export function ManualDrinkPage({ initialView = 'record' }: { initialView?: 'rec
               onRetryGuidelines={retryGuidelines}
               todayKey={currentLocalDateKey}
             />
-            {savedRecord && <details className="check-in-save-feedback">
-              <summary>Drink saved · View summary{consumptionSummary.hasEligibleDrinkingRecordToday ? ' · Avoid drinking and driving' : ''}</summary>
-              <AlcoholConsumptionSummary presentation="reference" summary={consumptionSummary} guidelines={guidelines}
-                guidelineStatus={guidelineStatus} onRetryGuidelines={retryGuidelines} showRelatedInformation={false} />
-              {consumptionSummary.hasEligibleDrinkingRecordToday && <DrivingSafetyGuidance />}
-            </details>}
             </>
           ) : resultId ? (
             lastRecord ? <ReferenceRecordResult record={lastRecord} templateFailed={templateFailed} onDone={continueToHistory}>

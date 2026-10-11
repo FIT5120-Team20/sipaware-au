@@ -104,7 +104,7 @@ export function RecentDrinkingRecords({
     const editing = recentRecords.find(record => record.id === editingRecordId)
     const pending = recentRecords.find(record => record.id === pendingDeleteId)
     if (editing) return <section className="reference-edit-page">
-      <ReferenceBackBar label="Back to History" onClick={() => setEditingRecordId(null)} />
+      <ReferenceBackBar label="Back to History" href={applicationHref('/trends#history')} onClick={() => setEditingRecordId(null)} />
       <h1>Edit Record</h1>
       <DrinkingRecordEditor key={editing.id} referenceCategories={referenceCategories} record={editing}
         onSave={saveEditedRecord} onCancel={() => setEditingRecordId(null)} />
