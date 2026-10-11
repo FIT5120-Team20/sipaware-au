@@ -45,6 +45,8 @@ def row():
 def test_publish_contains_only_opaque_metadata_and_bounded_delivery(configuration):
     requests=[]
     def handler(request):
+        # Check wire bytes: decoded .path would hide an encoded https:// scheme.
+        assert request.url.raw_path == b'/v2/publish/https://sipaware.app/iteration3/api/reminders/dispatch'
         requests.append(request)
         return httpx.Response(200,json={'messageId':'synthetic-message'})
     transport=httpx.MockTransport(handler)

@@ -67,7 +67,9 @@ and unique daily delivery claims are the durable replay/duplicate protection.
     try:
         with httpx.Client(timeout=httpx.Timeout(8, connect=5), follow_redirects=False,
                           transport=transport) as client:
-            response = client.post(config['base'] + '/v2/publish/' + quote(config['target'], safe=''),
+            # QStash expects a literal destination URL, including its https:// scheme.
+            # queue_config already restricts it to our fixed callback without a query.
+            response = client.post(config['base'] + '/v2/publish/' + config['target'],
                                    headers=headers, content=body)
             response.raise_for_status()
             receipt = response.json()
