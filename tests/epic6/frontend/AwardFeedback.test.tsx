@@ -17,7 +17,7 @@ describe('automatic award feedback', () => {
     window.history.replaceState({}, '', '/iteration3/record')
     const user = userEvent.setup()
     render(<App />)
-    await user.click(await screen.findByRole('button', { name: /No alcohol today/ }))
+    await user.click(await screen.findByRole('button', { name: 'Save & view history' }))
     expect(await screen.findByText(/New award earned: Small Step, Alcohol-Free Start/)).toBeInTheDocument()
     expect(window.location.pathname).toBe('/iteration3/trends')
     expect(await new IndexedDbAwardRepository().list()).toHaveLength(2)

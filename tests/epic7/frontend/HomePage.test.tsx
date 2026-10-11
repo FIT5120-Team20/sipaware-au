@@ -42,11 +42,11 @@ it('opens the existing settings from the feature row, preserves a time across re
   render(<HomePage />)
   const user = userEvent.setup()
   await user.click(screen.getByRole('button', { name: /Set a reminder/ }))
-  expect(screen.getByRole('dialog')).toHaveTextContent('Notifications are off.')
+  expect(screen.getByRole('dialog')).toHaveTextContent('Saving a preferred time does not enable or change a background reminder.')
   fireEvent.change(screen.getByLabelText('Preferred daily reminder time'), { target: { value: '20:30' } })
   await user.click(screen.getByRole('button', { name: 'Save preferred time' }))
   expect(readReminderPreference()?.time).toBe('20:30')
-  expect(screen.getByRole('status')).toHaveTextContent('Notifications are not enabled')
+  expect(screen.getByRole('status')).toHaveTextContent('Background reminder settings are unchanged')
   await user.click(screen.getByRole('button', { name: 'Close' }))
   await user.click(screen.getByRole('button', { name: /Set a reminder/ }))
   expect(screen.getByLabelText('Preferred daily reminder time')).toHaveValue('20:30')
@@ -68,7 +68,7 @@ it('retains time suggestions inside settings and immediately reflects an accepte
   expect(readReminderPreference()?.time).toBe('20:00')
   expect(screen.getByLabelText('Preferred daily reminder time')).toHaveValue('20:00')
   expect(screen.getByText('Saved time: 20:00')).toBeInTheDocument()
-  expect(screen.getByRole('status')).toHaveTextContent('Notifications are still off')
+  expect(screen.getByRole('status')).toHaveTextContent('Apply this time using the background reminder controls')
 })
 
 it('does not write check-ins, drinks or awards when visiting Home', async () => {

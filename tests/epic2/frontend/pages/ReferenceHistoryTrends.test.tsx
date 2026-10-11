@@ -67,14 +67,14 @@ describe('Reference History, Trends and Report',()=>{
  })
  it('requires a 28-calendar-day span and exports an actual local PDF',()=>{
   show([record('start',27,2),record('today',0,1)],'report')
-  expect(screen.getByRole('heading',{name:'SipAware Drinking Report'})).toBeInTheDocument()
+  expect(screen.getByRole('heading',{name:'Your drinking report'})).toBeInTheDocument()
   const original=URL.createObjectURL, originalRevoke=URL.revokeObjectURL
   vi.useFakeTimers()
   const create=vi.fn().mockReturnValue('blob:local-report')
   URL.createObjectURL=create
   URL.revokeObjectURL=vi.fn()
   const click=vi.spyOn(HTMLAnchorElement.prototype,'click').mockImplementation(()=>{})
-  fireEvent.click(screen.getByRole('button',{name:'Export PDF'}))
+  fireEvent.click(screen.getByRole('button',{name:'Download Report (PDF)'}))
   expect(create).toHaveBeenCalledWith(expect.objectContaining({type:'application/pdf'}))
   expect(click).toHaveBeenCalledOnce()
   vi.runAllTimers()
@@ -83,7 +83,7 @@ describe('Reference History, Trends and Report',()=>{
  it('keeps insufficient history explicit and offers no sample-data loading',()=>{
   show([record('start',26,2)],'report')
   expect(screen.getByText('Not enough history yet')).toBeInTheDocument()
-  expect(screen.queryByRole('button',{name:'Export PDF'})).not.toBeInTheDocument()
+  expect(screen.queryByRole('button',{name:'Download Report (PDF)'})).not.toBeInTheDocument()
   expect(screen.queryByRole('button',{name:/Load.*sample/})).not.toBeInTheDocument()
  })
  it('keeps totals local when guideline references fail and retries honestly',()=>{
@@ -110,7 +110,7 @@ describe('Reference History, Trends and Report',()=>{
   expect(window.location.hash).toBe('#trends')
   window.history.replaceState({}, '', '/trends#report')
   fireEvent(window,new PopStateEvent('popstate'))
-  expect(screen.getByRole('heading',{name:'Four-week drinking report'})).toBeInTheDocument()
+  expect(screen.getByRole('heading',{name:'Your drinking report'})).toBeInTheDocument()
  })
  it('only requests deletion after the native confirmation and keeps failure visible',async()=>{
   const {remove}=show([record('today',0,2)],'history')

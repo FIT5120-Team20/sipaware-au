@@ -1,3 +1,4 @@
+import { ReminderSync } from './features/reminders/ReminderSync'
 /**
  * Reference-derived Home/Learn/Record shell, with real native destinations.
  * Navigation updates the browser URL without reloading the React application.
@@ -63,6 +64,7 @@ function App() {
       <NavigationScrollDiagnostics contentRef={contentRef} />
 
       <div className="reference-content" ref={contentRef}>
+        <ReminderSync />
         <div className="navigation-scroll-start" data-navigation-scroll-start aria-hidden="true" />
         {path === '/' ? (
           <HomePage key="home" />

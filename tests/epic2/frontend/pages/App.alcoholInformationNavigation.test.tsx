@@ -1,3 +1,4 @@
+import * as navigationScroll from '../../../../frontend/src/app/navigationScroll'
 import { render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -62,6 +63,7 @@ describe('App alcohol-information navigation', () => {
   })
 
   it('supports a direct page-and-topic deep link', async () => {
+    const navigation = vi.spyOn(navigationScroll, 'requestNavigationScroll')
     const scrollIntoView = vi.fn()
     Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
       configurable: true,
@@ -81,7 +83,8 @@ describe('App alcohol-information navigation', () => {
       name: 'Alcohol and the law',
     })
     await waitFor(() => expect(heading).toHaveFocus())
-    expect(scrollIntoView).toHaveBeenCalledTimes(1)
+    expect(navigation).toHaveBeenCalledWith({ kind: 'top' })
+    navigation.mockRestore()
   })
 
   it('degrades safely for an unknown pathname', () => {

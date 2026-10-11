@@ -85,7 +85,9 @@ async function renderHydratedPage() {
   window.history.replaceState({ fromHistory: true }, '', '/record?date=2026-08-26')
   const view = render(<ManualDrinkPage />)
   pageView = view
-  await screen.findByLabelText('Drink type')
+  await screen.findByLabelText('Date')
+  fireEvent.change(screen.getByLabelText('Time'), { target: { value: '22:17' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
   fireEvent.click(screen.getByRole('button', { name: 'My Drinks' }))
   fireEvent.click(await screen.findByRole('button', { name: 'Record Manually' }))
   return view
@@ -170,10 +172,7 @@ describe('ManualDrinkPage drinking-record management', () => {
     fireEvent.change(screen.getByLabelText('Number of servings consumed'), {
       target: { value: '2' },
     })
-    expect(screen.getByLabelText('Date')).toHaveTextContent('26 August 2026')
-    fireEvent.change(screen.getByLabelText('Time'), {
-      target: { value: '22:17' },
-    })
+    expect(window.history.state.recordDateTime).toEqual({ date: '2026-08-26', time: '22:17' })
     await user.click(
       screen.getByRole('button', { name: 'Record Drink' }),
     )
@@ -324,8 +323,8 @@ describe('ManualDrinkPage drinking-record management', () => {
     window.history.replaceState({}, '', '/record?date=2026-08-26')
     fireEvent.popState(window)
     pageView.rerender(<ManualDrinkPage initialView="record" />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Continue' }))
     fireEvent.click(screen.getByRole('button', { name: 'My Drinks' }))
-    if (screen.queryByRole('button', { name: 'Back to Record' })) await user.click(screen.getByRole('button', { name: 'Back to Record' }))
     expect(
       screen.getByRole('button', {
         name: /Sky.*Beer.*300 mL.*4% ABV/,

@@ -1,3 +1,5 @@
+/** Suggestions read committed local history only. Applying a saved suggestion
+ * to background delivery still requires the explicit settings action. */
 import { useEffect, useState } from 'react'
 import { openSipAwareDatabase, DRINKING_RECORDS_STORE_NAME } from '../drinks/storage/indexedDb'
 import { openCheckInDatabase, withDailyDataLock } from '../drinks/storage/dailyCheckInDatabase'
@@ -25,14 +27,14 @@ export function ReminderSuggestionPrompt({ onChooseTime, onSaved }: { onChooseTi
       saveReminderPreference(suggestion.time)
       onSaved?.(suggestion.time)
       setSuggestion(null)
-      setMessage('Suggested time saved. Notifications are still off; background delivery is not available yet.')
+      setMessage('Suggested time saved. Apply this time using the background reminder controls.')
     } catch { setError('The suggested time could not be saved. Your previous preference has not been changed.') }
   }
   return <>
     {suggestion && <section className="reminder-settings" aria-label="Suggested reminder time">
       <h3>A time that may suit you</h3>
       <p>Your first check-ins on {suggestion.matchingDays} of {suggestion.totalDays} days fall within a two-hour window. Based on those check-ins, try {suggestion.time}.</p>
-      <p>This saves a preferred time only. Notifications remain off.</p>
+      <p>This saves a preferred time only. Apply it in reminder settings to change background delivery.</p>
       {error && <p role="alert">{error}</p>}
       <div className="reminder-settings-actions">
         <button type="button" onClick={accept}>Save suggested time {suggestion.time}</button>

@@ -1,6 +1,6 @@
 /** Protects My Drinks editing and deletion without mutating drinking history. */
 
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 
@@ -67,7 +67,9 @@ function readHistory(): Promise<DrinkingRecord[]> {
 async function renderHydratedPage() {
   window.history.replaceState({ fromHistory: true }, '', '/record?date=2026-08-26')
   const view = render(<ManualDrinkPage />)
-  await screen.findByLabelText('Drink type')
+  await screen.findByLabelText('Date')
+  fireEvent.change(screen.getByLabelText('Time'), { target: { value: '18:00' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
   fireEvent.click(screen.getByRole('button', { name: 'My Drinks' }))
   return view
 }
@@ -82,8 +84,8 @@ function getEditor(name: string): HTMLFormElement {
 }
 
 async function editSkyToLarge(user: ReturnType<typeof userEvent.setup>) {
-  const back = screen.queryByRole('button', { name: 'Back to Record' })
-  if (back) await user.click(back)
+  const continueButton = screen.queryByRole('button', { name: 'Continue' })
+  if (continueButton) await user.click(continueButton)
   await user.click(screen.getByRole('button', { name: 'My Drinks' }))
   await user.click(screen.getByRole('button', { name: 'Edit Sky' }))
   const editor = getEditor('Sky')
@@ -223,11 +225,11 @@ describe('ManualDrinkPage My Drinks management', () => {
     )
 
     await expect(readSavedDrinks()).resolves.toEqual([savedShiraz])
-    expect(
+    await waitFor(() => expect(
       screen.queryByRole('button', {
         name: /Sky.*Beer.*300 mL.*4% ABV/,
       }),
-    ).not.toBeInTheDocument()
+    ).not.toBeInTheDocument())
     expect(
       screen.getByRole('button', {
         name: /Shiraz.*Wine.*150 mL.*13.5% ABV/,
@@ -249,10 +251,7 @@ describe('ManualDrinkPage My Drinks management', () => {
     fireEvent.change(screen.getByLabelText('Number of servings consumed'), {
       target: { value: '1' },
     })
-    expect(screen.getByLabelText('Date')).toHaveTextContent('26 August 2026')
-    fireEvent.change(screen.getByLabelText('Time'), {
-      target: { value: '19:30' },
-    })
+    expect(window.history.state.recordDateTime).toEqual({ date: '2026-08-26', time: '18:00' })
     await user.click(
       screen.getByRole('button', { name: 'Record Drink' }),
     )
@@ -261,6 +260,7 @@ describe('ManualDrinkPage My Drinks management', () => {
       drinkName: 'Sky',
       servingVolumeMl: 300,
       abvPercent: 4,
+      consumedAt: new Date(2026, 7, 26, 18, 0).toISOString(),
     })
 
     // Inspect the saved result before returning to History and editing the template.
