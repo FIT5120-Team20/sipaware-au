@@ -305,7 +305,7 @@ describe('ManualDrinkForm saved-drink failures', () => {
   it('reports a template failure after saving history and clears the consumed amount to avoid duplication', async () => {
     render(
       <ManualDrinkForm
-        selectedDate="2026-08-26"
+        selectedDateTime={{ date: '2026-08-26', time: '18:00' }}
         referenceCategories={DRINK_REFERENCE_CATEGORIES}
         referenceStatus="loaded"
         onRetryReferenceData={() => undefined}
@@ -322,7 +322,6 @@ describe('ManualDrinkForm saved-drink failures', () => {
 
     await user.click(screen.getByRole('checkbox', { name: /Save this drink to My Drinks/ }))
     fireEvent.change(screen.getByLabelText('Number of servings consumed'), { target: { value: '1' } })
-    fireEvent.change(screen.getByLabelText('Time'), { target: { value: '18:00' } })
     await user.click(screen.getByRole('button', { name: 'Record Drink' }))
 
     expect(

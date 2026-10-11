@@ -200,7 +200,7 @@ export function useNavigationScrollManager(contentRef: RefObject<HTMLElement | n
     let frame = 0
     let applied = false
     let cancelled = false
-    let observer: MutationObserver | undefined
+    const observer = new MutationObserver(afterCommit)
     const interactionEvents = ['pointerdown', 'touchstart', 'wheel', 'keydown'] as const
 
     function cancel(event?: Event) {
@@ -278,7 +278,6 @@ export function useNavigationScrollManager(contentRef: RefObject<HTMLElement | n
     viewport?.addEventListener('resize', inspectViewport)
     viewport?.addEventListener('scroll', inspectViewport)
     // Async Record hydration must commit its final view before scrolling.
-    observer = new MutationObserver(afterCommit)
     observer.observe(content, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-navigation-scroll-ready'] })
     afterCommit()
     return cancel

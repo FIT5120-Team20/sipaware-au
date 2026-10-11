@@ -114,7 +114,7 @@ function NavigationScrollDiagnostics({ contentRef }: { contentRef: RefObject<HTM
   const [copied, setCopied] = useState(false)
   const beforeOpen = useRef<ReturnType<typeof captureScrollDiagnostics> | null>(null)
   const textArea = useRef<HTMLTextAreaElement>(null)
-  const capturedText = useRef('')
+  const [capturedText, setCapturedText] = useState('')
   useScrollDiagnosticEvents()
 
   if (!scrollDiagnosticsEnabled) return null
@@ -122,7 +122,7 @@ function NavigationScrollDiagnostics({ contentRef }: { contentRef: RefObject<HTM
   function openCapture() {
     const snapshot = beforeOpen.current ?? captureScrollDiagnostics(contentRef.current)
     beforeOpen.current = null
-    capturedText.current = JSON.stringify(snapshot, null, 2)
+    setCapturedText(JSON.stringify(snapshot, null, 2))
     setCopied(false)
     setCapture(snapshot)
   }
@@ -130,7 +130,7 @@ function NavigationScrollDiagnostics({ contentRef }: { contentRef: RefObject<HTM
   async function copyCapture() {
     try {
       if (!navigator.clipboard) throw new Error('Clipboard unavailable on HTTP')
-      await navigator.clipboard.writeText(capturedText.current)
+      await navigator.clipboard.writeText(capturedText)
       setCopied(true)
     } catch {
       // Safari on local HTTP may lack Clipboard API; expose native text selection.
@@ -156,7 +156,7 @@ function NavigationScrollDiagnostics({ contentRef }: { contentRef: RefObject<HTM
         <dt>Back bar bottom</dt><dd style={{ margin: 0 }}>{snapshot.backBar?.bottom ?? 'N/A'}</dd>
         <dt>Window / visible height</dt><dd style={{ margin: 0 }}>{snapshot.innerHeight} / {snapshot.viewport?.height ?? 'N/A'}</dd>
       </dl>
-      <textarea ref={textArea} readOnly rows={5} value={capturedText.current} aria-label="Diagnostic data to copy"
+      <textarea ref={textArea} readOnly rows={5} value={capturedText} aria-label="Diagnostic data to copy"
         style={{ width: '100%', fontSize: 12, fontFamily: 'monospace' }} />
       <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
         <button type="button" className="primary-button" style={{ flex: 1 }} onClick={() => { void copyCapture() }}>
