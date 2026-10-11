@@ -1,6 +1,6 @@
 /**
  * Native modal boundary for reference help/delete sheets. Browser focus trapping,
- * Escape and focus restoration remain native; no personal state is persisted.
+ * Escape remain native; return focus explicitly when React removes the dialog.
  */
 import { useEffect, useId, useRef, type ReactNode } from 'react'
 
@@ -15,11 +15,19 @@ export function ReferenceDialog({ title, children, onClose, alert = false }: {
     const element = dialog.current
     if (!element) return
 
+    const opener = document.activeElement
     element.showModal()
     heading.current?.focus({ preventScroll: true })
     element.scrollTop = 0
 
-    return () => { if (element.open) element.close() }
+    return () => {
+      if (element.open) element.close()
+      // React may detach the dialog before passive cleanup. Native close then
+      // cannot restore focus; only return to a surviving, visible opener.
+      if (opener instanceof HTMLElement && opener.isConnected && !opener.closest('[hidden], [inert]')) {
+        opener.focus({ preventScroll: true })
+      }
+    }
   }, [])
 
   return <dialog ref={dialog} className="reference-flow-dialog" aria-labelledby={id}
