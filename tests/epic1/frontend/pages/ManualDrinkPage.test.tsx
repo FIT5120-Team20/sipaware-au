@@ -25,7 +25,9 @@ const existingRecord: DrinkingRecord = {
 async function renderHydratedPage() {
   window.history.replaceState({ fromHistory: true }, '', '/record?date=2026-08-26')
   const view = render(<ManualDrinkPage />)
-  await screen.findByLabelText('Drink type')
+  await screen.findByLabelText('Date')
+  fireEvent.change(screen.getByLabelText('Time'), { target: { value: '19:30' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
   fireEvent.click(await screen.findByRole('button', { name: 'Record Manually' }))
   return view
 }
@@ -47,12 +49,14 @@ async function completeValidForm() {
   fireEvent.change(screen.getByLabelText('Number of servings consumed'), {
     target: { value: '1.5' },
   })
-  const date = screen.getByLabelText('Date')
-  if (date instanceof HTMLInputElement) fireEvent.change(date, { target: { value: '2026-08-26' } })
-  else expect(date).toHaveTextContent('26 August 2026')
-  fireEvent.change(screen.getByLabelText('Time'), {
-    target: { value: '19:30' },
-  })
+  // Standalone forms own date/time; the page flow captures these before Continue.
+  const date = screen.queryByLabelText('Date')
+  if (date) {
+    fireEvent.change(date, { target: { value: '2026-08-26' } })
+    fireEvent.change(screen.getByLabelText('Time'), { target: { value: '19:30' } })
+  } else {
+    expect(window.history.state.recordDateTime).toEqual({ date: '2026-08-26', time: '19:30' })
+  }
 
   return user
 }
@@ -68,8 +72,8 @@ describe('ManualDrinkPage', () => {
     expect(
       screen.getByLabelText('Number of servings consumed'),
     ).toBeInTheDocument()
-    expect(screen.getByLabelText('Date')).toBeInTheDocument()
-    expect(screen.getByLabelText('Time')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Date')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Time')).not.toBeInTheDocument()
     expect(
       screen.getByText(/number of servings consumed, for example 1\.5/i),
     ).toBeInTheDocument()
@@ -210,6 +214,7 @@ describe('ManualDrinkPage', () => {
     expect(Number.isNaN(Date.parse(storedRecords[1].createdAt))).toBe(false)
     window.history.pushState({}, '', '/record?date=2026-08-26')
     fireEvent.popState(window)
+    await user.click(await screen.findByRole('button', { name: 'Continue' }))
     await user.click(screen.getByRole('button', { name: 'Record Manually' }))
     expect(screen.getByLabelText('Drink name')).toHaveValue('')
     expect(screen.getByLabelText('Drink type')).toHaveValue('')
@@ -220,11 +225,13 @@ describe('ManualDrinkPage', () => {
     fireEvent.popState(window)
     view.rerender(<ManualDrinkPage initialView="history" />)
     expect(screen.getByText('Pale Ale')).toBeInTheDocument()
+    fireEvent.click(document.querySelector('.history-calendar-day[data-date="2026-08-25"]')!)
     expect(screen.getByText('Existing Shiraz')).toBeInTheDocument()
 
     view.unmount()
     render(<ManualDrinkPage initialView="history" />)
     expect(await screen.findByText('Pale Ale')).toBeInTheDocument()
+    fireEvent.click(document.querySelector('.history-calendar-day[data-date="2026-08-25"]')!)
     expect(screen.getByText('Existing Shiraz')).toBeInTheDocument()
   })
 

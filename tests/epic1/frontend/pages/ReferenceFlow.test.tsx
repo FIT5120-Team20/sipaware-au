@@ -11,7 +11,7 @@ import { RecentDrinkingRecords } from '../../../../frontend/src/features/drinks/
 import { DRINK_REFERENCE_CATEGORIES } from '../fixtures/drinkReferenceFixture'
 
 async function fillRecord() {
-  const choice = await screen.findByRole('button', { name: /I drank today/ })
+  const choice = await screen.findByRole('button', { name: 'Continue' })
   fireEvent.click(choice)
   fireEvent.click(await screen.findByRole('button', { name: 'Record Manually' }))
   await waitFor(() => expect(screen.getByLabelText('Drink type')).toBeEnabled())
@@ -25,7 +25,7 @@ describe('reference flow boundaries', () => {
   it('keeps feedback off Record browse and opens help as a dismissible modal', async () => {
     render(<ManualDrinkPage />)
     const user = userEvent.setup()
-    await user.click(await screen.findByRole('button', { name: /I drank today/ }))
+    await user.click(await screen.findByRole('button', { name: 'Continue' }))
     await user.click(await screen.findByRole('button', { name: 'How to record a drink' }))
     expect(screen.getByRole('dialog', { name: 'How to record a drink' })).toHaveAttribute('open')
     await user.click(screen.getByRole('button', { name: 'Got it' }))
@@ -93,7 +93,7 @@ describe('reference flow boundaries', () => {
     render(<ManualDrinkPage />)
     await screen.findByRole('heading', { name: 'Record unavailable' })
     fireEvent.click(screen.getByRole('button', { name: 'Back to Record' }))
-    expect(screen.getByRole('button', { name: /I drank today/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeInTheDocument()
     await expect(new IndexedDbDrinkingRecordRepository().list()).resolves.toEqual([])
   })
   it('keeps template deletion errors inside the active reference confirmation', async () => {

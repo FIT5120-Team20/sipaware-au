@@ -1,12 +1,12 @@
-/** Suggestions read committed local history only. Acceptance saves a preference;
- * applying it to server delivery still requires the explicit settings action. */
+/** Suggestions read committed local history only. Applying a saved suggestion
+ * to background delivery still requires the explicit settings action. */
 import { useEffect, useState } from 'react'
 import { openSipAwareDatabase, DRINKING_RECORDS_STORE_NAME } from '../drinks/storage/indexedDb'
 import { openCheckInDatabase, withDailyDataLock } from '../drinks/storage/dailyCheckInDatabase'
 import { readReminderPreference, saveReminderPreference } from './reminderPreference'
 import { suggestReminder, type ReminderSuggestion } from './reminderSuggestion'
 
-export function ReminderSuggestionPrompt({ onChooseTime }: { onChooseTime: () => void }) {
+export function ReminderSuggestionPrompt({ onChooseTime, onSaved }: { onChooseTime: () => void; onSaved?: (time: string) => void }) {
   const [suggestion, setSuggestion] = useState<ReminderSuggestion | null>(null)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
@@ -25,8 +25,9 @@ export function ReminderSuggestionPrompt({ onChooseTime }: { onChooseTime: () =>
     if (!suggestion) return
     try {
       saveReminderPreference(suggestion.time)
+      onSaved?.(suggestion.time)
       setSuggestion(null)
-      setMessage('Suggested time saved. Open reminder settings to apply this time to background delivery.')
+      setMessage('Suggested time saved. Apply this time using the background reminder controls.')
     } catch { setError('The suggested time could not be saved. Your previous preference has not been changed.') }
   }
   return <>

@@ -2,28 +2,28 @@
  * REUSE: HistoryTrendsPage.tsx / index.css at f5711b15 (rendering and controls).
  * ADAPT: IndexedDB snapshots supply all personal data; original local calendar
  * offsets and full-precision calculation are preserved. Reference thresholds
- * arrive only through the existing validated public API, never sample data.
+ * use the same validated API across History, Trends and Report.
  */
 import { updateAwardsAfterCheckIn } from '../../awards/awardFeedbackEvents'
 import { downloadDrinkingReportPdf } from '../utils/drinkingReportPdf'
 import { applicationHref } from '../../../app/entryPaths'
-import { useEffect, useLayoutEffect, useMemo, useState } from 'react'
+import { captureNavigationScroll, prepareNavigationScroll, requestNavigationScroll, type NavigationScrollPosition } from '../../../app/navigationScroll'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { calculateStandardDrinks } from '../calculations/standardDrinks'
 import { getRecordLocalCalendarDateKey, getRecordedLocalWallClockDate, differenceInLocalCalendarDays, type LocalCalendarDateKey } from '../utils/localCalendarDate'
 import type { DrinkingRecord } from '../types/drinkingRecord'
 import type { DrinkReferenceCategory } from '../types/drinkReference'
 import type { AlcoholGuidelinesResponseDto, GuidelineLoadStatus } from '../types/alcoholGuideline'
 import { DrinkingRecordEditor } from './DrinkingRecordEditor'
-import { ReferenceDialog } from './ReferenceDialog'
-import { DailyCheckIn } from './DailyCheckIn'
-import { HistoricalCheckIn } from './HistoricalCheckIn'
-import { displayCheckInDate, historyMonthDates } from '../types/dailyCheckIn'
+import { isCalendarDate } from '../types/dailyCheckIn'
+import { groupHistoryRecords, type HistoryRecord as ConsumptionRecord } from '../utils/historyCalendar'
+import { HistoryCalendar } from './HistoryCalendar'
+import { HistoryDayDetails } from './HistoryDayDetails'
 import { ReferenceBackBar } from './ReferenceBackBar'
 import '../referenceHistory.css'
 
-type HistoryTrendsTab = 'history' | 'trends' | 'report'
+type HistoryTrendsTab = 'history' | 'trends'
 type TrendPeriod = '7d' | '4w'
-type ConsumptionRecord = { id: string; drinkName: string; date: string; time: string; standardDrinks: number }
 type Props = {
  records: ConsumptionRecord[]
  daily: number | null
@@ -62,20 +62,12 @@ function formatMonthLabel(year: number, month: number) {
   return `${MONTH_NAMES[month]} ${year}`
 }
 
-function formatHistoryDate(dateValue: string) {
-  return parseDateOnly(dateValue).toLocaleDateString('en-AU', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-  })
-}
-
-function formatReportDate(dateValue: string) {
-  return parseDateOnly(dateValue).toLocaleDateString('en-AU', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  })
+function MonthChevron({ direction }: { direction: 'previous' | 'next' | 'down' }) {
+  const paths = { previous: 'm15 6-6 6 6 6', next: 'm9 6 6 6-6 6', down: 'm6 9 6 6 6-6' }
+  return <svg className="history-month-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+    <path d={paths[direction]} />
+  </svg>
 }
 
 function formatTime(time: string) {
@@ -169,268 +161,144 @@ type CheckInHistoryProps = {
   initialDateKey?: string
   savedDay?: boolean
   alcoholFreeDates?: string[]
-  startDate?: string
-  onNoAlcohol?: (date: string) => Promise<void>
-  onAddDrink?: (date: string) => void
+  onRecordDate?: (date: string) => void
+}
+
+type HistorySelection = { year: number; month: number; date: string | null }
+
+function consumeHistoryDetailsScroll(date: string) {
+  if (window.history.state?.revealHistoryDetails !== date) return
+  const state = { ...window.history.state }
+  delete state.revealHistoryDetails
+  window.history.replaceState(state, '')
+}
+
+function initialHistorySelection(records: ConsumptionRecord[], today: string, alcoholFreeDates: string[], initialDateKey?: string, initialRecordId?: string): HistorySelection {
+  const recordDate = records.find(record => record.id === initialRecordId)?.date
+  const hint = isCalendarDate(initialDateKey) && initialDateKey <= today ? initialDateKey
+    : isCalendarDate(recordDate) && recordDate <= today ? recordDate : null
+  const initialMonth = parseDateOnly(hint ?? today)
+  const date = hint ?? (records.some(record => record.date === today) || alcoholFreeDates.includes(today) ? today : null)
+  return { year: initialMonth.getFullYear(), month: initialMonth.getMonth(), date }
 }
 
 type HistoryTabProps = Props & CheckInHistoryProps & {
   todayKey: string
-  initialRecordId?: string
+  selection: HistorySelection
+  onSelectionChange: (selection: HistorySelection) => void
   onEditRecord: (record: ConsumptionRecord) => void
 }
 
-const HISTORY_DATES_PER_PAGE = 7
-
-function HistoryTab({
-  records,
-  todayKey, initialDateKey, savedDay, alcoholFreeDates = [], startDate, onNoAlcohol, onAddDrink,
-  initialRecordId,
-  onDeleteRecord,
-  onEditRecord,
-}: HistoryTabProps) {
-  // A newly saved backdated record should open its own month, not the latest
-  // month in the database. Normal visits retain the existing latest-month view.
-  const initialRecord = records.find(record => record.id === initialRecordId)
-  const latestRecordDate = initialDateKey ? parseDateOnly(initialDateKey) : startDate && !initialRecord ? parseDateOnly(todayKey) : initialRecord ? parseDateOnly(initialRecord.date) : records.length > 0
-    ? parseDateOnly([...records].sort((a, b) => b.date.localeCompare(a.date))[0].date)
-    : startOfToday()
-  const [viewYear, setViewYear] = useState(latestRecordDate.getFullYear())
-  const [viewMonth, setViewMonth] = useState(latestRecordDate.getMonth())
+function HistoryTab({ records, todayKey, initialDateKey, savedDay, alcoholFreeDates = [], daily, selection, onSelectionChange, onRecordDate, onDeleteRecord, onEditRecord }: HistoryTabProps) {
+  const { year: viewYear, month: viewMonth, date: selectedDate } = selection
+  const historySectionRef = useRef<HTMLElement>(null)
+  const pendingDetailsScroll = useRef<string | null>(
+    window.history.state?.revealHistoryDetails === selectedDate ? selectedDate : null,
+  )
   const [showMonthPicker, setShowMonthPicker] = useState(false)
   const [draftYear, setDraftYear] = useState(viewYear)
   const [draftMonth, setDraftMonth] = useState(viewMonth)
-  const [openActionsId, setOpenActionsId] = useState<string | null>(null)
-  const [expandedDate, setExpandedDate] = useState<string | null>(null)
-  const [deleteError, setDeleteError] = useState<string | null>(null)
-  const [deleting, setDeleting] = useState(false)
-  const [pendingDelete, setPendingDelete] = useState<ConsumptionRecord | null>(null)
+  useEffect(() => {
+    const date = selection.date
+    if (!date || pendingDetailsScroll.current !== date) return
+    // Calendar clicks and View records share this scroll after details render.
+    const frame = window.requestAnimationFrame(() => {
+      if (pendingDetailsScroll.current !== date) return
+      pendingDetailsScroll.current = null
+      consumeHistoryDetailsScroll(date)
+      if (!window.matchMedia('(max-width: 767px)').matches) return
+      const section = historySectionRef.current
+      const details = section?.querySelector<HTMLElement>('#history-day-details')
+      if (!details || details.hidden) return
 
+      const viewportTop = window.visualViewport?.offsetTop ?? 0
+      const viewportBottom = viewportTop + (window.visualViewport?.height ?? window.innerHeight)
+      const tabs = section?.closest('.history-trends-inner')?.querySelector<HTMLElement>('.history-trends-tabs')
+      const tabStyle = tabs ? window.getComputedStyle(tabs) : null
+      const stickyInset = tabs && (tabStyle?.position === 'sticky' || tabStyle?.position === 'fixed')
+        ? tabs.getBoundingClientRect().height + Math.max(0, parseFloat(tabStyle.top) || 0) : 0
+      const navigation = section?.closest('.reference-app')?.querySelector<HTMLElement>('.reference-navigation')
+      const navigationRect = navigation?.getBoundingClientRect()
+      const visibleTop = viewportTop + stickyInset + 12
+      const visibleBottom = Math.min(viewportBottom,
+        navigationRect && navigationRect.bottom > viewportTop ? navigationRect.top : viewportBottom) - 12
+      if (visibleBottom <= visibleTop) return
 
-
-  const monthRecords = useMemo(() => {
-    return records
-      .filter((record) => {
-        const date = parseDateOnly(record.date)
-        return date.getFullYear() === viewYear && date.getMonth() === viewMonth
+      const bounds = details.getBoundingClientRect()
+      // Keep the current position when the heading and a useful portion are visible.
+      const minimumVisibleHeight = Math.min(bounds.height, 160, (visibleBottom - visibleTop) / 2)
+      if (bounds.top >= visibleTop && bounds.top + minimumVisibleHeight <= visibleBottom) return
+      // Reveal the details just above the bottom navigation, with the smallest movement.
+      const scrollDelta = bounds.top < visibleTop ? bounds.top - visibleTop
+        : bounds.top + minimumVisibleHeight - visibleBottom
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      window.scrollTo({
+        top: Math.max(0, window.scrollY + scrollDelta),
+        behavior: !reduceMotion && 'scrollBehavior' in document.documentElement.style ? 'smooth' : 'instant',
       })
-      .sort((a, b) => {
-        if (a.date !== b.date) return b.date.localeCompare(a.date)
-        return b.time.localeCompare(a.time)
-      })
-  }, [records, viewMonth, viewYear])
-
+    })
+    return () => {
+      window.cancelAnimationFrame(frame)
+      consumeHistoryDetailsScroll(date)
+    }
+  }, [selection])
   const groupedRecords = useMemo(() => {
-    const groups = new Map<string, ConsumptionRecord[]>()
-    // Missing days are read-only projections, not stored fake records. Expand
-    // at most this month's dates so long histories do not create huge arrays.
-    if (startDate) historyMonthDates(viewYear, viewMonth, startDate, todayKey)
-      .forEach(date => groups.set(date, []))
-    monthRecords.forEach(record => groups.set(record.date, [...(groups.get(record.date) ?? []), record]))
-    return [...groups.entries()].sort(([a], [b]) => b.localeCompare(a))
-  }, [monthRecords, startDate, todayKey, viewYear, viewMonth])
-
-  // Page complete date groups, never individual drinks: daily totals and the
-  // full records passed to Trends/Report must not depend on the visible page.
-  const [page, setPage] = useState(() => {
-    const index = groupedRecords.findIndex(([date, items]) => date === initialDateKey || items.some(item => item.id === initialRecordId))
-    return Math.floor(Math.max(0, index) / HISTORY_DATES_PER_PAGE) + 1
-  })
-  const pageCount = Math.max(1, Math.ceil(groupedRecords.length / HISTORY_DATES_PER_PAGE))
-  const currentPage = Math.min(page, pageCount)
-  // A deletion or date edit can remove the last page. Remember the clamped page
-  // so later additions do not unexpectedly send the user back to that old page.
-  if (page !== currentPage) setPage(currentPage)
-  const pageStart = (currentPage - 1) * HISTORY_DATES_PER_PAGE
-  const visibleGroups = groupedRecords.slice(pageStart, pageStart + HISTORY_DATES_PER_PAGE)
-  useLayoutEffect(() => {
-    const target = initialDateKey ? document.getElementById('history-day-' + initialDateKey)
-      : initialRecordId ? document.getElementById('history-record-' + initialRecordId) : null
-    target?.focus({ preventScroll: true })
-    target?.scrollIntoView?.({ block: 'center' })
-  }, [initialDateKey, initialRecordId])
-  const changePage = (next: number) => {
-    setExpandedDate(null)
-    setPage(next)
-    setOpenActionsId(null)
-    const heading = document.getElementById('history-heading')
-    heading?.focus({ preventScroll: true })
-    heading?.scrollIntoView?.({ block: 'start' })
-  }
-
+    const prefix = viewYear + '-' + String(viewMonth + 1).padStart(2, '0') + '-'
+    return groupHistoryRecords(records.filter(record => record.date.startsWith(prefix) && record.date <= todayKey),
+      alcoholFreeDates.filter(date => date.startsWith(prefix) && date <= todayKey))
+  }, [records, alcoholFreeDates, todayKey, viewYear, viewMonth])
   const years = useMemo(() => {
     const current = new Date().getFullYear()
-    const recordYears = records.map((record) => parseDateOnly(record.date).getFullYear())
+    const recordYears = [...records.map(record => record.date), ...alcoholFreeDates].filter(isCalendarDate).map(date => parseDateOnly(date).getFullYear())
     const min = Math.min(current - 5, viewYear, ...recordYears)
     const max = Math.max(current, viewYear, ...recordYears)
     return Array.from({ length: max - min + 1 }, (_, index) => max - index)
-  }, [records, viewYear])
-
+  }, [records, alcoholFreeDates, viewYear])
   const moveMonth = (offset: number) => {
+    pendingDetailsScroll.current = null
     const next = new Date(viewYear, viewMonth + offset, 1)
-    setPage(1)
-    setExpandedDate(null)
-    setOpenActionsId(null)
-    setViewYear(next.getFullYear())
-    setViewMonth(next.getMonth())
+    onSelectionChange({ year: next.getFullYear(), month: next.getMonth(), date: null })
     setShowMonthPicker(false)
   }
-
   const applyMonth = () => {
-    setPage(1)
-    setExpandedDate(null)
-    setOpenActionsId(null)
-    setViewYear(draftYear)
-    setViewMonth(draftMonth)
+    pendingDetailsScroll.current = null
+    onSelectionChange({ year: draftYear, month: draftMonth, date: null })
     setShowMonthPicker(false)
   }
-
-  return (
-    <section className="ht-section" aria-labelledby="history-heading">
-      <div className="ht-section-heading-row">
+  return <section ref={historySectionRef} className="ht-section history-section" aria-labelledby="history-heading">
+    <div className="ht-section-heading-row">
+      <div>
         <h2 id="history-heading" tabIndex={-1} className="ht-section-title">Your drinking records</h2>
+        <p className="history-section-subtitle">Tap a date to view or record your drinking information.</p>
       </div>
-
-      {onNoAlcohol && onAddDrink && <HistoricalCheckIn today={todayKey}
-        drinkingDates={records.map(record => record.date)} alcoholFreeDates={alcoholFreeDates}
-        onNoAlcohol={onNoAlcohol} onAddDrink={onAddDrink} />}
-
+    </div>
+    <div className="history-calendar-card">
       <div className="history-month-nav" aria-label="History month navigation">
-        <button className="history-month-arrow" onClick={() => moveMonth(-1)} aria-label="Previous month">‹</button>
-        <button
-          className="history-month-label"
-          onClick={() => { setDraftYear(viewYear); setDraftMonth(viewMonth); setShowMonthPicker((value) => !value) }}
-          aria-expanded={showMonthPicker}
-        >
-          {formatMonthLabel(viewYear, viewMonth)}
-          <span aria-hidden="true">⌄</span>
+        <button type="button" className="history-month-arrow" onClick={() => moveMonth(-1)} aria-label="Previous month"><MonthChevron direction="previous" /></button>
+        <button type="button" className="history-month-label" onClick={() => { setDraftYear(viewYear); setDraftMonth(viewMonth); setShowMonthPicker(value => !value) }} aria-expanded={showMonthPicker}>
+          {formatMonthLabel(viewYear, viewMonth)}<MonthChevron direction="down" />
         </button>
-        <button className="history-month-arrow" onClick={() => moveMonth(1)} aria-label="Next month">›</button>
+        <button type="button" className="history-month-arrow" onClick={() => moveMonth(1)} aria-label="Next month"><MonthChevron direction="next" /></button>
       </div>
-
-      {showMonthPicker && (
-        <div className="history-month-picker">
-          <label>
-            <span>Year</span>
-            <select aria-label="Year" value={draftYear} onChange={(event) => setDraftYear(Number(event.target.value))}>
-              {years.map((year) => <option key={year} value={year}>{year}</option>)}
-            </select>
-          </label>
-          <label>
-            <span>Month</span>
-            <select aria-label="Month" value={draftMonth} onChange={(event) => setDraftMonth(Number(event.target.value))}>
-              {MONTH_NAMES.map((month, index) => <option key={month} value={index}>{month}</option>)}
-            </select>
-          </label>
-          <button className="ht-primary-button" onClick={applyMonth}>Apply</button>
-        </div>
-      )}
-
-      {groupedRecords.length === 0 ? (
-        <div className="ht-empty-card">
-          <h3>No drinking records for {MONTH_NAMES[viewMonth]}.</h3>
-          <p>Records you add will appear here.</p>
-        </div>
-      ) : (
-        <div className="history-list">
-          {visibleGroups.map(([date, dayRecords]) => {
-            const dailyTotal = (dayRecords.reduce((sum, record) => sum + record.standardDrinks, 0))
-            return (
-              <article className={'history-day' + (savedDay && date === initialDateKey ? ' history-day--saved' : '') + (date === expandedDate ? ' history-day--expanded' : '')} key={date} id={'history-day-' + date} tabIndex={-1}>
-                <header className="history-day-header">
-                  <h3>{formatHistoryDate(date)}{savedDay && date === initialDateKey && <span className="history-saved-tag">Saved</span>}</h3>
-                  {dayRecords.length === 0 && !alcoholFreeDates.includes(date) ? <span className="history-no-data">No data</span> : <div className="history-day-total">
-                    <span className="history-day-total-number">{dailyTotal.toFixed(1)}</span>
-                    <span className="history-day-total-unit">standard drinks</span>
-                  </div>}
-                </header>
-                {dayRecords.length === 0 && <div className="history-check-in-row">
-                  <span className={'history-check-in-mark' + (alcoholFreeDates.includes(date) ? '' : ' history-check-in-mark--missing')} aria-hidden="true">{alcoholFreeDates.includes(date) ? '✓' : '—'}</span>
-                  <div className="history-check-in-copy">
-                    <strong>{alcoholFreeDates.includes(date) ? 'Alcohol-free day' : 'No check-in saved'}</strong>
-                    <small>{alcoholFreeDates.includes(date) ? 'You confirmed no alcohol.' : 'You can add an entry for this day.'}</small>
-                  </div>
-                  {onAddDrink && onNoAlcohol && <button type="button" className="history-check-in-action"
-                    aria-expanded={alcoholFreeDates.includes(date) ? undefined : expandedDate === date}
-                    aria-controls={alcoholFreeDates.includes(date) ? undefined : 'backfill-' + date}
-                    onClick={() => {
-                      if (alcoholFreeDates.includes(date)) onAddDrink(date)
-                      else {
-                        setExpandedDate(current => current === date ? null : date)
-                        requestAnimationFrame(() => document.getElementById('backfill-' + date)?.scrollIntoView?.({ block: 'center' }))
-                      }
-                    }}>{alcoholFreeDates.includes(date) ? 'Add drink' : expandedDate === date ? 'Close' : 'Add entry'}</button>}
-                </div>}
-                {expandedDate === date && onNoAlcohol && onAddDrink && <div className="history-backfill" id={'backfill-' + date}>
-                  <h4>Did you drink on {displayCheckInDate(date)}?</h4>
-                  <p>Your entry will be saved to the date above.</p>
-                  <DailyCheckIn compact date={date} onNoAlcohol={onNoAlcohol} onDrink={onAddDrink} />
-                  <button type="button" className="history-backfill-cancel" onClick={() => setExpandedDate(null)}>Cancel</button>
-                </div>}
-                <div className="history-day-records">
-                  {dayRecords.map((record) => (
-                    <div className="history-record" id={'history-record-' + record.id} key={record.id}>
-                      <div className="history-record-main">
-                        <strong>{record.drinkName}</strong>
-                        <span>{formatTime(record.time)}</span>
-                      </div>
-                      <div className="history-record-standard-drinks" aria-label={record.standardDrinks.toFixed(1) + ' standard drinks'}>
-                        <span className="history-record-standard-number">{record.standardDrinks.toFixed(1)}</span>
-                      </div>
-                      <button
-                        className="history-record-menu"
-                        aria-label={`Actions for ${record.drinkName}`}
-                        onClick={() => setOpenActionsId((id) => id === record.id ? null : record.id)}
-                      >
-                        ⋯
-                      </button>
-                      {openActionsId === record.id && (
-                        <div className="history-record-actions">
-                          <button onClick={() => { onEditRecord(record); setOpenActionsId(null) }}>Edit</button>
-                          <button className="danger" onClick={() => { setPendingDelete(record); setOpenActionsId(null) }}>Delete</button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </article>
-            )
-          })}
-        </div>
-      )}
-
-
-      {pageCount > 1 && (
-        <nav className="history-pagination" aria-label="History pages">
-          <p role="status">
-            Page {currentPage} of {pageCount}
-            <span>Dates {pageStart + 1}–{Math.min(pageStart + HISTORY_DATES_PER_PAGE, groupedRecords.length)} of {groupedRecords.length}</span>
-          </p>
-          <div className="history-pagination-buttons">
-            <button type="button" disabled={currentPage === 1} onClick={() => changePage(currentPage - 1)}>Previous</button>
-            <button type="button" disabled={currentPage === pageCount} onClick={() => changePage(currentPage + 1)}>Next</button>
-          </div>
-        </nav>
-      )}
-
-      {startDate && <p className="history-check-in-note">Days with no data count as 0 recorded drinks in Trends. They are not confirmed alcohol-free days.</p>}
-
-      {pendingDelete && <ReferenceDialog title="Delete this record?" alert onClose={() => { if (!deleting) { setPendingDelete(null); setDeleteError(null) } }}>
-        <p>This removes this record from your drinking history, Trends, and Report. My Drinks will not be changed.</p>
-        {deleteError && <p role="alert">{deleteError}</p>}
-        <div className="reference-dialog-actions">
-          <button type="button" disabled={deleting} onClick={() => setPendingDelete(null)}>Cancel</button>
-          <button type="button" disabled={deleting} onClick={async () => {
-            setDeleting(true); setDeleteError(null)
-            try { await onDeleteRecord(pendingDelete.id); setPendingDelete(null) }
-            catch { setDeleteError('This record could not be deleted. It remains saved on this device. Try again.') }
-            finally { setDeleting(false) }
-          }}>{deleting ? 'Deleting…' : 'Delete'}</button>
-        </div>
-      </ReferenceDialog>}
-
-    </section>
-  )
+      {showMonthPicker && <div className="history-month-picker">
+        <label><span>Year</span><select aria-label="Year" value={draftYear} onChange={event => setDraftYear(Number(event.target.value))}>
+          {years.map(year => <option key={year} value={year}>{year}</option>)}
+        </select></label>
+        <label><span>Month</span><select aria-label="Month" value={draftMonth} onChange={event => setDraftMonth(Number(event.target.value))}>
+          {MONTH_NAMES.map((month, index) => <option key={month} value={index}>{month}</option>)}
+        </select></label>
+        <button className="ht-primary-button" onClick={applyMonth}>Apply</button>
+      </div>}
+      <HistoryCalendar year={viewYear} month={viewMonth} today={todayKey} groups={groupedRecords} dailyGuideline={daily}
+        selectedDate={selectedDate} onSelectDate={date => {
+          pendingDetailsScroll.current = date
+          onSelectionChange({ ...selection, date })
+        }} />
+    </div>
+    <HistoryDayDetails date={selectedDate} group={groupedRecords.find(([date]) => date === selectedDate)}
+      savedDate={savedDay ? initialDateKey : undefined} onRecordDate={onRecordDate}
+      onDeleteRecord={onDeleteRecord} onEditRecord={onEditRecord} />
+  </section>
 }
 
 function TrendBars({
@@ -614,11 +482,12 @@ function TrendsTab({ records, daily, weekly, alcoholFreeDates = [] }: Pick<Props
           </article>
         </>
       )}
+      <ReportDownloadSection records={records} daily={daily} weekly={weekly} />
     </section>
   )
 }
 
-function ReportTab({ records, daily, weekly }: Pick<Props, 'records' | 'daily' | 'weekly'>) {
+function ReportDownloadSection({ records, daily, weekly }: Pick<Props, 'records' | 'daily' | 'weekly'>) {
   const today = useMemo(() => startOfToday(), [])
   const earliestRecord = records.length > 0
     ? [...records].sort((a, b) => a.date.localeCompare(b.date))[0]
@@ -677,16 +546,12 @@ function ReportTab({ records, daily, weekly }: Pick<Props, 'records' | 'daily' |
   }
 
   return (
-    <section className="ht-section report-section" aria-labelledby="report-heading">
-      <div className="ht-section-heading-row report-screen-only">
-        <div>
-          <h2 id="report-heading" className="ht-section-title">Four-week drinking report</h2>
-        </div>
-      </div>
-
+    <section className="ht-card trend-report-download" aria-labelledby="report-heading">
+      <h3 id="report-heading">Your drinking report</h3>
+      <p>Download a summary of your recorded drinking to discuss with your GP or healthcare professional.</p>
       {!canGenerate ? (
-        <div className="ht-empty-card report-screen-only">
-          <h3>Not enough history yet</h3>
+        <div className="trend-report-eligibility">
+          <h4>Not enough history yet</h4>
           <p>Your health report will be available after you have at least 4 weeks of recorded drinking history.</p>
           <div className="report-progress" aria-label={`${Math.min(historySpanDays, 28)} of 28 days of history available`}>
             <div style={{ width: `${Math.min(100, (historySpanDays / 28) * 100)}%` }} />
@@ -694,96 +559,13 @@ function ReportTab({ records, daily, weekly }: Pick<Props, 'records' | 'daily' |
           <small>{Math.min(historySpanDays, 28)} of 28 days</small>
         </div>
       ) : (
-        <div className="report-print-area">
-          <header className="report-title-block">
-            <div>
-              <h2>SipAware Drinking Report</h2>
-              <p>A clear summary of your recorded drinking history and trends to help your GP or another healthcare professional understand your drinking patterns more quickly.</p>
-            </div>
-            <button className="ht-primary-button report-export-button report-screen-only" onClick={exportPdf}>Export PDF</button>
-          </header>
-
-          {exportError && <p role="alert" className="report-screen-only">{exportError}</p>}
-          <div className="report-meta-grid">
-            <div>
-              <span>Reporting period</span>
-              <strong>{formatReportDate(formatDateOnly(report.start))} – {formatReportDate(formatDateOnly(report.end))}</strong>
-            </div>
-            <div>
-              <span>Generated</span>
-              <strong>{new Date().toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}</strong>
-            </div>
-            <div>
-              <span>Recorded drinking days</span>
-              <strong>{report.recordedDays}</strong>
-            </div>
-          </div>
-
-          <section className="report-block">
-            <div className="report-block-heading">
-              <p className="ht-card-kicker">Key drinking summary</p>
-              <h3>Four-week overview</h3>
-            </div>
-            <div className="report-metric-grid">
-              <div><span>Avg. recorded standard drinks / week</span><strong>{report.avgPerWeek.toFixed(1)}</strong></div>
-              <div><span>Avg. recorded drinking days / week</span><strong>{report.avgDrinkingDaysPerWeek.toFixed(1)}</strong></div>
-              <div><span>Avg. standard drinks / recorded drinking day</span><strong>{report.avgPerDrinkingDay.toFixed(1)}</strong></div>
-              <div><span>Highest recorded daily total</span><strong>{report.highestDay.toFixed(1)}</strong></div>
-              <div><span>Total recorded standard drinks</span><strong>{report.total.toFixed(1)}</strong></div>
-            </div>
-          </section>
-
-          <section className="report-block report-guideline-block">
-            <div className="report-block-heading">
-              <p className="ht-card-kicker">Guideline-related summary</p>
-              <h3>Recorded consumption above guideline reference amounts</h3>
-            </div>
-            <div className="report-guideline-grid">
-              <div>
-                <strong>{report.daysAboveFour ?? 'Unavailable'}</strong>
-                <span>Recorded days above {daily ?? 'unavailable'} standard drinks</span>
-              </div>
-              <div>
-                <strong>{report.weeksAboveTen === null ? 'Unavailable' : report.weeksAboveTen + ' of 4'}</strong>
-                <span>Recorded weeks above {weekly ?? 'unavailable'} standard drinks</span>
-              </div>
-            </div>
-          </section>
-
-          <section className="report-block">
-            <div className="report-block-heading">
-              <p className="ht-card-kicker">Four-week consumption trend</p>
-              <h3>Weekly standard drinks</h3>
-            </div>
-            <TrendBars values={report.values} guideline={weekly} />
-          </section>
-
-          <section className="report-block">
-            <div className="report-block-heading">
-              <p className="ht-card-kicker">Recorded drinking history</p>
-              <h3>Daily standard-drink totals</h3>
-            </div>
-            {report.dailyTotals.length === 0 && <p>No drinking records in this reporting period. Missing dates do not mean no alcohol was consumed.</p>}
-            <div className="report-history-list">
-              {report.dailyTotals.map((day) => (
-                <div key={day.date}>
-                  <span>{formatReportDate(day.date)}</span>
-                  <span className="report-history-total">{day.total.toFixed(1)} standard drinks</span>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <aside className="report-disclaimer">
-            <strong>About this report</strong>
-            <p>This report is based on alcohol consumption recorded by the user in SipAware. It may not represent all alcohol consumed and is not a medical diagnosis.</p>
-          </aside>
-        </div>
+        <button type="button" className="ht-primary-button trend-report-download-button" onClick={exportPdf}>Download Report (PDF)</button>
       )}
+      {exportError && <p role="alert">{exportError}</p>}
+      <p className="trend-report-disclaimer">This report is based on alcohol consumption recorded by the user in SipAware. It may not represent all alcohol consumed and is not a medical diagnosis.</p>
     </section>
   )
 }
-
 
 /** Read-only projection; source snapshots are never replaced with chart data. */
 function projectHistoryRecord(record: DrinkingRecord): ConsumptionRecord {
@@ -799,40 +581,59 @@ export function ReferenceHistoryTrends({ records, initialRecordId, referenceCate
  guidelines: AlcoholGuidelinesResponseDto | null; guidelineStatus: GuidelineLoadStatus; onRetryGuidelines: () => void
  todayKey: string
 }) {
- const readTab = (): HistoryTrendsTab => window.location.hash === '#trends' ? 'trends' : window.location.hash === '#report' ? 'report' : 'history'
+ const readTab = (): HistoryTrendsTab => window.location.hash === '#trends' || window.location.hash === '#report' ? 'trends' : 'history'
  const [activeTab, setActiveTab] = useState<HistoryTrendsTab>(readTab)
  const [notice, setNotice] = useState<string | null>(null)
  const [editingId, setEditingId] = useState<string | null>(null)
- useEffect(() => { const restore = () => setActiveTab(readTab()); window.addEventListener('hashchange', restore); window.addEventListener('popstate', restore)
-  return () => { window.removeEventListener('hashchange', restore); window.removeEventListener('popstate', restore) } }, [])
+ const historyViewRef = useRef<HTMLElement>(null)
+ const historyScroll = useRef<NavigationScrollPosition | null>(null)
+ const openRecordEditor = (id: string) => {
+  historyScroll.current = captureNavigationScroll(historyViewRef.current)
+  prepareNavigationScroll()
+  setEditingId(id)
+  requestNavigationScroll({ kind: 'top' })
+ }
+ const closeRecordEditor = () => {
+  prepareNavigationScroll()
+  setEditingId(null)
+  requestNavigationScroll(historyScroll.current
+   ? { kind: 'restore', position: historyScroll.current } : { kind: 'preserve' })
+ }
+ const views = records.map(projectHistoryRecord)
+ const [historySelection, setHistorySelection] = useState(() => initialHistorySelection(views, todayKey, checkInHistory.alcoholFreeDates ?? [], checkInHistory.initialDateKey, initialRecordId))
+ useEffect(() => {
+  const restore = () => { setActiveTab(readTab()); setEditingId(null) }
+  window.addEventListener('hashchange', restore); window.addEventListener('popstate', restore)
+  return () => { window.removeEventListener('hashchange', restore); window.removeEventListener('popstate', restore) }
+ }, [])
  useEffect(() => {
   if (activeTab === 'trends' && !editingId) void updateAwardsAfterCheckIn({ viewedTrends: true })
  }, [activeTab, editingId, records, checkInHistory.alcoholFreeDates, todayKey])
- const views = records.map(projectHistoryRecord)
  const eligible = views.filter(record => record.date <= todayKey)
  const editingRecord = records.find(record => record.id === editingId)
  const daily = guidelineStatus === 'loaded' ? guidelines?.guidelines.find(g => g.guidelineType === 'DAILY')?.thresholdStandardDrinks ?? null : null
  const weekly = guidelineStatus === 'loaded' ? guidelines?.guidelines.find(g => g.guidelineType === 'WEEKLY')?.thresholdStandardDrinks ?? null : null
  const source = guidelines?.guidelines.find(g => g.guidelineType === 'DAILY')?.source
- if (editingRecord) return <section className="reference-history-edit reference-edit-page">
-  <ReferenceBackBar label="Back to History" onClick={() => setEditingId(null)} />
+ if (editingRecord) return <section ref={historyViewRef} className="reference-history-edit reference-edit-page">
+  <ReferenceBackBar label="Back to History" onClick={closeRecordEditor} />
   <h1>Edit Record</h1><p>Update this drinking record.</p>
   <DrinkingRecordEditor presentation="reference" record={editingRecord} referenceCategories={referenceCategories}
-   onSave={async updated => { await onUpdate(updated); setNotice('The drinking record for ' + updated.drinkName + ' was updated.'); setEditingId(null) }} onCancel={() => setEditingId(null)} />
+   onSave={async updated => { await onUpdate(updated); setNotice('The drinking record for ' + updated.drinkName + ' was updated.'); closeRecordEditor() }} onCancel={closeRecordEditor} />
  </section>
- return <section className="history-trends-page" aria-label="History & Trends">
+ return <section ref={historyViewRef} className="history-trends-page" aria-label="History & Trends">
   <div className="history-trends-inner">
    {notice && <p className="reference-sr-only" role="status">{notice}</p>}
-   <header className="history-trends-header"><h1>History &amp; Trends</h1></header>
+   <header className="history-trends-header reference-page-heading"><h1>History &amp; Trends</h1></header>
    <nav className="history-trends-tabs" aria-label="History and trends sections">
-    {(['history', 'trends', 'report'] as const).map(tab => <button key={tab} type="button"
+    {(['history', 'trends'] as const).map(tab => <button key={tab} type="button"
      className={activeTab === tab ? 'active' : ''} aria-current={activeTab === tab ? 'page' : undefined}
-     onClick={() => { window.history.pushState({}, '', applicationHref('/trends#' + tab)); setActiveTab(tab) }}>
+     onClick={() => { window.history.pushState({ ...window.history.state }, '', applicationHref('/trends#' + tab)); window.dispatchEvent(new PopStateEvent('popstate')) }}>
      {tab[0].toUpperCase() + tab.slice(1)}</button>)}
    </nav>
-   {activeTab === 'history' && <HistoryTab key={(checkInHistory.initialDateKey ?? '') + (initialRecordId ?? '')} {...checkInHistory} todayKey={todayKey} records={views} initialRecordId={initialRecordId} daily={daily} weekly={weekly} onDeleteRecord={onDelete} onEditRecord={record => setEditingId(record.id)} />}
+   {activeTab === 'history' && <HistoryTab {...checkInHistory} todayKey={todayKey} records={views}
+    selection={historySelection} onSelectionChange={setHistorySelection} daily={daily} weekly={weekly}
+    onDeleteRecord={onDelete} onEditRecord={record => openRecordEditor(record.id)} />}
    {activeTab === 'trends' && <TrendsTab key={todayKey} alcoholFreeDates={checkInHistory.alcoholFreeDates} records={eligible} daily={daily} weekly={weekly} />}
-   {activeTab === 'report' && <ReportTab key={todayKey} records={eligible} daily={daily} weekly={weekly} />}
    {activeTab !== 'history' && <footer className="ht-recorded-data-note">
     <p>Based on drinks recorded on this device. Missing records do not mean no alcohol was consumed. Future-dated records are excluded from feedback.</p>
     <p>Guideline comparisons use unrounded totals and are not a guarantee of safety or a medical diagnosis.</p>

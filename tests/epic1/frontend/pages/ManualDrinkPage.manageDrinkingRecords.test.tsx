@@ -85,7 +85,9 @@ async function renderHydratedPage() {
   window.history.replaceState({ fromHistory: true }, '', '/record?date=2026-08-26')
   const view = render(<ManualDrinkPage />)
   pageView = view
-  await screen.findByLabelText('Drink type')
+  await screen.findByLabelText('Date')
+  fireEvent.change(screen.getByLabelText('Time'), { target: { value: '22:17' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
   fireEvent.click(screen.getByRole('button', { name: 'My Drinks' }))
   fireEvent.click(await screen.findByRole('button', { name: 'Record Manually' }))
   return view
@@ -95,14 +97,14 @@ function historyAction(action: 'Edit' | 'Delete', name: string) {
   window.history.replaceState({ checkInDate: '2026-08-26' }, '', '/trends#history')
   fireEvent.popState(window)
   pageView.rerender(<ManualDrinkPage initialView="history" />)
-  fireEvent.click(screen.getByRole('button', { name: 'Actions for ' + name }))
-  return screen.getByRole('button', { name: action })
+  return screen.getByRole('button', { name: action + ' ' + name })
 }
 
-function getRecentRecordsSection(): HTMLElement {
+function getRecentRecordsSection(date = '2026-08-26'): HTMLElement {
   window.history.replaceState({ checkInDate: '2026-08-26' }, '', '/trends#history')
   fireEvent.popState(window)
   pageView.rerender(<ManualDrinkPage initialView="history" />)
+  fireEvent.click(document.querySelector('.history-calendar-day[data-date="' + date + '"]')!)
   const heading = screen.getByRole('heading', { name: 'Your drinking records' })
   const section = heading.closest('section')
   if (!(section instanceof HTMLElement)) {
@@ -170,10 +172,7 @@ describe('ManualDrinkPage drinking-record management', () => {
     fireEvent.change(screen.getByLabelText('Number of servings consumed'), {
       target: { value: '2' },
     })
-    expect(screen.getByLabelText('Date')).toHaveTextContent('26 August 2026')
-    fireEvent.change(screen.getByLabelText('Time'), {
-      target: { value: '22:17' },
-    })
+    expect(window.history.state.recordDateTime).toEqual({ date: '2026-08-26', time: '22:17' })
     await user.click(
       screen.getByRole('button', { name: 'Record Drink' }),
     )
@@ -245,7 +244,7 @@ describe('ManualDrinkPage drinking-record management', () => {
     expect(records[1].createdAt).toBe(createdSkyRecord.createdAt)
     await expect(readSavedDrinks()).resolves.toEqual([savedSky])
 
-    const recentRecords = getRecentRecordsSection()
+    const recentRecords = getRecentRecordsSection('2026-08-25')
     expect(within(recentRecords).getByText('Sky Test')).toBeInTheDocument()
     expect(
       within(recentRecords).getByText('10:29 pm'),
@@ -254,7 +253,7 @@ describe('ManualDrinkPage drinking-record management', () => {
     view.unmount()
     await renderHydratedPage()
     expect(
-      within(getRecentRecordsSection()).getByText('Sky Test'),
+      within(getRecentRecordsSection('2026-08-25')).getByText('Sky Test'),
     ).toBeInTheDocument()
     await expect(readSavedDrinks()).resolves.toEqual([savedSky])
   })
@@ -318,14 +317,14 @@ describe('ManualDrinkPage drinking-record management', () => {
 
     await expect(readRecords()).resolves.toEqual([shirazRecord])
     await expect(readSavedDrinks()).resolves.toEqual([savedSky])
-    const recentRecords = getRecentRecordsSection()
+    const recentRecords = getRecentRecordsSection('2026-08-25')
     expect(within(recentRecords).queryByText('Sky')).not.toBeInTheDocument()
     expect(within(recentRecords).getByText('Shiraz')).toBeInTheDocument()
     window.history.replaceState({}, '', '/record?date=2026-08-26')
     fireEvent.popState(window)
     pageView.rerender(<ManualDrinkPage initialView="record" />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Continue' }))
     fireEvent.click(screen.getByRole('button', { name: 'My Drinks' }))
-    if (screen.queryByRole('button', { name: 'Back to Record' })) await user.click(screen.getByRole('button', { name: 'Back to Record' }))
     expect(
       screen.getByRole('button', {
         name: /Sky.*Beer.*300 mL.*4% ABV/,

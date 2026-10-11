@@ -3,8 +3,7 @@
  * Absence means unknown, never confirmed abstinence. Calendar keys have no UTC
  * instant: an alcohol-free day has a date, but no invented drinking time.
  */
-import { differenceInLocalCalendarDays, getRecordLocalCalendarDateKey, type LocalCalendarDateKey } from '../utils/localCalendarDate'
-import type { DrinkingRecord } from './drinkingRecord'
+import { differenceInLocalCalendarDays, type LocalCalendarDateKey } from '../utils/localCalendarDate'
 
 export type DailyCheckIn = {
   id: string
@@ -16,9 +15,7 @@ export type DailyCheckIn = {
   kind: 'tracking-start'
   date: string
 }
-
 export interface DailyCheckInState {
-  startedOn: string
   alcoholFreeDates: string[]
 }
 
@@ -43,21 +40,4 @@ export function isDailyCheckIn(value: unknown): value is DailyCheckIn {
   return row.kind === 'tracking-start' ? row.id === 'tracking-start'
     : row.kind === 'alcohol-free' && row.id === checkInId(row.date)
       && typeof row.confirmedAt === 'string' && Number.isFinite(Date.parse(row.confirmedAt))
-}
-
-/** Earliest known use survives later deletion; older migrated records still count. */
-export function historyStartDate(state: DailyCheckInState, records: readonly DrinkingRecord[], today: string) {
-  return [state.startedOn, ...state.alcoholFreeDates, ...records.map(getRecordLocalCalendarDateKey), today]
-    .filter(date => isCalendarDate(date) && date <= today).sort()[0] ?? today
-}
-
-/**
- * Generate only the selected month's local calendar slots (at most 31).
- * No elapsed-millisecond arithmetic, future slots or pre-use missing history.
- */
-export function historyMonthDates(year: number, month: number, start: string, today: string): string[] {
-  const last = new Date(year, month + 1, 0).getDate()
-  return Array.from({ length: last }, (_, index) =>
-    `${year}-${String(month + 1).padStart(2, '0')}-${String(last - index).padStart(2, '0')}`,
-  ).filter(date => date >= start && date <= today)
 }
