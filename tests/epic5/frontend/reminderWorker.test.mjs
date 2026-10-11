@@ -11,9 +11,9 @@ test('worker shows a generic notification and ignores payload navigation URLs', 
  let work;
  handlers.push({data:{json:()=>({url:'https://evil.test'})},waitUntil:p=>work=p});await work;
  assert.equal(shown[0][0],'SipAware daily check-in');
- assert.equal(shown[0][1].data.url,'/iteration3/#todays-check-in');
+ assert.equal(shown[0][1].data.url,'/iteration3#todays-check-in');
  let closed=false;
  handlers.notificationclick({notification:{close:()=>closed=true,data:{url:'https://evil.test'}},waitUntil:p=>work=p});await work;
- assert.equal(closed,true);assert.deepEqual(opened,['/iteration3/#todays-check-in']);
+ assert.equal(closed,true);assert.deepEqual(opened,['/iteration3#todays-check-in']);
  assert.equal(handlers.fetch,undefined);
 });
