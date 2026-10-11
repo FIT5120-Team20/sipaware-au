@@ -1,8 +1,8 @@
-.awards-page { max-width: 850px; padding: 28px 20px 36px; margin: 0 auto; }
-.awards-page h1, .awards-page h2, .awards-recent-card strong { font-family: 'DM Serif Display', Georgia, serif; font-weight: 400; color: #1c1c1a; }
-.awards-page h1 { font-size: 36px; margin: 0 0 8px; }
+.awards-page { width: 100%; max-width: var(--page-content-max-width); padding: var(--page-top-spacing) var(--page-inline-spacing) 36px; margin: 0 auto; }
+.awards-page > header { margin-bottom: var(--page-heading-spacing); }
+.awards-page h2, .awards-recent-card strong { font-family: 'DM Serif Display', Georgia, serif; font-weight: 400; color: #1c1c1a; }
 .awards-page h2 { font-size: 26px; margin: 24px 0 14px; }
-.awards-page header p { color: #56524f; margin: 0 0 24px; }
+.awards-page header p { color: #56524f; margin: 8px 0 0; }
 .awards-summary { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 18px 20px; background: #f2f7fd; border: 1px solid #cbd5df; border-radius: 18px; }
 .awards-eyebrow { display: block; text-transform: uppercase; letter-spacing: .08em; font-size: 13px; font-weight: 600; color: #245fae; margin: 0 0 5px; }
 .awards-summary h2 { margin: 0; font-size: 25px; }
@@ -31,7 +31,7 @@
 .award-detail p { margin: 0; }
 .award-detail .primary-button { width: 100%; margin-top: 12px; }
 @media (min-width: 1000px) { .awards-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-@media (max-width: 360px) { .awards-page { padding-inline: 12px; } .award-card { padding: 16px 10px; } }
+@media (max-width: 360px) { .award-card { padding: 16px 10px; } }
 
 .award-live-feedback { position: fixed; z-index: 30; right: 16px; bottom: calc(90px + env(safe-area-inset-bottom)); width: min(390px, calc(100vw - 32px)); }
 .award-live-feedback-card { border: 1px solid #94b6a2; background: #eff8f2; color: #24563b; padding: 16px; border-radius: 14px; box-shadow: 0 4px 18px #0002; }

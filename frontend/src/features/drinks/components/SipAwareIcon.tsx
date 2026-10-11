@@ -1,9 +1,9 @@
 /**
  * Small, dependency-free icon set used by the Record a Drink experience.
  *
- * Icons are presentational companions to visible labels, never the only way an
- * action or state is communicated. Keeping the SVGs here also gives navigation,
- * drink choices, and information cards one consistent visual language.
+ * Icons accompany visible or accessible labels, never communicating actions
+ * or states alone. Keeping the SVGs here also gives navigation, drink choices,
+ * and information cards one consistent visual language.
  */
 import type { SVGProps } from 'react'
 
@@ -17,6 +17,8 @@ export type SipAwareIconName =
   | 'chart'
   | 'check'
   | 'clock'
+  | 'delete'
+  | 'edit'
   | 'learn'
   | 'record'
   | 'saved'
@@ -40,6 +42,18 @@ export function SipAwareIcon({ name, ...props }: SipAwareIconProps) {
   }
 
   switch (name) {
+    case 'edit':
+      return (
+        <svg {...sharedProps}>
+          <path d="m15.5 4.5 4 4M4 20l4.5-1 11-11a2.8 2.8 0 0 0-4-4l-11 11L4 20Z" />
+        </svg>
+      )
+    case 'delete':
+      return (
+        <svg {...sharedProps}>
+          <path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7" />
+        </svg>
+      )
     case 'record':
       return (
         <svg {...sharedProps}>

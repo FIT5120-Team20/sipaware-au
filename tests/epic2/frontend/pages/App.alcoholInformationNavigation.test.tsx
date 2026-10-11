@@ -34,7 +34,7 @@ describe('App alcohol-information navigation', () => {
     expect(
       await screen.findByRole('heading', {
         level: 1,
-        name: 'Home',
+        name: 'SipAware',
       }),
     ).toBeInTheDocument()
     expect(

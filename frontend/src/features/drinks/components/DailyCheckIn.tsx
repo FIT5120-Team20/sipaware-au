@@ -1,7 +1,14 @@
-/** Approved check-in presentation shared by Record and inline History backfill.
+/** Approved Record check-in presentation.
  * These controls request actions; only the page/repository can persist a day.
  * Decorative logos never replace the readable, keyboard-accessible choices. */
-import { useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
+import { ConsumptionDateTimeFields } from './ConsumptionDateTimeFields'
+import { ReferenceDialog } from './ReferenceDialog'
+import { SipAwareIcon } from './SipAwareIcon'
+import { isCalendarDate } from '../types/dailyCheckIn'
+import type { ConsumptionDateTimeErrors, ConsumptionDateTimeValues } from '../types/manualDrinkForm'
+import { getCurrentLocalCalendarDateKey } from '../utils/localCalendarDate'
+import { validateConsumptionDate, validateConsumptionDateTime } from '../validation/drinkingRecordValidation'
 import '../dailyCheckIn.css'
 
 export function CheckInLogo({ kind }: { kind: 'zero' | 'drink' }) {
@@ -31,45 +38,140 @@ export function CheckInLogo({ kind }: { kind: 'zero' | 'drink' }) {
 }
 
 type Props = {
-  date: string
-  compact?: boolean
+  dateTime: ConsumptionDateTimeValues
+  onDateTimeChange: (field: keyof ConsumptionDateTimeValues, value: string) => void
   hasDrinks?: boolean
   onNoAlcohol: (date: string) => Promise<void>
-  onDrink: (date: string) => void
+  onViewRecords: (date: string) => void
+  onDrink: (dateTime: ConsumptionDateTimeValues) => void
 }
 
-export function DailyCheckIn({ date, compact = false, hasDrinks = false, onNoAlcohol, onDrink }: Props) {
+export function DailyCheckIn({ dateTime, onDateTimeChange, hasDrinks = false, onNoAlcohol, onViewRecords, onDrink }: Props) {
+  const pickerId = useId()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [conflictDate, setConflictDate] = useState<string | null>(null)
+  const [futureDateNotice, setFutureDateNotice] = useState(false)
+  const [dateTimeErrors, setDateTimeErrors] = useState<ConsumptionDateTimeErrors>({})
   const pending = useRef(false)
+  const lastValidDate = useRef(validateConsumptionDate(dateTime.date) ? getCurrentLocalCalendarDateKey() : dateTime.date)
+  const pendingFutureDateNotice = useRef(false)
+  const futureDateNoticeTimer = useRef<number | null>(null)
+
+  useEffect(() => {
+    if (!validateConsumptionDate(dateTime.date)) lastValidDate.current = dateTime.date
+  }, [dateTime.date])
+  useEffect(() => () => {
+    if (futureDateNoticeTimer.current !== null) window.clearTimeout(futureDateNoticeTimer.current)
+  }, [])
+
+  function isFutureDate(date: string) {
+    return isCalendarDate(date) && date > getCurrentLocalCalendarDateKey()
+  }
+  function scheduleFutureDateNotice() {
+    if (!pendingFutureDateNotice.current) return
+    if (futureDateNoticeTimer.current !== null) window.clearTimeout(futureDateNoticeTimer.current)
+    // Wait for native picker dismissal; never move focus away from an active picker.
+    futureDateNoticeTimer.current = window.setTimeout(() => {
+      futureDateNoticeTimer.current = null
+      const activeId = document.activeElement?.id
+      if (!pendingFutureDateNotice.current || activeId === `${pickerId}-date` || activeId === `${pickerId}-time`) return
+      setFutureDateNotice(true)
+    }, 300)
+  }
+  function rejectFutureDate() {
+    const validDate = !validateConsumptionDate(dateTime.date) ? dateTime.date
+      : !validateConsumptionDate(lastValidDate.current) ? lastValidDate.current : getCurrentLocalCalendarDateKey()
+    lastValidDate.current = validDate
+    if (dateTime.date !== validDate) onDateTimeChange('date', validDate)
+    setDateTimeErrors(current => ({ ...current, date: undefined }))
+    pendingFutureDateNotice.current = true
+    scheduleFutureDateNotice()
+  }
+  function dismissFutureDateNotice() {
+    pendingFutureDateNotice.current = false
+    setFutureDateNotice(false)
+  }
+  function validateSelection(includeTime: boolean) {
+    if (isFutureDate(dateTime.date)) { rejectFutureDate(); return false }
+    if (pendingFutureDateNotice.current) { scheduleFutureDateNotice(); return false }
+    const dateError = validateConsumptionDate(dateTime.date)
+    const errors: ConsumptionDateTimeErrors = includeTime ? validateConsumptionDateTime(dateTime) : dateError ? { date: dateError } : {}
+    setDateTimeErrors(errors)
+    const firstInvalidField = errors.date ? 'date' : errors.time ? 'time' : null
+    if (firstInvalidField) document.getElementById(`${pickerId}-${firstInvalidField}`)?.focus()
+    return !firstInvalidField
+  }
   async function saveZero() {
     if (pending.current) return
-    if (hasDrinks) { setError('This day already has drinking records. Review them in History before marking it alcohol-free.'); return }
+    setError(null)
+    // Alcohol-free confirmations have a calendar date, never a consumed time.
+    if (!validateSelection(false)) return
+    const selectedDate = dateTime.date
+    if (hasDrinks) { setConflictDate(selectedDate); return }
     pending.current = true
     setBusy(true); setError(null)
-    try { await onNoAlcohol(date) }
-    catch { setError('This day could not be saved as alcohol-free. Check for existing drinking records in History, or try again. Nothing has been overwritten.') }
+    try { await onNoAlcohol(selectedDate) }
+    catch (cause) {
+      if (cause instanceof Error && cause.message === 'This day already has drinking records. Review them in History before marking it alcohol-free.') {
+        setConflictDate(selectedDate)
+      } else {
+        setError('This day could not be saved as alcohol-free. Check for existing drinking records in History, or try again. Nothing has been overwritten.')
+      }
+    }
     finally { pending.current = false; setBusy(false) }
   }
-  return <section className={compact ? 'daily-check-in daily-check-in--compact' : 'daily-check-in'} aria-label={compact ? 'Add entry for ' + date : 'Record daily check-in'}>
-    {!compact && <h1 className="reference-sr-only">Record</h1>}
+  return <section className="daily-check-in" aria-label="Record daily check-in" onBlur={event => {
+    if (event.target.id === `${pickerId}-date` || event.target.id === `${pickerId}-time`) scheduleFutureDateNotice()
+  }}>
+    <header className="reference-page-heading"><h1>Record</h1></header>
+    <ConsumptionDateTimeFields idPrefix={pickerId} values={dateTime} errors={dateTimeErrors}
+      legend="When are you recording for?" disabled={busy} onChange={(field, value) => {
+        setDateTimeErrors({}); setError(null)
+        if (field === 'date' && isFutureDate(value)) { rejectFutureDate(); return }
+        if (field === 'date' && !validateConsumptionDate(value)) lastValidDate.current = value
+        onDateTimeChange(field, value)
+      }} />
     <div className="check-in-choices" aria-busy={busy}>
-      <button type="button" className="check-in-choice check-in-choice--zero" disabled={busy} onClick={() => void saveZero()}>
-        <span className="check-in-choice-content"><CheckInLogo kind="zero" />
-          <span className="check-in-title">{compact ? 'No alcohol' : 'No alcohol today'}</span>
-          {!compact && <span className="check-in-copy">Save this day as alcohol-free.<br />Your history will show 0 drinks.</span>}
-          <span className="check-in-cta">{busy ? 'Saving…' : 'Save & view history'} <span aria-hidden="true">→</span></span>
-        </span>
-      </button>
-      <button type="button" className="check-in-choice check-in-choice--drink" disabled={busy} onClick={() => onDrink(date)}>
-        <span className="check-in-choice-content"><CheckInLogo kind="drink" />
-          <span className="check-in-title">{compact ? 'I drank' : 'I drank today'}</span>
-          {!compact && <span className="check-in-copy">Add what you drank<br />and how much you had.</span>}
-          <span className="check-in-cta">Record a drink <span aria-hidden="true">→</span></span>
-        </span>
-      </button>
-      {!compact && <svg className="check-in-divider" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><line x1="60" y1="0" x2="40" y2="100" /></svg>}
+      <article className="check-in-choice check-in-choice--zero" aria-labelledby={`${pickerId}-zero-title`}>
+        <CheckInLogo kind="zero" />
+        <h2 className="check-in-title" id={`${pickerId}-zero-title`}>No alcohol</h2>
+        <p className="check-in-copy">Save this day as alcohol-free.</p>
+        <button type="button" className="check-in-cta" disabled={busy} onClick={() => void saveZero()}>
+          {busy ? 'Saving…' : 'Save & view history'}
+        </button>
+      </article>
+      <article className="check-in-choice check-in-choice--drink" aria-labelledby={`${pickerId}-drink-title`}>
+        <CheckInLogo kind="drink" />
+        <h2 className="check-in-title" id={`${pickerId}-drink-title`}>I drank</h2>
+        <p className="check-in-copy">Record what you drank.</p>
+        <button type="button" className="check-in-cta" disabled={busy} onClick={() => {
+          setError(null)
+          if (validateSelection(true)) onDrink(dateTime)
+        }}>
+          Continue
+        </button>
+      </article>
     </div>
     {error && <p className="check-in-error" role="alert">{error}</p>}
+    {futureDateNotice && <ReferenceDialog title="Future dates aren't available" onClose={dismissFutureDateNotice}>
+      <p>You can only record drinks for today or an earlier date.</p>
+      <button type="button" className="primary-button" onClick={dismissFutureDateNotice}>Got it</button>
+    </ReferenceDialog>}
+    {conflictDate && <ReferenceDialog title="Drinks already recorded" onClose={() => setConflictDate(null)}>
+      <p className="check-in-conflict-message"><SipAwareIcon name="about" width="24" height="24" />
+        <span>This date already has drinking records, so it can't be marked alcohol-free.</span>
+      </p>
+      <p>Review or correct these records in History.</p>
+      <div className="reference-dialog-actions check-in-conflict-actions">
+        <button type="button" onClick={() => setConflictDate(null)}>Close</button>
+        <button type="button" onClick={() => {
+          const date = conflictDate
+          if (!date) return
+          setConflictDate(null)
+          onViewRecords(date)
+        }}>View records</button>
+      </div>
+    </ReferenceDialog>}
   </section>
 }

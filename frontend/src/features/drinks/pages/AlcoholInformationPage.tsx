@@ -6,6 +6,7 @@
  * malformed response stays visibly unavailable until a successful retry.
  */
 import { applicationHref } from '../../../app/entryPaths'
+import { requestNavigationScroll } from '../../../app/navigationScroll'
 import { useEffect, useState } from 'react'
 
 import { getAlcoholInformation } from '../../../services/alcoholInformationApi'
@@ -100,9 +101,8 @@ export function AlcoholInformationPage() {
       return
     }
 
-    section.scrollIntoView()
-    window.scrollTo?.({ top: 0 })
     heading.focus({ preventScroll: true })
+    requestNavigationScroll({ kind: 'top' })
   }, [hashTarget.topicCode, information, status])
 
   const requestedTopicIsMissing =
@@ -119,7 +119,6 @@ export function AlcoholInformationPage() {
   <ReferenceBackBar label="Back to Learn" href={applicationHref('/alcohol-guidelines')} />}
         <header className='alcohol-information-header' hidden={hashTarget.topicCode !== null}>
           <h1>Learn</h1>
-          <p>Clear, trusted information about alcohol, ageing and Australian guidelines.</p>
         </header>
 
         {hashTarget.value !== null && hashTarget.topicCode === null && (
