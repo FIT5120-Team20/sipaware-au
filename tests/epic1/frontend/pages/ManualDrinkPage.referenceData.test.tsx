@@ -31,7 +31,7 @@ function successfulGuidelineResponse(): Response {
 
 async function renderLoadedPage() {
   render(<ManualDrinkPage />)
-  await userEvent.setup().click(await screen.findByRole('button', { name: /I drank today/ }))
+  await userEvent.setup().click(await screen.findByRole('button', { name: 'Continue' }))
   await userEvent.setup().click(await screen.findByRole('button', { name: 'Record Manually' }))
   const drinkType = await screen.findByLabelText('Drink type')
   await waitFor(() => expect(drinkType).toBeEnabled())
@@ -60,7 +60,7 @@ describe('ManualDrinkPage public reference loading', () => {
     )
 
     render(<ManualDrinkPage />)
-  await userEvent.setup().click(await screen.findByRole('button', { name: /I drank today/ }))
+  await userEvent.setup().click(await screen.findByRole('button', { name: 'Continue' }))
     // Reference notices belong to the manual form, not the catalog browser.
     await userEvent.setup().click(await screen.findByRole('button', { name: 'Record Manually' }))
 
@@ -96,7 +96,7 @@ describe('ManualDrinkPage public reference loading', () => {
     const user = userEvent.setup()
 
     render(<ManualDrinkPage />)
-  await userEvent.setup().click(await screen.findByRole('button', { name: /I drank today/ }))
+  await userEvent.setup().click(await screen.findByRole('button', { name: 'Continue' }))
     // Reference notices belong to the manual form, not the catalog browser.
     await userEvent.setup().click(await screen.findByRole('button', { name: 'Record Manually' }))
 

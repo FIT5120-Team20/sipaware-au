@@ -5,13 +5,16 @@
  * comes from the public read-only API. Personal templates and prototype samples
  * never fill catalog results. SavedDrink cards render only under My Drinks.
  */
-import { useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { recordHelpPreference } from '../storage/recordHelpPreference'
 import { CatalogResults } from './CatalogResults'
 import type { CatalogCategory, CatalogProduct } from '../catalog/catalogApi'
 import { ReferenceDialog } from './ReferenceDialog'
 import type { SavedDrink } from '../types/savedDrink'
 import type { DrinkType } from '../types/drinkingRecord'
+import type { ConsumptionDateTimeValues } from '../types/manualDrinkForm'
+import { SipAwareIcon } from './SipAwareIcon'
+import { ReferenceBackBar } from './ReferenceBackBar'
 function IcoBeer() {
   return <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M5 4h11l1.5 14H3.5L5 4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /><path d="M17.5 8H20a2 2 0 0 1 0 4h-2.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /><path d="M8 4V2M12 4V2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
 }
@@ -61,7 +64,22 @@ export function DrinkThumb({ type }: { type: DrinkType }) {
   return <span className="prototype-drink-thumb" aria-hidden="true" style={{ background: style.bg, color: style.color }}>{style.icon}</span>
 }
 const categories = ['My Drinks', 'All', 'Beer', 'Wine', 'Spirits', 'Cider', 'RTD', 'Other'] as const
-export function ReferenceRecordBrowser({ savedDrinks, onScan, onManual, onProduct, children }: {
+function formatSelectedOccasion({ date, time }: ConsumptionDateTimeValues) {
+  // Format the chosen wall clock without shifting it to the viewer's timezone.
+  const occasion = new Date(`${date}T${time}:00Z`)
+  if (!Number.isFinite(occasion.getTime())) return `${date} · ${time}`
+  const dateLabel = occasion.toLocaleDateString('en-AU', {
+    weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC',
+  })
+  const timeLabel = occasion.toLocaleTimeString('en-AU', {
+    hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'UTC',
+  })
+  return `${dateLabel} · ${timeLabel}`
+}
+
+export function ReferenceRecordBrowser({ selectedDateTime, onBackToCheckIn, savedDrinks, onScan, onManual, onProduct, children }: {
+  selectedDateTime?: ConsumptionDateTimeValues
+  onBackToCheckIn?: () => void
   savedDrinks: readonly SavedDrink[]
   onScan: () => void
   onManual: () => void
@@ -70,7 +88,45 @@ export function ReferenceRecordBrowser({ savedDrinks, onScan, onManual, onProduc
 }) {
   const [category, setCategory] = useState<string>('All')
   const [query, setQuery] = useState('')
+  const categoryItemsRef = useRef<HTMLDivElement>(null)
+  const resultsRef = useRef<HTMLDivElement>(null)
+  const [canPinCategories, setCanPinCategories] = useState(true)
   const [showHelp, setShowHelp] = useState(() => !recordHelpPreference.hasSeen())
+  useEffect(() => {
+    const categoryItems = categoryItemsRef.current
+    const content = categoryItems?.closest('.reference-content')
+    if (!categoryItems || !content) return
+
+    // Keep every category reachable when the viewport is too short to pin the rail.
+    const updateViewport = () => {
+      if (!window.matchMedia('(max-width: 767px)').matches) {
+        setCanPinCategories(true)
+        return
+      }
+      const viewportHeight = window.visualViewport?.height ?? window.innerHeight
+      const stickyTop = parseFloat(window.getComputedStyle(categoryItems).top) || 0
+      const bottomSpace = parseFloat(window.getComputedStyle(content).paddingBottom) || 0
+      setCanPinCategories(viewportHeight - stickyTop - bottomSpace - 2 >= categoryItems.scrollHeight)
+    }
+    const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(updateViewport)
+    if (observer) observer.observe(categoryItems)
+    else updateViewport()
+    window.addEventListener('resize', updateViewport)
+    window.visualViewport?.addEventListener('resize', updateViewport)
+    return () => {
+      observer?.disconnect()
+      window.removeEventListener('resize', updateViewport)
+      window.visualViewport?.removeEventListener('resize', updateViewport)
+    }
+  }, [])
+  const selectCategory = (item: string) => {
+    if (item === category) return
+    setCategory(item)
+    // Category navigation starts at the results; touch scrolling stays entirely native.
+    if (window.matchMedia('(max-width: 767px)').matches) {
+      resultsRef.current?.scrollIntoView({ block: 'start', inline: 'nearest' })
+    }
+  }
   // All dismissal paths acknowledge onboarding. Record navigation no longer
   // reopens it; the question-mark button remains available for deliberate help.
   const dismissHelp = () => {
@@ -81,11 +137,16 @@ export function ReferenceRecordBrowser({ savedDrinks, onScan, onManual, onProduc
   const filtered = isMyDrinks ? savedDrinks.filter(drink =>
     drink.drinkName.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())) : []
   return <div className="prototype-record-browser">
+    {onBackToCheckIn && <ReferenceBackBar label="Back to Record" onClick={onBackToCheckIn} />}
     <div className="prototype-record-top">
   <h1>Record a Drink</h1>
   <button type="button" className="reference-help" onClick={() => setShowHelp(true)}
     aria-label="How to record a drink" aria-expanded={showHelp}>?</button>
 </div>
+{selectedDateTime && <p className="prototype-record-occasion">
+  <SipAwareIcon name="calendar" width="20" height="20" />
+  <time dateTime={`${selectedDateTime.date}T${selectedDateTime.time}`}>{formatSelectedOccasion(selectedDateTime)}</time>
+</p>}
 
 {showHelp && <ReferenceDialog title="How to record a drink" onClose={dismissHelp}>
   <ul className="reference-record-help-list">
@@ -107,14 +168,16 @@ export function ReferenceRecordBrowser({ savedDrinks, onScan, onManual, onProduc
         <button type="button" onClick={onManual}><IcoPlus /><span>Record Manually</span></button>
       </div>
     </div>
-    <div className="prototype-record-workspace">
+    <div className="prototype-record-workspace" data-pin-categories={canPinCategories}>
       <nav className="prototype-category-rail" aria-label="Drink categories">
-        {categories.map((item, index) => <div key={item}>
-          <button type="button" aria-pressed={category === item} onClick={() => setCategory(item)}><span>{item}</span></button>
-          {index === 0 && <hr />}
-        </div>)}
+        <div ref={categoryItemsRef}>
+          {categories.map((item, index) => <div key={item}>
+            <button type="button" aria-pressed={category === item} onClick={() => selectCategory(item)}><span>{item}</span></button>
+            {index === 0 && <hr />}
+          </div>)}
+        </div>
       </nav>
-      <div className="prototype-record-results">
+      <div className="prototype-record-results" ref={resultsRef} role="region" aria-label="Drink browser results">
         {!isMyDrinks ? <CatalogResults key={`${category}:${query.trim()}`} category={category.toLowerCase() as CatalogCategory} query={query.trim()} onSelect={onProduct} /> : <>
         <div className="prototype-results-header"><h2>My Drinks</h2><span>{filtered.length} saved {filtered.length === 1 ? 'drink' : 'drinks'}</span></div>
         {filtered.length ? children(filtered) : <div className="prototype-empty">

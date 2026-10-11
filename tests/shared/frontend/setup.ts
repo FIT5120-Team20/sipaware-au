@@ -41,6 +41,18 @@ if (!HTMLDialogElement.prototype.showModal) {
 }
 
 beforeEach(() => {
+  // jsdom has no media-query engine. Browser checks cover responsive layouts;
+  // integration tests use a desktop viewport without reduced motion.
+  vi.stubGlobal('matchMedia', vi.fn((query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(() => true),
+  })))
   // Each independent test starts as a first-time visitor; personal data stays isolated below.
   window.localStorage.removeItem('sipaware.record-help.seen.v1')
   window.history.replaceState({}, '', '/record')

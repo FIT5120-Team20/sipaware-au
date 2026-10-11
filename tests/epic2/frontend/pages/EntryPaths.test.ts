@@ -24,6 +24,7 @@ describe('standalone and active iteration navigation', () => {
     expect(applicationHref('/record?record=synthetic-id')).toBe(mount + '/record?record=synthetic-id')
     expect(applicationHref('/alcohol-guidelines#STANDARD_DRINK')).toBe(mount + '/alcohol-guidelines#STANDARD_DRINK')
     expect(applicationHref('/trends#history')).toBe(mount + '/trends#history')
+    expect(applicationHref('/record?date=2026-10-04')).toBe(mount + '/record?date=2026-10-04')
   })
 
   it('does not rewrite API, assets, external sources or already mounted links', () => {

@@ -1,3 +1,4 @@
+import * as navigationScroll from '../../../../frontend/src/app/navigationScroll'
 import {
   render,
   screen,
@@ -19,10 +20,12 @@ function jsonResponse(payload: unknown, status = 200): Response {
 
 const originalScrollIntoView = HTMLElement.prototype.scrollIntoView
 let scrollIntoView: ReturnType<typeof vi.fn>
+let navigation: ReturnType<typeof vi.spyOn>
 
 beforeEach(() => {
   window.history.replaceState({}, '', '/alcohol-guidelines')
   scrollIntoView = vi.fn()
+  navigation = vi.spyOn(navigationScroll, 'requestNavigationScroll')
   Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
     configurable: true,
     value: scrollIntoView,
@@ -30,6 +33,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  navigation.mockRestore()
   window.history.replaceState({}, '', '/')
   if (originalScrollIntoView) {
     Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
@@ -171,7 +175,7 @@ describe('AlcoholInformationPage', () => {
     })
     await waitFor(() => expect(heading).toHaveFocus())
     expect(heading).toHaveAttribute('tabindex', '-1')
-    expect(scrollIntoView).toHaveBeenCalledTimes(1)
+    expect(navigation).toHaveBeenCalledWith({ kind: 'top' })
   })
 
   it('responds to hash changes using the same focus behaviour', async () => {
@@ -193,7 +197,7 @@ describe('AlcoholInformationPage', () => {
     window.dispatchEvent(new HashChangeEvent('hashchange'))
 
     await waitFor(() => expect(heading).toHaveFocus())
-    expect(scrollIntoView).toHaveBeenCalledTimes(1)
+    expect(navigation).toHaveBeenCalledWith({ kind: 'top' })
   })
 
   it('does not force focus or scrolling when no hash is present', async () => {

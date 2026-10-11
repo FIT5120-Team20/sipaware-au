@@ -5,7 +5,7 @@ import { closeCheckInDatabase, openCheckInDatabase, CHECKIN_DATABASE_NAME } from
 import { closeSipAwareDatabase, openSipAwareDatabase, SIPAWARE_DATABASE_NAME } from '../../../frontend/src/features/drinks/storage/indexedDb'
 import { IndexedDbDailyCheckInRepository } from '../../../frontend/src/features/drinks/storage/dailyCheckInRepository'
 import { IndexedDbDrinkingRecordRepository } from '../../../frontend/src/features/drinks/storage/drinkingRecordRepository'
-import { checkInId, historyMonthDates, isCalendarDate } from '../../../frontend/src/features/drinks/types/dailyCheckIn'
+import { checkInId, isCalendarDate } from '../../../frontend/src/features/drinks/types/dailyCheckIn'
 import type { DrinkingRecord } from '../../../frontend/src/features/drinks/types/drinkingRecord'
 
 beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date(2026, 9, 5, 20)) })
@@ -17,6 +17,19 @@ function record(id = 'test', day = 3): DrinkingRecord {
 }
 
 describe('local daily check-ins', () => {
+  it('stops creating tracking metadata and leaves existing legacy metadata inert and intact', async () => {
+    const repo = new IndexedDbDailyCheckInRepository()
+    expect(await repo.initialize()).toEqual({ alcoholFreeDates: [] })
+    const db = await openCheckInDatabase()
+    expect(await db.get('daily_checkins', 'tracking-start')).toBeUndefined()
+    const legacy = { id: 'tracking-start' as const, kind: 'tracking-start' as const, date: '2020-01-01' }
+    await db.put('daily_checkins', legacy)
+    await repo.confirmAlcoholFree('2026-10-04')
+    expect(await repo.initialize()).toEqual({ alcoholFreeDates: ['2026-10-04'] })
+    expect(await db.get('daily_checkins', 'tracking-start')).toEqual(legacy)
+    expect(await new IndexedDbDrinkingRecordRepository().list()).toEqual([])
+  })
+
   it('keeps the populated version-1 database readable by retained releases', async () => {
     const old = await openDB(SIPAWARE_DATABASE_NAME, 1, { upgrade(db) {
       db.createObjectStore('drinking_records', { keyPath:'id' }); db.createObjectStore('saved_drinks', { keyPath:'id' })
@@ -31,7 +44,7 @@ describe('local daily check-ins', () => {
     expect(await db.getAll('saved_drinks')).toEqual([template])
     expect([...db.objectStoreNames]).toEqual(['drinking_records', 'saved_drinks'])
     const state = await new IndexedDbDailyCheckInRepository().initialize()
-    expect(state).toEqual({ startedOn:'2026-10-03', alcoholFreeDates:[] })
+    expect(state).toEqual({ alcoholFreeDates:[] })
     const retained = await openDB(SIPAWARE_DATABASE_NAME, 1)
     expect(await retained.getAll('drinking_records')).toEqual([original])
     expect(await retained.getAll('saved_drinks')).toEqual([template])
@@ -71,7 +84,7 @@ describe('local daily check-ins', () => {
     await drinks.update({ ...record('test',4), createdAt:record().createdAt })
     expect((await checkIns.initialize()).alcoholFreeDates).toEqual([])
     await drinks.delete('test')
-    expect(await checkIns.initialize()).toEqual({ startedOn:'2026-10-03', alcoholFreeDates:[] })
+    expect(await checkIns.initialize()).toEqual({ alcoholFreeDates:[] })
   })
 
   it('keeps the zero status when a valid drink request aborts on a duplicate ID', async () => {
@@ -137,10 +150,9 @@ describe('local daily check-ins', () => {
     expect((await checkIns.initialize()).alcoholFreeDates).toEqual([])
   })
 
-  it('uses calendar days through DST, leap years and bounded first-use/future limits', () => {
-    expect(historyMonthDates(2026,9,'2026-10-03','2026-10-05')).toEqual(['2026-10-05','2026-10-04','2026-10-03'])
-    expect(historyMonthDates(2024,1,'2024-02-01','2026-10-05')).toHaveLength(29)
-    expect(historyMonthDates(2026,10,'2026-10-01','2026-10-05')).toEqual([])
+  it('validates exact local calendar keys, including leap years', () => {
     expect(isCalendarDate('2026-02-29')).toBe(false)
+    expect(isCalendarDate('2024-02-29')).toBe(true)
+    expect(isCalendarDate('2026-10-04')).toBe(true)
   })
 })
