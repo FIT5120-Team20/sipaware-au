@@ -1,6 +1,6 @@
 
 /* ADAPT: LearnPage.TopicDetail utility values at reference commit f5711b15. */
-.alcohol-information-shell.reference-reading-shell { max-width:900px; padding:0 0 24px; margin:0 auto; }
+.alcohol-information-shell.reference-reading-shell { max-width:var(--page-content-max-width); padding:0 0 24px; margin:0 auto; }
 .reference-reading-shell > .prototype-sticky-back { width:100%;margin:0;padding:0 20px }
 .reference-reading-shell .alcohol-information-sections { display:block; margin:0; }
 .alcohol-information-section.reference-topic-detail { border:0; border-radius:0; background:#fff; box-shadow:none; padding:0; margin:0; scroll-margin:44px; }
@@ -41,3 +41,8 @@
 @media print { .reference-navigation, .ht-recorded-data-note { display:none!important; } .reference-content { margin:0!important; padding:0!important; } }
 
 .reference-topic-heading h2:focus { outline:none; }
+
+/* Wide articles fill the page without turning the hero into a full-screen image. */
+@media (min-width: 1024px) {
+  .reference-topic-hero { height: clamp(320px, 28vw, 440px); aspect-ratio: auto; }
+}
