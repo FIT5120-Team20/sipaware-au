@@ -6,3 +6,11 @@
 .reminder-settings-actions { display: flex; flex-wrap: wrap; gap: 12px; }
 .reminder-settings [role=alert] { color: #9b3020; }
 .reminder-entry button:focus-visible, .reminder-settings :focus-visible { outline: 3px solid #1a5fcc; outline-offset: 3px; }
+
+.reminder-background-settings { margin-top: 24px; padding-top: 20px; border-top: 1px solid #dae3e1; }
+.reminder-background-settings button { margin: 0 8px 12px 0; }
+.reminder-settings button:disabled { opacity: .55; cursor: not-allowed; }
+.reminder-sync-notice { margin: 12px 24px; padding: 12px 16px; background: #fff5e4; border: 1px solid #dcb979; border-radius: 12px; color: #563b17; }
+.reminder-sync-notice p { margin: 0 0 8px; }
+.reminder-sync-notice button { min-height: 44px; padding: 8px 12px; border: 1px solid currentColor; background: white; border-radius: 8px; font: inherit; color: inherit; cursor: pointer; }
+.reminder-sync-notice button:focus-visible { outline: 3px solid #1a5fcc; outline-offset: 3px; }

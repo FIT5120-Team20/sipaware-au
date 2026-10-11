@@ -1,8 +1,11 @@
+/** Local preference changes survive reopening without silently enabling or
+ * updating server delivery; invalid/corrupt storage remains visible. */
 import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { ReminderSettings } from '../../../frontend/src/features/reminders/ReminderSettings'
 import { REMINDER_PREFERENCE_KEY, readReminderPreference, saveReminderPreference } from '../../../frontend/src/features/reminders/reminderPreference'
+vi.mock('../../../frontend/src/features/reminders/PushSettingsControl', () => ({ PushSettingsControl: () => null }))
 beforeEach(() => localStorage.removeItem(REMINDER_PREFERENCE_KEY))
 afterEach(() => { vi.restoreAllMocks(); localStorage.removeItem(REMINDER_PREFERENCE_KEY) })
 async function open() {
@@ -15,7 +18,7 @@ it('saves and replaces one preference across reopening without claiming notifica
   const user = await open()
   fireEvent.change(screen.getByLabelText('Preferred daily reminder time'), { target: { value: '20:30' } })
   await user.click(screen.getByRole('button', { name: 'Save preferred time' }))
-  expect(screen.getByRole('status')).toHaveTextContent('Notifications are not enabled')
+  expect(screen.getByRole('status')).toHaveTextContent('Background reminder settings are unchanged')
   expect(readReminderPreference()?.time).toBe('20:30')
   await user.click(screen.getByRole('button', { name: 'Close' }))
   await open()

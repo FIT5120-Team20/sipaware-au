@@ -4,6 +4,7 @@ export const AWARD_FEEDBACK_EVENT = 'sipaware:award-feedback'
 
 /** Called only AFTER a history write commits. Award failure must not reject that write. */
 export async function updateAwardsAfterCheckIn(options: { viewedTrends?: boolean } = {}): Promise<void> {
+  if (!options.viewedTrends) window.dispatchEvent(new Event('sipaware:history-committed'))
   try {
     const result = await loadAwardOverview(options)
     if (result.newlyEarned.length === 0) return
