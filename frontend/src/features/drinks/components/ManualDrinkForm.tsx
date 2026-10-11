@@ -13,9 +13,9 @@ import {
   useRef,
   useState,
 } from 'react'
-import { getCurrentLocalDateTimeInputValues } from '../utils/formatConsumedDateTime'
+import { displayCheckInDate } from '../types/dailyCheckIn'
+import { getCurrentLocalCalendarDateKey } from '../utils/localCalendarDate'
 import { RECORD_HOME_EVENT } from '../../../app/entryPaths'
-import { captureNavigationScroll, prepareNavigationScroll, requestNavigationScroll, type NavigationScrollPosition } from '../../../app/navigationScroll'
 
 import {
   DRINK_TYPE_COMPATIBILITY,
@@ -31,7 +31,6 @@ import {
 import { createSavedDrink, type SavedDrink } from '../types/savedDrink'
 import {
   CUSTOM_SERVING_SIZE,
-  type ConsumptionDateTimeValues,
   type ManualDrinkField,
   type ManualDrinkFormErrors,
   type ManualDrinkFormValues,
@@ -46,9 +45,9 @@ import {
   validateManualDrinkInput,
   validateReusableDrinkInput,
 } from '../validation/drinkingRecordValidation'
-import { MinusIcon, PlusIcon } from './ReferenceRecordBrowser'
+import { IcoCalendar, IcoClock, MinusIcon, PlusIcon } from './ReferenceRecordBrowser'
 import { SavedDrinkPicker } from './SavedDrinkPicker'
-import { ConsumptionDateTimeFields } from './ConsumptionDateTimeFields'
+import { useConsumptionTimeLimit } from '../hooks/useConsumptionTimeLimit'
 import { calculateStandardDrinks } from '../calculations/standardDrinks'
 import { BarcodeScanner } from './BarcodeScanner'
 import { selectCatalogProduct, type CatalogProduct } from '../catalog/catalogApi'
@@ -59,8 +58,7 @@ import { prefillLabelFields, type LabelOcrResult } from '../ocr/labelOcr'
 
 interface ManualDrinkFormProps {
   startInBrowse?: boolean
-  selectedDateTime?: ConsumptionDateTimeValues
-  onBackToCheckIn?: () => void
+  selectedDate?: string
   onRecorded?: (record: DrinkingRecord, templateFailed: boolean) => void
   barcodeLookup?: BarcodeLookup
   referenceCategories: readonly DrinkReferenceCategory[]
@@ -117,9 +115,13 @@ const FALLBACK_REFERENCE_CATEGORIES: readonly DrinkReferenceCategory[] =
     abvOptions: [],
   }))
 
+function padDatePart(value: number): string {
+  return String(value).padStart(2, '0')
+}
+
 function createInitialManualDrinkFormValues(
   now = new Date(),
-  selectedDateTime?: ConsumptionDateTimeValues,
+  selectedDate?: string,
 ): ManualDrinkFormValues {
   // Date and time inputs start from the user's local wall clock, not UTC, so a
   // new record initially reflects the occasion the user sees on their device.
@@ -130,7 +132,9 @@ function createInitialManualDrinkFormValues(
     customVolumeMl: '',
     abvPercent: '',
     amountConsumed: '',
-    ...(selectedDateTime ?? getCurrentLocalDateTimeInputValues(now)),
+    date: selectedDate ?? `${now.getFullYear()}-${padDatePart(now.getMonth() + 1)}-${padDatePart(now.getDate())}`,
+    // Past occasions need an intentional time, not the current clock.
+    time: selectedDate && selectedDate !== getCurrentLocalCalendarDateKey(now) ? '' : `${padDatePart(now.getHours())}:${padDatePart(now.getMinutes())}`,
   }
 }
 
@@ -169,8 +173,7 @@ export function ManualDrinkForm({
   onDeleteSavedDrink,
   barcodeLookup,
   startInBrowse = false,
-  selectedDateTime,
-  onBackToCheckIn,
+  selectedDate,
   onRecorded,
 }: ManualDrinkFormProps) {
   // Provenance travels with each independent record/template snapshot.
@@ -181,26 +184,14 @@ export function ManualDrinkForm({
   const previousLabelResult = useRef<LabelOcrResult | null>(null)
   const [captureView, setCaptureView] = useState<'browse' | 'manual'>(startInBrowse ? 'browse' : 'manual')
   const [showManualReferenceStatus, setShowManualReferenceStatus] = useState(false)
-  const captureRef = useRef<HTMLElement>(null)
-  const browsingScroll = useRef<NavigationScrollPosition | null>(null)
-
-  function navigateCapture(view: 'browse' | 'manual') {
-    if (captureView === 'browse' && view === 'manual') {
-      browsingScroll.current = captureNavigationScroll(captureRef.current,
-        captureRef.current?.querySelector<HTMLElement>('.prototype-record-results'))
-    }
-    prepareNavigationScroll()
-    setCaptureView(view)
-    requestNavigationScroll(view === 'browse' && browsingScroll.current
-      ? { kind: 'restore', position: browsingScroll.current } : { kind: 'top' })
-  }
 
   // Keep the form mounted across capture views, but start or abandon actions
   // reset the draft so one unfinished record cannot leak into the next.
   function openManualEntry() {
     resetRecordDraft()
     setShowManualReferenceStatus(true)
-    navigateCapture('manual')
+    setCaptureView('manual')
+    requestAnimationFrame(() => document.getElementById('drink-type')?.focus())
   }
   const [amountMode, setAmountMode] = useState<'serving' | 'ml'>('serving')
   const [blockedStepperKey, setBlockedStepperKey] = useState<string | null>(null)
@@ -209,7 +200,8 @@ export function ManualDrinkForm({
   const formRef = useRef<HTMLFormElement>(null)
   const pendingSave = useRef(false)
   const recordLimitNoticeRef = useRef<HTMLDivElement>(null)
-  const [values, setValues] = useState(() => createInitialManualDrinkFormValues(new Date(), selectedDateTime))
+  const timeLimit = useConsumptionTimeLimit()
+  const [values, setValues] = useState(() => createInitialManualDrinkFormValues(new Date(), selectedDate))
   const [errors, setErrors] = useState<ManualDrinkFormErrors>({})
   const [saveStatus, setSaveStatus] = useState<SaveStatus>(null)
   const [isPersisting, setIsPersisting] = useState(false)
@@ -223,7 +215,7 @@ export function ManualDrinkForm({
     (savedDrink) => savedDrink.id === selectedSavedDrinkId,
   )
   const resetRecordDraft = useCallback(() => {
-    setValues(createInitialManualDrinkFormValues(new Date(), selectedDateTime))
+    setValues(createInitialManualDrinkFormValues(new Date(), selectedDate))
     setAmountMode('serving')
     setMillilitres('')
     setBlockedStepperKey(null)
@@ -240,7 +232,7 @@ export function ManualDrinkForm({
     setLabelScanKey(key => key + 1)
     previousLabelResult.current = null
     setShowManualReferenceStatus(false)
-  }, [setSaveTemplateWithRecord, selectedDateTime])
+  }, [setSaveTemplateWithRecord, selectedDate])
   useEffect(() => {
     const returnToRecordHome = () => {
       resetRecordDraft()
@@ -270,7 +262,7 @@ export function ManualDrinkForm({
   )
   // A selected SavedDrink supplies reusable attributes and therefore locks the
   // corresponding controls below. Occasion-specific servings, date, and time
-  // belong to the new DrinkingRecord, not the template.
+  // remain editable because they belong to the new DrinkingRecord, not the template.
   const isCustomVolume =
     values.servingSizeSelection === CUSTOM_SERVING_SIZE
 
@@ -496,7 +488,10 @@ export function ManualDrinkForm({
     clearErrors(...REUSABLE_DRINK_FIELDS)
     setSaveStatus({ kind: 'success', message: 'Drink found. Check the serving size and ABV, and correct them if needed.' })
     setBarcodeOpen(false)
-    navigateCapture('manual')
+    queueMicrotask(() => {
+      const field = formRef.current?.elements.namedItem('drinkName')
+      if (field instanceof HTMLElement) field.focus()
+    })
   }
 
   function handleCatalogProduct(product: CatalogProduct) {
@@ -506,8 +501,12 @@ export function ManualDrinkForm({
     setSelectedSavedDrinkId(null)
     setSelectedVariantId(null)
     clearErrors(...REUSABLE_DRINK_FIELDS)
-    navigateCapture('manual')
+    setCaptureView('manual')
     setSaveStatus({ kind: 'success', message: 'Drink selected. Check the serving size and ABV, and correct them if needed.' })
+    queueMicrotask(() => {
+      const field = formRef.current?.elements.namedItem('drinkName')
+      if (field instanceof HTMLElement) field.focus()
+    })
   }
 
   function handleLabelResult(result: LabelOcrResult) {
@@ -522,7 +521,10 @@ export function ManualDrinkForm({
   function returnToManualEntry() {
     resetRecordDraft()
     setShowManualReferenceStatus(true)
-    navigateCapture('manual')
+    queueMicrotask(() => {
+      const field = formRef.current?.elements.namedItem('drinkName')
+      if (field instanceof HTMLElement) field.focus()
+    })
   }
 
   function clearSavedDrinkSelection() {
@@ -627,7 +629,7 @@ export function ManualDrinkForm({
     setAmountMode('serving')
     setMillilitres('')
     setSaveTemplateWithRecord(false)
-    setValues(createInitialManualDrinkFormValues(new Date(), selectedDateTime))
+    setValues(createInitialManualDrinkFormValues(new Date(), selectedDate))
     setRecordSource('manual')
     setLabelScanKey(key => key + 1)
     setSelectedSavedDrinkId(null)
@@ -642,11 +644,11 @@ export function ManualDrinkForm({
   }
 
   return (
-    <section ref={captureRef} className={"manual-drink-card prototype-capture prototype-capture--" + captureView} aria-label="Drink capture">
+    <section className={"manual-drink-card prototype-capture prototype-capture--" + captureView} aria-label="Drink capture">
       {startInBrowse && captureView === 'manual' &&
         <ReferenceBackBar label="Back to Record" onClick={() => {
           resetRecordDraft()
-          navigateCapture('browse')
+          setCaptureView('browse')
         }} />}
       <div hidden={captureView !== 'manual'} className="prototype-form-heading">
         <h1 id="manual-drink-title">{selectedSavedDrink ? 'Record Consumption' : 'Record a Drink'}</h1>
@@ -655,8 +657,8 @@ export function ManualDrinkForm({
           disabled={isPersisting} onResult={handleLabelResult} />}
       </div>
       {barcodeOpen && <BarcodeScanner onBack={() => setBarcodeOpen(false)}
-        onUseDrink={handleBarcodeProduct}
-        onAddManually={returnToManualEntry} lookup={barcodeLookup} />}
+        onUseDrink={(product) => { setCaptureView('manual'); handleBarcodeProduct(product) }}
+        onAddManually={() => { setCaptureView('manual'); returnToManualEntry() }} lookup={barcodeLookup} />}
 
       {captureView === 'manual' && saveStatus && (
         <div
@@ -693,12 +695,10 @@ export function ManualDrinkForm({
       <div hidden={startInBrowse && captureView !== 'browse'}>
         <SavedDrinkPicker
           browserActions={startInBrowse ? { onScan: () => setBarcodeOpen(true), onManual: openManualEntry, onProduct: handleCatalogProduct } : undefined}
-          selectedDateTime={selectedDateTime}
-          onBackToCheckIn={onBackToCheckIn}
           referenceCategories={referenceCategories}
           savedDrinks={savedDrinks}
           selectedSavedDrinkId={selectedSavedDrinkId}
-          onSelect={(drink) => { handleSavedDrinkSelect(drink); navigateCapture('manual') }}
+          onSelect={(drink) => { handleSavedDrinkSelect(drink); setCaptureView('manual') }}
           onClear={clearSavedDrinkSelection}
           onUpdate={handleSavedDrinkUpdate}
           onDelete={handleSavedDrinkDelete}
@@ -989,14 +989,49 @@ export function ManualDrinkForm({
           </div>
         </section>
 
-        {!selectedDateTime ? (
-          <ConsumptionDateTimeFields idPrefix="consumed" className="form-step"
-            legend="When did you drink?" values={values} errors={errors} onChange={updateValue} />
-        ) : (errors.date || errors.time) && (
-          <div className="form-notice form-notice--error" role="alert">
-            {errors.date || errors.time} Go back to Record to update the date and time.
+        <fieldset className="date-time-fields form-step">
+          <legend>When did you drink?</legend>
+
+          <div className="date-time-grid">
+            <div className="form-field">
+              <label htmlFor="consumed-date"><span aria-hidden="true"><IcoCalendar /></span> Date</label>
+              {selectedDate ? <span id="consumed-date" className="check-in-fixed-date" aria-label="Date">{displayCheckInDate(selectedDate)}</span> : (
+              <input
+                id="consumed-date"
+                name="date"
+                type="date"
+                max={timeLimit.date}
+                onFocus={timeLimit.refresh}
+                value={values.date}
+                onChange={(event) => updateValue('date', event.target.value)}
+                aria-invalid={Boolean(errors.date)}
+                aria-describedby={errors.date ? 'consumed-date-error' : undefined}
+                required
+              />
+              )}
+              <FieldError id="consumed-date-error" message={errors.date} />
+            </div>
+
+            <div className="form-field">
+              <label htmlFor="consumed-time"><span aria-hidden="true"><IcoClock /></span> Time</label>
+              <input
+                id="consumed-time"
+                name="time"
+                type="time"
+                max={values.date === timeLimit.date ? timeLimit.time : undefined}
+                onFocus={timeLimit.refresh}
+                step="60"
+                value={values.time}
+                onChange={(event) => updateValue('time', event.target.value)}
+                aria-invalid={Boolean(errors.time)}
+                aria-describedby={errors.time ? 'consumed-time-error' : undefined}
+                required
+              />
+              <FieldError id="consumed-time-error" message={errors.time} />
+            </div>
           </div>
-        )}
+          {selectedDate && <p className="check-in-time-hint">{selectedDate < timeLimit.date ? 'Adding a past entry. Choose the time you drank on this date.' : 'Adjust the time to when you drank.'}</p>}
+        </fieldset>
 
         {!selectedSavedDrink && <label className="prototype-save-template">
           <input type="checkbox" checked={saveTemplateWithRecord} onChange={e => setSaveTemplateWithRecord(e.target.checked)} />

@@ -7,7 +7,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ManualDrinkPage } from '../../../../frontend/src/features/drinks/pages/ManualDrinkPage'
 import { IndexedDbDrinkingRecordRepository } from '../../../../frontend/src/features/drinks/storage/drinkingRecordRepository'
 import { IndexedDbSavedDrinkRepository } from '../../../../frontend/src/features/drinks/storage/savedDrinkRepository'
-import { getRecordLocalCalendarDateKey } from '../../../../frontend/src/features/drinks/utils/localCalendarDate'
 import type { DrinkingRecord } from '../../../../frontend/src/features/drinks/types/drinkingRecord'
 import { ALCOHOL_INFORMATION_TOPIC_CODES } from '../../../../frontend/src/features/drinks/types/alcoholGuideline'
 import type { SavedDrink } from '../../../../frontend/src/features/drinks/types/savedDrink'
@@ -60,10 +59,10 @@ async function renderHydratedPage() {
  await screen.findByRole('heading', { name: records.length ? 'Drink recorded' : 'Your drinking dashboard' })
 }
 async function historyAction(action: 'Edit' | 'Delete', name: string) {
- const record = (await new IndexedDbDrinkingRecordRepository().list()).find(record => record.drinkName === name)!
- window.history.replaceState({ checkInDate: getRecordLocalCalendarDateKey(record) }, '', '/trends#history')
+ window.history.replaceState({}, '', '/trends#history')
  pageView.rerender(<ManualDrinkPage key={++pageKey} initialView="history" />)
- return screen.findByRole('button', { name: action + ' ' + name })
+ fireEvent.click(await screen.findByRole('button', { name: 'Actions for ' + name }))
+ return screen.getByRole('button', { name: action })
 }
 async function openRecordForm() {
  window.history.replaceState({}, '', '/record')
@@ -238,7 +237,7 @@ describe('ManualDrinkPage alcohol consumption integration', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('keeps a future record stored with its date disabled while excluding it from feedback', async () => {
+  it('keeps a future record stored and visible while excluding it from feedback', async () => {
     const futureDate = new Date()
     futureDate.setDate(futureDate.getDate() + 1)
     const futureRecord = recordForLocalDate(
@@ -259,8 +258,7 @@ describe('ManualDrinkPage alcohol consumption integration', () => {
     window.history.replaceState({}, '', '/trends#history')
     pageView.rerender(<ManualDrinkPage key={++pageKey} initialView="history" />)
     await screen.findByRole('heading', { name: 'Your drinking records' })
-    expect(document.querySelector('.history-calendar-day[data-date="' + localDateInputValue(futureDate) + '"]')).toBeDisabled()
-    expect(screen.queryByText('Future beer')).not.toBeInTheDocument()
+    expect(screen.getByText('Future beer')).toBeInTheDocument()
     await expect(repository.list()).resolves.toEqual([futureRecord])
     expect(
       screen.queryByRole('heading', { name: 'Driving safety' }),

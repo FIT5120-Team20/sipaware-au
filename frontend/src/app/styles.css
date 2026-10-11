@@ -41,7 +41,6 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  min-height: 100dvh;
   color: var(--colour-text);
   background:
     linear-gradient(180deg, #fbfcfb 0, var(--colour-background) 17rem);

@@ -220,13 +220,11 @@ describe('ManualDrinkPage', () => {
     fireEvent.popState(window)
     view.rerender(<ManualDrinkPage initialView="history" />)
     expect(screen.getByText('Pale Ale')).toBeInTheDocument()
-    fireEvent.click(document.querySelector('.history-calendar-day[data-date="2026-08-25"]')!)
     expect(screen.getByText('Existing Shiraz')).toBeInTheDocument()
 
     view.unmount()
     render(<ManualDrinkPage initialView="history" />)
     expect(await screen.findByText('Pale Ale')).toBeInTheDocument()
-    fireEvent.click(document.querySelector('.history-calendar-day[data-date="2026-08-25"]')!)
     expect(screen.getByText('Existing Shiraz')).toBeInTheDocument()
   })
 

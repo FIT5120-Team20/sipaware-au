@@ -4,7 +4,7 @@ import { openCheckInDatabase, withDailyDataLock } from '../drinks/storage/dailyC
 import { readReminderPreference, saveReminderPreference } from './reminderPreference'
 import { suggestReminder, type ReminderSuggestion } from './reminderSuggestion'
 
-export function ReminderSuggestionPrompt({ onChooseTime, onSaved }: { onChooseTime: () => void; onSaved?: (time: string) => void }) {
+export function ReminderSuggestionPrompt({ onChooseTime }: { onChooseTime: () => void }) {
   const [suggestion, setSuggestion] = useState<ReminderSuggestion | null>(null)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
@@ -23,7 +23,6 @@ export function ReminderSuggestionPrompt({ onChooseTime, onSaved }: { onChooseTi
     if (!suggestion) return
     try {
       saveReminderPreference(suggestion.time)
-      onSaved?.(suggestion.time)
       setSuggestion(null)
       setMessage('Suggested time saved. Notifications are still off; background delivery is not available yet.')
     } catch { setError('The suggested time could not be saved. Your previous preference has not been changed.') }

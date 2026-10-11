@@ -33,7 +33,8 @@
 .reference-topic-advice svg,.reference-topic-disclaimer svg { margin-top:2px; flex-shrink:0; }
 .reference-topic-disclaimer { gap:10px; border-radius:12px; background:#f5f6f8; margin:12px 0 8px; }
 .reference-topic-disclaimer p { margin:0; font-size:16px; }
-/* History typography follows the reference; page spacing uses the shared shell. */
+/* Page-level spacing follows the reference; history uses its original named CSS. */
+.manual-drink-shell:has(.history-trends-page) { max-width:1200px; padding:0; }
 .history-trends-page p,.history-trends-page h2,.history-trends-page h3 { margin:0; }
 .history-trends-page .ht-section-title { font-family:'DM Serif Display',serif; font-weight:400; }
 .history-trends-page .ht-recorded-data-note { padding:20px 0 0; color:#647280; font-size:13px; line-height:1.6; display:grid; gap:6px; }

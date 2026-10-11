@@ -23,9 +23,6 @@ export interface ManualDrinkFormValues extends ReusableDrinkFormValues {
   time: string
 }
 
-export type ConsumptionDateTimeValues = Pick<ManualDrinkFormValues, 'date' | 'time'>
-export type ConsumptionDateTimeErrors = Partial<Record<keyof ConsumptionDateTimeValues, string>>
-
 export type ReusableDrinkField = keyof ReusableDrinkFormValues
 export type ManualDrinkField = keyof ManualDrinkFormValues
 

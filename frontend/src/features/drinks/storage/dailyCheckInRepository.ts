@@ -8,20 +8,29 @@ export class IndexedDbDailyCheckInRepository {
   constructor(private readonly openDatabase: SipAwareDatabaseProvider = openSipAwareDatabase,
     private readonly openCheckIns: CheckInDatabaseProvider = openCheckInDatabase) {}
 
-  /** Read explicit confirmations; legacy tracking metadata never defines History. */
-  async initialize(): Promise<DailyCheckInState> {
+  /** First use creates metadata only. It never invents alcohol-free days. */
+  async initialize(today = getCurrentLocalCalendarDateKey()): Promise<DailyCheckInState> {
+    if (!isCalendarDate(today)) throw new Error('A valid local date is required.')
     return withDailyDataLock(async () => {
       const records = await (await this.openDatabase()).getAll(DRINKING_RECORDS_STORE_NAME)
       const drinkDates = new Set(records.map(getRecordLocalCalendarDateKey))
       const db = await this.openCheckIns()
       const tx = db.transaction('daily_checkins', 'readwrite')
       void tx.done.catch(() => undefined)
-      // Reconcile records written by retained releases without creating or
-      // replacing confirmations, metadata, or personal drinking snapshots.
+      const existing = await tx.store.get('tracking-start')
+      if (!isDailyCheckIn(existing) || existing.kind !== 'tracking-start') {
+        const earliest = [today, ...drinkDates].filter(date => isCalendarDate(date) && date <= today).sort()[0]
+        await tx.store.put({ id: 'tracking-start', kind: 'tracking-start', date: earliest })
+      }
+      // Reconcile records written by a retained release, which cannot know
+      // about the separate check-in database or participate in the new lock.
       for (const date of drinkDates) await tx.store.delete(checkInId(date))
       const rows = (await tx.store.getAll()).filter(isDailyCheckIn)
       await tx.done
-      return { alcoholFreeDates: rows.filter(row => row.kind === 'alcohol-free').map(row => row.date) }
+      return {
+        startedOn: rows.find(row => row.kind === 'tracking-start')?.date ?? today,
+        alcoholFreeDates: rows.filter(row => row.kind === 'alcohol-free').map(row => row.date),
+      }
     })
   }
 
