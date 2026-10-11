@@ -1,3 +1,7 @@
+/** Home settings reuse ReferenceDialog. Local preferred time is independent of
+ * server delivery: saving a preference must never claim push has been enabled. */
+import { PushSettingsControl } from './PushSettingsControl'
+import { NotificationPermissionControl } from './NotificationPermissionControl'
 import { ReminderSuggestionPrompt } from './ReminderSuggestionPrompt'
 import { useState } from 'react'
 import { ReferenceDialog } from '../drinks/components/ReferenceDialog'
@@ -13,7 +17,6 @@ function SettingsDialog({ onClose }: { onClose: () => void }) {
   const [saved, setSaved] = useState(initial.time)
   const [error, setError] = useState(initial.failed ? 'Your saved time could not be read. You can try saving a new preference.' : '')
   const [message, setMessage] = useState('')
-  const permission = typeof Notification === 'undefined' ? 'unsupported' : Notification.permission
   function save(event: React.FormEvent) {
     event.preventDefault()
     setMessage('')
@@ -22,7 +25,7 @@ function SettingsDialog({ onClose }: { onClose: () => void }) {
       saveReminderPreference(time)
       setSaved(time)
       setError('')
-      setMessage('Preferred time saved. Notifications are not enabled.')
+      setMessage('Preferred time saved. Background reminder settings are unchanged.')
     } catch { setError('Your time could not be saved. Please try again.'); }
   }
   function clear() {
@@ -30,16 +33,13 @@ function SettingsDialog({ onClose }: { onClose: () => void }) {
     try {
       clearReminderPreference()
       setTime(''); setSaved(''); setError('')
-      setMessage('Saved time removed. Notifications remain off.')
+      setMessage('Saved time removed. Background reminder settings are unchanged.')
     } catch { setError('Your saved time could not be removed. Please try again.'); }
   }
   return <ReferenceDialog title="Recording reminder" onClose={onClose}>
     <div className="reminder-settings">
-      <p><strong>Notifications are off.</strong> Background reminders are not available in this version. Saving a time does not schedule a notification.</p>
-      {permission === 'unsupported' && <p>This browser does not support system notifications.</p>}
-      {permission === 'denied' && <p>Notifications are blocked for this site in your browser settings.</p>}
-      {permission === 'default' && <p>When reminders become available, we will explain notification access before asking for permission.</p>}
-      {permission === 'granted' && <p>Browser permission is granted, but reminder delivery is not connected yet.</p>}
+      <p>Saving a preferred time does not enable or change a background reminder. Use the background reminder controls to apply it.</p>
+      <NotificationPermissionControl />
       <form onSubmit={save} noValidate>
         <label htmlFor="reminder-time">Preferred daily reminder time</label>
         <input id="reminder-time" type="time" value={time} onChange={event => { setTime(event.target.value); setMessage('') }} />
@@ -53,6 +53,7 @@ function SettingsDialog({ onClose }: { onClose: () => void }) {
           <button type="button" onClick={onClose}>Close</button>
         </div>
       </form>
+      <PushSettingsControl time={time} />
     </div>
   </ReferenceDialog>
 }

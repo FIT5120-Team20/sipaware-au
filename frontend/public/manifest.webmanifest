@@ -1,0 +1,6 @@
+{
+  "name": "SipAware AU", "short_name": "SipAware",
+  "id": "./", "start_url": "./#todays-check-in", "scope": "./",
+  "display": "standalone", "background_color": "#ffffff", "theme_color": "#22544f",
+  "icons": [{"src": "reminder-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}]
+}

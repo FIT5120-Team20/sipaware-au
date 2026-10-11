@@ -1,3 +1,5 @@
+/** Local-history fixtures verify explicit preference acceptance only; the
+ * separate background activation requirement remains visible to the user. */
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, expect, it } from 'vitest'
@@ -23,5 +25,5 @@ it('acceptance saves preference but explicitly leaves notifications off',async()
  await setup()
  await userEvent.setup().click(screen.getByRole('button',{name:'Save suggested time 20:00'}))
  expect(readReminderPreference()?.time).toBe('20:00')
- expect(screen.getByRole('status')).toHaveTextContent('Notifications are still off')
+ expect(screen.getByRole('status')).toHaveTextContent('Open reminder settings')
 })
