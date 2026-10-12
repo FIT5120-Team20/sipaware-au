@@ -2,6 +2,9 @@
 import { useEffect, useSyncExternalStore } from 'react'
 import { disablePush, enablePush, PUSH_CHANGED, pushCapabilities, pushStatus, type PushStatus } from './pushClient'
 import { isReminderTime, readReminderPreference, saveReminderPreference, REMINDER_PREFERENCE_KEY } from './reminderPreference'
+import { formatReminderTime, type ReminderTimeFormat } from './formatReminderTime'
+
+export { formatReminderTime } from './formatReminderTime'
 
 type PendingOperation = 'enable' | 'disable' | 'time' | null
 type ReminderSupport = { available: boolean; permission: NotificationPermission | null; message: string }
@@ -125,23 +128,18 @@ export function useRecordingReminder() {
   return snapshot
 }
 
-export function formatReminderTime(time: string) {
-  if (!isReminderTime(time)) return ''
-  const [hour, minute] = time.split(':').map(Number)
-  return `${hour % 12 || 12}:${String(minute).padStart(2, '0')} ${hour >= 12 ? 'PM' : 'AM'}`
-}
 export function selectedReminderTime(snapshot = state) {
   if (snapshot.status?.enabled && isReminderTime(snapshot.status.time ?? '')) return snapshot.status.time!
   return snapshot.preferredTime || (isReminderTime(snapshot.status?.time ?? '') ? snapshot.status!.time! : '')
 }
-export function reminderPresentation(snapshot: RecordingReminderState) {
+export function reminderPresentation(snapshot: RecordingReminderState, timeFormat: ReminderTimeFormat = '12-hour') {
   const unavailable = { label: 'Unavailable', subtitle: 'Reminder status unavailable', ringing: false }
   if (snapshot.pending === 'enable') return { label: 'Setting up', subtitle: 'Setting up reminder', ringing: false }
   if (!snapshot.verified || !snapshot.status) return unavailable
   if (snapshot.status.needs_attention || (snapshot.status.enabled && (!snapshot.support.available || snapshot.support.permission !== 'granted'))) {
     return { label: 'Needs attention', subtitle: 'Reminder needs attention', ringing: false }
   }
-  if (snapshot.status.enabled) return { label: 'On', subtitle: `Daily at ${formatReminderTime(snapshot.status.time!)}`, ringing: true }
+  if (snapshot.status.enabled) return { label: 'On', subtitle: `Daily at ${formatReminderTime(snapshot.status.time!, timeFormat)}`, ringing: true }
   return { label: 'Off', subtitle: 'Set a time for your daily check-in', ringing: false }
 }
 

@@ -1,8 +1,9 @@
 /** Format the acknowledged appointment, never a prediction from an unsaved input.
  * Calendar arithmetic uses the saved timezone; DST days need not last 24 hours. */
 import type { PushStatus } from './pushClient'
+import { formatReminderTime, type ReminderTimeFormat } from './formatReminderTime'
 
-export function nextReminderLabel(status: PushStatus, now = new Date()): string {
+export function nextReminderLabel(status: PushStatus, now = new Date(), timeFormat: ReminderTimeFormat = '12-hour'): string {
   if (!status.enabled || status.needs_attention) return ''
   const unavailable = 'Next reminder could not be confirmed. Retry reminder status.'
   if (!status.next_due_at || !status.timezone) return unavailable
@@ -19,7 +20,11 @@ export function nextReminderLabel(status: PushStatus, now = new Date()): string 
     const day = calendar.format(due) === calendar.format(now) ? 'Today'
       : calendar.format(due) === tomorrowKey ? 'Tomorrow'
       : new Intl.DateTimeFormat('en-AU', { timeZone: status.timezone, day: 'numeric', month: 'short', year: 'numeric' }).format(due)
-    const time = new Intl.DateTimeFormat('en-AU', { timeZone: status.timezone, hour: 'numeric', minute: '2-digit', hour12: true }).format(due).toUpperCase()
+    const timeParts = new Intl.DateTimeFormat('en-AU', { timeZone: status.timezone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(due)
+    const hour = timeParts.find(p => p.type === 'hour')?.value ?? ''
+    const minute = timeParts.find(p => p.type === 'minute')?.value ?? ''
+    const time = formatReminderTime(`${hour}:${minute}`, timeFormat)
+    if (!time) return unavailable
     const zone = status.timezone === Intl.DateTimeFormat().resolvedOptions().timeZone ? '' : ` (${status.timezone})`
     return `Next reminder: ${day} at ${time}${zone}`
   } catch { return unavailable }
