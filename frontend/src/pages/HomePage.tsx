@@ -1,6 +1,6 @@
 import { HomeFooter } from '../components/HomeFooter'
 import { applicationHref } from '../app/entryPaths'
-import { reminderPresentation, useRecordingReminder } from '../features/reminders/recordingReminderState'
+import { homeReminderPresentation, useRecordingReminder } from '../features/reminders/recordingReminderState'
 import './homePage.css'
 
 function FiDrink() {
@@ -47,7 +47,7 @@ const features = [
   { title: 'Earn awards', subtitle: 'Celebrate your progress and milestones', icon: 'awards', path: '/awards' },
 ] as const
 
-function FeatureContent({ feature, reminder }: { feature: typeof features[number]; reminder: ReturnType<typeof reminderPresentation> }) {
+function FeatureContent({ feature, reminder }: { feature: typeof features[number]; reminder: ReturnType<typeof homeReminderPresentation> }) {
   const OriginalIcon = feature.icon === 'record' ? FiDrink : feature.icon === 'learn' ? FiBook : feature.icon === 'trends' ? FiTrend : null
   return <>
     <span className={'home-feature-icon home-feature-icon--' + (feature.icon === 'trends' ? 'trend' : feature.icon)} aria-hidden="true">
@@ -63,7 +63,7 @@ function FeatureContent({ feature, reminder }: { feature: typeof features[number
 }
 
 export function HomePage({ onNavigate }: { onNavigate?: (path: string) => void } = {}) {
-  const reminder = reminderPresentation(useRecordingReminder())
+  const reminder = homeReminderPresentation(useRecordingReminder())
   return <main className="reference-home home-page">
     <header className="home-hero">
       <img src={import.meta.env.BASE_URL + 'reference-ui/home-hero-lime.png'} alt="" width="1680" height="936" fetchPriority="high" />
