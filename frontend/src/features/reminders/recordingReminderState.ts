@@ -13,7 +13,9 @@ interface RecordingReminderState {
   preferredTime: string
   preferenceError: string
   error: string
-  service: 'checking' | 'available' | 'unavailable'
+  errorTarget: 'reminder' | 'time'
+  permissionIssue: boolean
+  service: 'unknown' | 'checking' | 'available' | 'unavailable'
   support: ReminderSupport
 }
 
@@ -34,8 +36,8 @@ function browserSupport(): ReminderSupport {
 }
 
 let state: RecordingReminderState = {
-  status: null, verified: false, checking: false, pending: null,
-  preferredTime: '', preferenceError: '', error: '', service: 'checking', support: browserSupport(),
+  status: null, verified: false, checking: true, pending: null,
+  preferredTime: '', preferenceError: '', error: '', errorTarget: 'reminder', permissionIssue: false, service: 'unknown', support: browserSupport(),
 }
 const listeners = new Set<() => void>()
 let generation = 0
@@ -61,7 +63,9 @@ export function refreshRecordingReminder(): Promise<void> {
   if (state.pending) return Promise.resolve()
   if (reading) return reading
   const current = generation
-  publish({ ...loadPreference(), support: browserSupport(), checking: true })
+  const support = browserSupport()
+  publish({ ...loadPreference(), support, checking: true,
+    permissionIssue: support.permission === 'denied' && state.permissionIssue })
   const request = pushStatus().then(result => {
     const status = validateStatus(result)
     if (current === generation) publish({ status, verified: true, checking: false })
@@ -144,7 +148,7 @@ export function reminderPresentation(snapshot: RecordingReminderState) {
 function begin(pending: PendingOperation) {
   generation++ // Late status reads cannot overwrite an acknowledged mutation.
   reading = null
-  publish({ pending, checking: false, error: '', support: browserSupport() })
+  publish({ pending, checking: false, error: '', errorTarget: pending === 'time' ? 'time' : 'reminder', support: browserSupport() })
 }
 function rememberTime(time: string) {
   try {
@@ -174,40 +178,67 @@ function confirmsTime(status: PushStatus | null, time: string) {
     && status.timezone === Intl.DateTimeFormat().resolvedOptions().timeZone
 }
 
+function activationFailure(error: unknown) {
+  if ((error instanceof DOMException && (error.name === 'TimeoutError' || error.name === 'AbortError'))
+    || (error instanceof TypeError && /fetch|network|load/i.test(error.message))) {
+    return "We couldn't reach the reminder service. Check your connection and try again."
+  }
+  if (error instanceof DOMException && error.name === 'QuotaExceededError') {
+    return "We couldn't save your reminder settings. Free up website storage on this device, then try again."
+  }
+  if (error instanceof DOMException && error.name === 'SecurityError') {
+    return "We couldn't set up your reminder. Check that notifications and website storage are allowed, then try again."
+  }
+  if (error instanceof Error && error.message === 'Background delivery is not configured yet.') {
+    return 'Recording reminders are temporarily unavailable. Please try again later.'
+  }
+  return error instanceof Error ? error.message : 'Your reminder could not be turned on. Check your connection and try again.'
+}
+
 export async function enableRecordingReminder(time: string): Promise<boolean> {
   if (state.pending) return false
-  if (!isReminderTime(time)) { publish({ error: 'Choose a reminder time first.' }); return false }
   const support = browserSupport()
-  if (!support.available || support.permission === 'denied') {
-    publish({ support, error: support.message }); return false
+  if (support.permission === 'denied') {
+    // Permission status has its own contextual presentation. Do not copy it
+    // into the operation error or erase a genuinely different failure.
+    publish({ support, permissionIssue: true }); return false
   }
-  if (!state.verified || state.service !== 'available') {
-    publish({ error: 'Reminder status or service is unavailable. Retry before turning on your reminder.' }); return false
+  if (!support.available) {
+    publish({ support, error: support.message, errorTarget: 'reminder' }); return false
+  }
+  if (!isReminderTime(time)) { publish({ error: 'Please choose a valid reminder time.', errorTarget: 'time' }); return false }
+  if (!state.verified) {
+    publish({ error: 'Reminder status is unavailable. Retry before turning on your reminder.', errorTarget: 'reminder' }); return false
   }
   begin('enable')
   let attempted = false
   try {
-    // Called directly by the switch gesture, before any service/network await.
+    // Called directly by the switch or setup confirmation, before any network await.
     const permission = support.permission === 'default' ? await Notification.requestPermission() : support.permission
-    publish({ support: browserSupport() })
+    publish({ support: browserSupport(), permissionIssue: permission === 'denied' })
     if (permission !== 'granted') {
-      publish({ error: permission === 'denied' ? browserSupport().message : 'Notifications were not allowed. Your reminder has not been turned on.' })
+      if (permission !== 'denied') publish({ error: 'Notifications were not allowed. Your reminder has not been turned on.' })
       return false
     }
     attempted = true
     const status = validateStatus(await enablePush(time))
-    publish({ status, verified: true })
     if (!status.enabled || status.needs_attention || status.time !== time || status.timezone !== Intl.DateTimeFormat().resolvedOptions().timeZone) {
       throw new Error('The requested schedule was not confirmed. Your current reminder setting has been kept.')
     }
+    publish({ status, verified: true, service: 'available' })
     rememberTime(time)
     return true
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Your reminder could not be turned on. Please try again.'
+    const support = browserSupport()
+    const denied = support.permission === 'denied'
+    publish({ support, permissionIssue: denied })
+    if (denied && ((!attempted && error instanceof DOMException && error.name === 'NotAllowedError')
+      || (error instanceof Error && error.message === 'Grant browser notification permission first.'))) return false
+    const message = activationFailure(error)
     if (attempted) {
       const status = await reconcileFailure(message)
       if (confirmsTime(status, time)) {
-        publish({ error: '' })
+        publish({ error: '', service: 'available' })
         rememberTime(time)
         return true
       }
@@ -238,9 +269,9 @@ export async function disableRecordingReminder(): Promise<boolean> {
 
 export async function updateRecordingReminderTime(time: string): Promise<boolean> {
   if (state.pending) return false
-  if (!isReminderTime(time)) { publish({ error: 'Choose a valid reminder time.' }); return false }
+  if (!isReminderTime(time)) { publish({ error: 'Please choose a valid reminder time.', errorTarget: 'time' }); return false }
   if (!state.verified || !state.status) {
-    publish({ error: 'Check your reminder status before changing its time. Your previous time has been kept.' }); return false
+    publish({ error: 'Check your reminder status before changing its time. Your previous time has been kept.', errorTarget: 'time' }); return false
   }
   if (!state.status.enabled) {
     publish({ error: '' })
@@ -248,20 +279,26 @@ export async function updateRecordingReminderTime(time: string): Promise<boolean
   }
   if (time === state.status.time) return true
   const support = browserSupport()
+  if (support.permission === 'denied') {
+    publish({ support, permissionIssue: true }); return false
+  }
   if (!support.available || support.permission !== 'granted') {
-    publish({ support, error: support.message || 'Allow notifications before updating your active reminder.' }); return false
+    publish({ support, error: support.message || 'Allow notifications before updating your active reminder.', errorTarget: 'time' }); return false
   }
   begin('time')
   try {
     const status = validateStatus(await enablePush(time))
-    publish({ status, verified: true })
     if (!status.enabled || status.needs_attention || status.time !== time || status.timezone !== Intl.DateTimeFormat().resolvedOptions().timeZone) {
       throw new Error('The new time was not confirmed. Your current reminder setting has been kept.')
     }
+    publish({ status, verified: true })
     rememberTime(time)
     return true
   } catch (error) {
-    const status = await reconcileFailure(error instanceof Error ? error.message : 'Your reminder time could not be changed. Please try again.')
+    const support = browserSupport()
+    publish({ support, permissionIssue: support.permission === 'denied' })
+    if (support.permission === 'denied' && error instanceof Error && error.message === 'Grant browser notification permission first.') return false
+    const status = await reconcileFailure(activationFailure(error))
     if (confirmsTime(status, time)) {
       publish({ error: '' })
       rememberTime(time)

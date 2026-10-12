@@ -46,6 +46,41 @@
 .recording-reminder-suggestion .secondary-button { margin-top: 16px; }
 .recording-reminder-settings .recording-reminder-retry { justify-self: start; }
 .recording-reminder-sheet-secondary { width: 100%; margin-top: 12px; }
+.recording-reminder-card p.recording-reminder-error { color: #9b3020; }
+.recording-reminder-card .recording-reminder-retry { margin-top: 12px; }
+.recording-reminder-permission { display: grid; gap: 12px; margin-top: 16px; padding: 14px; border: 1px solid #d8e3f2; border-radius: 12px; background: #f8fbff; }
+.recording-reminder-permission h3 { margin: 0; color: #1c1c1a; font: 500 18px/1.3 'Outfit', 'Segoe UI', sans-serif; }
+.recording-reminder-permission p { margin: 0; color: #647280; font-size: 16px; line-height: 1.5; }
+.reminder-setup-form .recording-reminder-permission { margin-top: 0; }
+.recording-reminder-loading { display: grid; gap: 16px; }
+.recording-reminder-loading-copy { color: #647280; font-size: 16px; }
+.recording-reminder-placeholder { display: grid; align-content: start; gap: 14px; min-height: 148px; }
+.recording-reminder-placeholder--time { min-height: 120px; }
+.recording-reminder-placeholder > span { display: block; height: 18px; width: 65%; max-width: 320px; border-radius: 6px; background: #f0f2f5; }
+.recording-reminder-placeholder > span:first-child { width: 45%; height: 24px; }
+.recording-reminder-placeholder > span:last-child { width: 35%; }
+
+/* Reuse the native dialog boundary with a centred layout for initial setup. */
+.reference-flow-dialog.reminder-setup-dialog { width: min(440px, calc(100vw - 32px)); max-width: none; max-height: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); margin: auto; border-radius: 24px; box-shadow: 0 12px 48px #0002; }
+.reference-flow-dialog.reminder-setup-dialog::backdrop { background: rgba(0, 0, 0, .45); }
+.reminder-setup-dialog .reference-sheet-handle { display: none; }
+.reminder-setup-dialog .reference-flow-dialog-body { padding: 24px; }
+.reminder-setup-dialog .reference-flow-dialog-body > h2 { margin-bottom: 12px; }
+.reminder-setup-dialog .reference-flow-dialog-body > p { margin: 0; color: #647280; }
+.reminder-setup-form { display: grid; gap: 12px; margin-top: 24px; }
+.reminder-setup-form label { color: #1c1c1a; font-size: 17px; font-weight: 500; }
+.reminder-setup-form input { box-sizing: border-box; width: 100%; min-height: 56px; padding: 12px 16px; border: 1px solid #d5dce3; border-radius: 12px; background: #f5f6f8; color: #1a5fcc; font: inherit; font-size: 18px; }
+.reminder-setup-form input[aria-invalid=true] { border-color: #9b3020; }
+.reminder-setup-dialog .reminder-setup-form p { margin: 0; font-size: 16px; line-height: 1.5; }
+.reminder-setup-form > p:not(.recording-reminder-error) { color: #647280; }
+.reminder-setup-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px; }
+.reminder-setup-dialog .reminder-setup-actions button { width: 100%; min-height: 56px; margin: 0; padding: 12px; font-size: 16px; }
+.reminder-setup-dialog :focus-visible { outline: 3px solid #1a5fcc; outline-offset: 3px; }
+.reminder-setup-dialog h2:focus { outline: none; }
+html:has(.reminder-setup-dialog[open]), body:has(.reminder-setup-dialog[open]) { overflow: hidden; }
+@media (max-width: 359px) {
+  .reminder-setup-actions { grid-template-columns: 1fr; }
+}
 @media (min-width: 768px) {
   .recording-reminder-card { padding: 22px; }
 }

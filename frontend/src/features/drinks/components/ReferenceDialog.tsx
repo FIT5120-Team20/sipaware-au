@@ -4,8 +4,8 @@
  */
 import { useEffect, useId, useRef, type ReactNode } from 'react'
 
-export function ReferenceDialog({ title, children, onClose, alert = false }: {
-  title: string; children: ReactNode; onClose: () => void; alert?: boolean
+export function ReferenceDialog({ title, children, onClose, alert = false, className = '', descriptionId }: {
+  title: string; children: ReactNode; onClose: () => void; alert?: boolean; className?: string; descriptionId?: string
 }) {
   const dialog = useRef<HTMLDialogElement>(null)
   const heading = useRef<HTMLHeadingElement>(null)
@@ -30,7 +30,7 @@ export function ReferenceDialog({ title, children, onClose, alert = false }: {
     }
   }, [])
 
-  return <dialog ref={dialog} className="reference-flow-dialog" aria-labelledby={id}
+  return <dialog ref={dialog} className={'reference-flow-dialog' + (className ? ' ' + className : '')} aria-labelledby={id} aria-describedby={descriptionId}
     role={alert ? 'alertdialog' : 'dialog'}
     onCancel={event => { event.preventDefault(); onClose() }}
     onClick={event => { if (event.target === event.currentTarget) onClose() }}>
