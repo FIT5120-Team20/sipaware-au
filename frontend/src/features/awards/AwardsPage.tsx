@@ -30,13 +30,16 @@ function MedalPreviews({ awards }: { awards: readonly AwardPresentation[] }) {
 }
 
 function GoalProgress({ award, compact = false }: { award: AwardPresentation; compact?: boolean }) {
-  if (award.status === 'earned' || award.goals.length === 0) return null
+  const goals = award.goals.length > 0 ? award.goals : compact ? [{
+    key: 'check-in-days', label: 'Check-ins', current: award.progress, target: award.target,
+  }] : []
+  if (award.status === 'earned' || goals.length === 0) return null
   return <ul className={`award-goals${compact ? ' award-goals--compact' : ''}`}>
-    {award.goals.map(goal => <li key={goal.key}>
-      <div>
-        <span>{compact && award.eligibility === 'monthly'
-          ? goal.key === 'alcohol-free-days' ? 'Alcohol-free' : 'Check-ins' : goal.label}</span>
-        <strong>{goal.current} / {goal.target}</strong>
+    {goals.map(goal => <li key={goal.key}>
+      <div className={compact && award.eligibility !== 'monthly' ? 'award-goal-count' : undefined}>
+        {(!compact || award.eligibility === 'monthly') && <span>{compact
+          ? goal.key === 'alcohol-free-days' ? 'Alcohol-free' : 'Check-ins' : goal.label}</span>}
+        <strong>{compact ? Math.min(goal.current, goal.target) : goal.current} / {goal.target}</strong>
       </div>
       <progress max={goal.target} value={Math.min(goal.current, goal.target)}
         aria-label={`${award.name}: ${goal.label}`} />
@@ -44,25 +47,20 @@ function GoalProgress({ award, compact = false }: { award: AwardPresentation; co
   </ul>
 }
 
-function AwardGrid({ awards, collection, openAward, showProgress = false, currentMonthly = false }: {
+function AwardGrid({ awards, collection, openAward }: {
   awards: readonly AwardPresentation[]; collection: Exclude<AwardsCollectionView, null>
-  openAward: (id: AwardId) => void; showProgress?: boolean; currentMonthly?: boolean
+  openAward: (id: AwardId) => void
 }) {
   return <ul className={`award-collection-grid${collection === 'getting-started' ? ' award-collection-grid--getting-started' : ''}`}>
     {awards.map(award => <li key={award.id}>
       <a className="award-collection-item" href={awardsViewHref(collection, award.id)}
-        aria-label={`View ${award.name}: ${showProgress || currentMonthly ? compactAwardProgress(award) : awardStatusLabel(award)}`}
+        aria-label={`View ${award.name}: ${awardStatusLabel(award)}`}
         onClick={event => followLink(event, () => openAward(award.id))}>
         <AwardMedal award={award} decorative />
         <span className="award-item-name">{award.name}</span>
-        {showProgress ? <>
-          <GoalProgress award={award} compact />
-          {award.eligibility === 'trends-visit' && award.progress >= award.target &&
-            <span className="award-item-status">Ready — open Trends</span>}
-          {award.goals.length === 0 && <span className="award-item-status">{compactAwardProgress(award)}</span>}
-        </> : <span className={`award-item-status${award.status === 'earned' ? ' award-item-status--earned' : ''}`}>
-          {currentMonthly ? compactAwardProgress(award) : awardStatusLabel(award)}
-        </span>}
+        {award.status === 'earned'
+          ? <span className="award-item-status award-item-status--earned">{awardStatusLabel(award)}</span>
+          : <GoalProgress award={award} compact />}
       </a>
     </li>)}
   </ul>
@@ -217,20 +215,18 @@ export function AwardsPage({ load = loadAwardOverview }: { load?: () => Promise<
       : <div className="awards-unavailable"><h1>Award not available</h1><p>This award isn't in your current collection.</p></div>
       : keepGoing ? <div className="awards-collection-content">
         {overview.keepGoing.length > 0
-          ? <AwardGrid awards={overview.keepGoing} collection="keep-going" showProgress openAward={id => open('keep-going', id)} />
+          ? <AwardGrid awards={overview.keepGoing} collection="keep-going" openAward={id => open('keep-going', id)} />
           : <p className="awards-empty">No awards in progress. Explore your collection or record your next check-in.</p>}
       </div> : category ? <div className="awards-collection-content">
         {category.id === 'challenges' ? <>
           <section aria-labelledby="award-current-month-title">
             <h2 id="award-current-month-title">Current Monthly Challenge</h2>
-            <AwardGrid awards={[overview.currentMonthlyAward]} collection="challenges" currentMonthly openAward={id => open('challenges', id)} />
+            <AwardGrid awards={[overview.currentMonthlyAward]} collection="challenges" openAward={id => open('challenges', id)} />
           </section>
-          <section aria-labelledby="awards-earned-title">
+          {earnedChallenges.length > 0 && <section aria-labelledby="awards-earned-title">
             <h2 id="awards-earned-title">Awards Earned</h2>
-            {earnedChallenges.length > 0
-              ? <AwardGrid awards={earnedChallenges} collection="challenges" openAward={id => open('challenges', id)} />
-              : <p className="awards-empty">Your earned challenge medals will appear here.</p>}
-          </section>
+            <AwardGrid awards={earnedChallenges} collection="challenges" openAward={id => open('challenges', id)} />
+          </section>}
         </> : <AwardGrid awards={overview.categories[category.id]} collection={category.id} openAward={id => open(category.id, id)} />}
       </div> : <AwardsHome overview={overview} open={open} />)}
   </main>

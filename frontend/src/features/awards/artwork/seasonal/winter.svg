@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <title>Australian winter: cool blue mountains and restrained pine silhouettes</title>
+  <defs>
+    <clipPath id="disc"><circle cx="50" cy="50" r="48"/></clipPath>
+    <linearGradient id="sky" x2=".4" y2="1"><stop stop-color="#61a7ee"/><stop offset=".7" stop-color="#d8e6ff"/><stop offset="1" stop-color="#eaf2ff"/></linearGradient>
+    <linearGradient id="sun" x2=".3" y2="1"><stop stop-color="#fff2cb"/><stop offset="1" stop-color="#d8e8f5"/></linearGradient>
+    <linearGradient id="ridge" x2="1" y2="1"><stop stop-color="#8ea8e8"/><stop offset="1" stop-color="#4d8dcc"/></linearGradient>
+    <linearGradient id="foreground" x2=".4" y2="1"><stop stop-color="#5b9bda"/><stop offset="1" stop-color="#2465a4"/></linearGradient>
+    <linearGradient id="edge" x2=".6" y2="1"><stop stop-color="#92c8ff"/><stop offset="1" stop-color="#5a97d9"/></linearGradient>
+  </defs>
+  <g clip-path="url(#disc)">
+    <path d="M0 0h100v100H0Z" fill="url(#sky)"/>
+    <circle cx="68" cy="24" r="10" fill="url(#sun)"/>
+    <path d="M-4 44c3-12 10-17 18-12 7-13 23-11 28 2 9-2 14 3 17 10Z" fill="#f8faff" opacity=".65"/>
+    <path d="M68 55c3-7 9-12 14-10 5-10 16-8 19 2l4 14H66Z" fill="#fafcff" opacity=".68"/>
+    <path d="M-4 58 18 41l18 18 22 18 18-11 10-15 18 14v39H-4Z" fill="url(#ridge)"/>
+    <path d="m-4 57 22-16 17 17-15-5-4-5-6 6Z" fill="#f4f7fc"/>
+    <path d="m75 66 11-15 15 12-11-3-5-4-1 8Z" fill="#eef6ff"/>
+    <path d="M-4 65 15 59c13 12 19 14 30 17l20 8 18-7 21-8v39H-4Z" fill="#a7bfe9"/>
+    <path d="M-4 78c18-8 33 5 48 10 21 8 35-10 60-10v25H-4Z" fill="url(#foreground)"/>
+    <path d="M23 81c18 0 25 15 49 17l15 5H54C37 95 22 95 23 81Z" fill="#c4dcf3"/>
+    <g fill="#24598d">
+      <path d="m9 52-6 11h3l-6 10h5L0 84h17l-5-11h5l-6-10h3Zm1 28h2v11h-2Z"/>
+      <path d="m21 62-6 10h3l-6 11h5l-5 11h19l-6-11h5l-7-11h4Zm-1 29h3v9h-3Z"/>
+      <path d="m91 63-6 10h3l-7 11h5l-6 11h20l-5-11h5l-7-11h4Zm-1 28h3v9h-3Z"/>
+    </g>
+    <path d="m33 78-4 8h2l-5 8h4l-4 8h14l-4-8h3l-5-8h3Z" fill="#3175ae"/>
+    <path d="m81 69-4 8h2l-5 8h4l-4 8h14l-4-8h3l-5-8h3Z" fill="#2b6aa0"/>
+  </g>
+  <circle cx="50" cy="50" r="48" fill="none" stroke="url(#edge)" stroke-width="1.2"/>
+  <path d="M5 37A47 47 0 0 1 76 10" fill="none" stroke="#fff" stroke-width=".65" opacity=".55"/>
+</svg>
