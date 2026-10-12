@@ -22,7 +22,7 @@
 .awards-collection-content section + section { margin-top:28px; }
 
 /* Source images can replace the SVG without changing its proportions. */
-.award-medal { display:block; width:112px; max-width:100%; aspect-ratio:128/144; flex-shrink:0; }
+.award-medal { display:block; width:112px; max-width:100%; aspect-ratio:1; flex-shrink:0; }
 .award-medal svg, .award-medal img { display:block; width:100%; height:100%; object-fit:contain; }
 .award-medal svg text { font-family:'Outfit','Segoe UI',sans-serif; }
 .award-medal--preview { width:44px; }
@@ -63,17 +63,25 @@
 .award-category-card:not(.award-category-card--consistency) .award-medal-previews .award-medal + .award-medal { margin-left:-11px; }
 .award-category-card:not(.award-category-card--consistency) .award-view-all { font-size:13px; gap:1px; }
 
-/* Collections stay compact; only Keep going adds restrained goal indicators. */
+/* Collections share compact progress indicators; full conditions stay in details. */
 .award-collection-grid { list-style:none; margin:0; padding:0; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px 12px; align-items:start; }
 .award-collection-grid > li { min-width:0; }
 .award-collection-item { display:flex; flex-direction:column; align-items:center; gap:8px; min-height:44px; padding:10px 2px; border-radius:14px; text-align:center; text-decoration:none; color:#1c1c1a; }
 .award-collection-item .award-medal { width:100px; }
-.award-item-name { font-size:14px; font-weight:600; line-height:1.35; overflow-wrap:break-word; }
+.award-item-name { min-block-size:2.7em; font-size:14px; font-weight:600; line-height:1.35; overflow-wrap:break-word; }
 .award-item-status { font-size:13px; line-height:1.4; color:#647280; }
 .award-item-status--earned { color:#357360; }
 .award-keep-going-card:hover, .award-category-card:hover { border-color:#b8cae5; }
 .award-collection-item:hover { background:#f8fafc; }
 .award-keep-going-card:focus-visible, .award-category-card:focus-visible, .award-collection-item:focus-visible { outline:2px solid #1a5fcc; outline-offset:3px; }
+
+/* Share artwork, name and progress tracks across each collection row. */
+@supports (grid-template-rows:subgrid) {
+  .award-collection-grid { align-items:stretch; }
+  .award-collection-grid > li { display:grid; grid-template-rows:subgrid; grid-row:span 3; }
+  .award-collection-item { display:grid; grid-template-rows:subgrid; grid-row:span 3; justify-items:center; align-items:start; }
+  .award-collection-item > .award-item-name { min-block-size:0; width:100%; }
+}
 
 .award-goals { width:100%; list-style:none; padding:0; margin:0; display:grid; gap:18px; text-align:left; }
 .award-goals li > div { display:flex; flex-wrap:wrap; justify-content:space-between; gap:4px 8px; margin-bottom:8px; font-size:15px; line-height:1.35; }
@@ -84,6 +92,7 @@
 .award-goals progress::-moz-progress-bar { background:#5985ce; border-radius:99px; }
 .award-goals--compact { max-width:144px; gap:10px; }
 .award-goals--compact li > div { font-size:12px; margin-bottom:5px; }
+.award-goals--compact .award-goal-count { justify-content:center; }
 .award-goals--compact progress { height:4px; }
 
 /* A dedicated detail view with open space, rather than a modal or boxed form. */
@@ -98,19 +107,57 @@
 .award-detail .award-goals { max-width:360px; margin:12px 0 4px; }
 .award-detail-trends { display:flex; align-items:center; justify-content:center; min-height:44px; text-decoration:none; padding:10px 24px; border:1px solid #b7cef1; margin-top:8px; }
 
-/* Non-blocking feedback stays above the existing bottom navigation. */
+/* Native celebrations block the whole app, including its fixed navigation. */
+html:has(.award-celebration-dialog[open]), body:has(.award-celebration-dialog[open]) { overflow:hidden; }
+.award-celebration-dialog { width:min(560px,calc(100vw - 32px)); max-width:none; max-height:calc(100vh - 32px); max-height:calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); margin:auto; padding:0; border:1px solid transparent; border-radius:24px; background:transparent; color:#1c1c1a; box-shadow:0 12px 40px #0000; overflow:hidden; transition:background-color 1200ms ease-in-out,border-color 1200ms ease-in-out,box-shadow 1200ms ease-in-out; }
+.award-celebration-dialog[open] { display:flex; flex-direction:column; }
+.award-celebration-dialog:focus { outline:none; }
+.award-celebration-dialog--revealed { background:#fff; border-color:#e8e4df; box-shadow:0 12px 40px #0002; }
+.award-celebration-dialog::backdrop { background:rgba(0,0,0,.4); animation:award-celebration-fade 600ms ease-out both; }
+.award-celebration-content { min-height:0; overflow-y:auto; padding:28px 24px 20px; text-align:center; scrollbar-width:thin; scrollbar-color:transparent transparent; }
+.award-celebration-dialog--revealed .award-celebration-content { scrollbar-color:#c8c4be transparent; }
+.award-celebration-content::-webkit-scrollbar { width:6px; background:transparent; }
+.award-celebration-content::-webkit-scrollbar-thumb { background:transparent; border-radius:99px; }
+.award-celebration-dialog--revealed .award-celebration-content::-webkit-scrollbar-thumb { background:#c8c4be; }
+#root .reference-app .award-celebration-dialog h2 { margin:0 0 20px; font:400 30px/1.25 'DM Serif Display',Georgia,serif; }
+.award-celebration-artwork { display:flex; justify-content:center; margin-bottom:20px; }
+.award-celebration-artwork .award-medal { width:min(240px,60vw); }
+.award-celebration-artwork, .award-celebration-grid { animation:award-celebration-badge 2600ms ease-in-out both; }
+.award-celebration-dialog--revealed .award-celebration-artwork, .award-celebration-dialog--revealed .award-celebration-grid { animation:none; }
+/* Reserve the final layout so the artwork stays still while the surrounding UI appears. */
+.award-celebration-content > h2, .award-celebration-copy, .award-celebration-actions,
+.award-celebration-choice > span:last-child { opacity:0; visibility:hidden; transition:opacity 1200ms ease-in-out; }
+.award-celebration-dialog--revealed :is(.award-celebration-content > h2,.award-celebration-copy,.award-celebration-actions,.award-celebration-choice > span:last-child) { opacity:1; visibility:visible; }
+#root .reference-app .award-celebration-copy h3 { margin:0 0 10px; font:600 22px/1.35 'Outfit',sans-serif; overflow-wrap:break-word; }
+#root .reference-app .award-celebration-copy p { margin:0; font-size:17px; line-height:1.5; color:#56524f; }
+#root .reference-app .award-celebration-copy p + p { margin-top:10px; }
+.award-celebration-choices { min-width:0; margin:0 0 20px; padding:0; border:0; }
+.award-celebration-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.award-celebration-choice { position:relative; display:flex; flex-direction:column; align-items:center; gap:10px; min-width:0; padding:12px 8px; border:2px solid transparent; border-radius:16px; cursor:pointer; }
+.award-celebration-choice { transition:background-color 1200ms ease-in-out,border-color 1200ms ease-in-out; }
+.award-celebration-dialog--revealed .award-celebration-choice:has(input:checked) { border-color:#b7cef1; background:#f6f9ff; }
+.award-celebration-choices:disabled .award-celebration-choice { cursor:default; }
+.award-celebration-choice:has(input:focus-visible) { outline:3px solid #bf6900; outline-offset:2px; }
+.award-celebration-choice .award-medal { width:128px; }
+.award-celebration-choice > span:last-child { font-size:16px; line-height:1.35; font-weight:600; overflow-wrap:break-word; }
+.award-celebration-choice input, .award-celebration-sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; border:0; }
+.award-celebration-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); flex-shrink:0; gap:12px; padding:16px 24px 24px; background:#fff; }
+#root .reference-app .award-celebration-actions button { min-height:52px; padding:10px 12px; border:1px solid #b7cef1; border-radius:12px; background:#fff; color:#1a5fcc; font-size:17px; font-weight:600; line-height:1.35; cursor:pointer; }
+#root .reference-app .award-celebration-actions .award-celebration-primary { background:#1a5fcc; border-color:#1a5fcc; color:#fff; }
+@keyframes award-celebration-fade { from { opacity:0; } to { opacity:1; } }
+@keyframes award-celebration-badge { from { opacity:0; transform:scale(.9); } to { opacity:1; transform:scale(1); } }
+@media (prefers-reduced-motion:reduce) {
+  .award-celebration-dialog::backdrop,
+  .award-celebration-artwork, .award-celebration-grid { animation:none; }
+  .award-celebration-dialog, .award-celebration-content > h2, .award-celebration-copy,
+  .award-celebration-actions, .award-celebration-choice, .award-celebration-choice > span:last-child { transition:none; }
+}
+
+/* Recovery and ordinary feedback stay non-blocking above the bottom navigation. */
 .award-live-feedback { position:fixed; z-index:30; right:16px; bottom:calc(90px + env(safe-area-inset-bottom)); width:min(390px,calc(100vw - 32px)); }
 .award-live-feedback-card { position:relative; padding:20px 16px 16px; border:1px solid #c6d7ed; border-radius:18px; background:#f6faff; color:#1c1c1a; box-shadow:0 4px 20px #0002; max-height:calc(100dvh - 130px - env(safe-area-inset-bottom)); overflow-y:auto; }
-.award-live-feedback-card--special { background:#fcf8ff; border-color:#dacbec; }
 .award-live-feedback-card--error { background:#fff8ec; border-color:#c7a66a; color:#6b4917; }
 .award-notice-dismiss { position:absolute; top:0; right:0; display:grid; place-items:center; width:44px; height:44px; border:0; background:transparent; color:#647280; font-size:24px; cursor:pointer; border-radius:12px; }
-.award-notice-content { display:flex; align-items:center; gap:12px; padding-right:20px; }
-.award-notice-copy { min-width:0; flex:1; }
-.award-live-feedback-card .award-notice-title { margin:0 0 4px; font-size:14px; color:#1a5fcc; font-weight:600; }
-.award-live-feedback-card--special .award-notice-title { color:#765399; }
-.award-notice-copy > strong { display:block; font-size:18px; font-weight:600; line-height:1.35; }
-.award-live-feedback-card .award-notice-description { font-size:14px; line-height:1.45; margin:8px 0 0; color:#56524f; }
-.award-notice-position { display:block; color:#647280; font-size:12px; margin-top:8px; }
 .award-notice-message { margin:14px 20px 16px 0; }
 .award-notice-actions { display:flex; align-items:center; gap:12px; margin-top:16px; }
 .award-notice-actions > a, .award-notice-actions > button { display:flex; align-items:center; justify-content:center; flex:1; min-height:44px; padding:8px 12px; font-size:15px; font-weight:600; text-decoration:none; border:1px solid #b7cef1; border-radius:10px; background:#fff; color:#1a5fcc; cursor:pointer; }
@@ -203,8 +250,6 @@
   #root .reference-app .award-detail p { font-size:18px; line-height:1.5; }
   #root .reference-app .award-detail .award-detail-status, #root .reference-app .award-detail .award-detail-note { font-size:16px; }
   #root .reference-app .awards-empty { font-size:16px; }
-  #root .reference-app .award-live-feedback-card .award-notice-title { font-size:16px; }
-  #root .reference-app .award-live-feedback-card .award-notice-description,
   #root .reference-app .award-live-feedback-card .award-notice-message { font-size:16px; line-height:1.5; }
   #root .reference-app .award-live-feedback-card .award-notice-actions > * { font-size:16px; }
   #root .reference-app .award-live-feedback-card .award-notice-dismiss { font-size:24px; }

@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <title>Australian summer: turquoise ocean and pale sand</title>
+  <defs>
+    <clipPath id="disc"><circle cx="50" cy="50" r="48"/></clipPath>
+    <linearGradient id="sky" x2=".2" y2="1">
+      <stop stop-color="#36b9e5"/><stop offset=".55" stop-color="#b7edf0"/><stop offset="1" stop-color="#fff4d2"/>
+    </linearGradient>
+    <linearGradient id="sea" x2=".5" y2="1"><stop stop-color="#0f9fd0"/><stop offset="1" stop-color="#8ee7e4"/></linearGradient>
+    <linearGradient id="sand" x2=".5" y2="1"><stop stop-color="#fff2ce"/><stop offset="1" stop-color="#f8d295"/></linearGradient>
+    <linearGradient id="palm" x2="1" y2="1"><stop stop-color="#167b76"/><stop offset="1" stop-color="#9dc86d"/></linearGradient>
+    <linearGradient id="edge" x2=".6" y2="1"><stop stop-color="#a9f0fc"/><stop offset=".6" stop-color="#80ccde"/><stop offset="1" stop-color="#edc28f"/></linearGradient>
+  </defs>
+  <g clip-path="url(#disc)">
+    <path d="M0 0h100v100H0Z" fill="url(#sky)"/>
+    <circle cx="73" cy="27" r="10" fill="#fff0ae"/>
+    <path d="M60 63c2-8 8-11 15-10 0-11 10-17 23-16l7 31H60Z" fill="#fffce8" opacity=".7"/>
+    <path d="M0 56c12 1 17 5 22 8 18 3 48 2 78 0v36H0Z" fill="url(#sand)"/>
+    <path d="M24 66c21 3 48 3 76 0v34H65c-4-10-22-12-17-19 4-7-22-6-25-10-2-2 0-4 1-5Z" fill="url(#sea)"/>
+    <path d="M100 71c-28 0-44 4-70-2 15 5 23 5 42 4l28 2Z" fill="#a6f0e8" opacity=".75"/>
+    <path d="M45 77c14 3 22 4 33 3l22-1v4c-25-2-30 4-43 1-3-3-7-5-12-7Z" fill="#149bbd" opacity=".5"/>
+    <path d="M24 66c-10 5-8 8 6 12 12 3 23 4 17 10-3 4 12 6 20 9" fill="none" stroke="#fff9df" stroke-width="3.6" stroke-linecap="round"/>
+    <path d="M1 22c21-24 38-13 42 1l-4-2-2-6 1 6-5-3-4-6 2 5-7-3-4-6 2 5C13 12 6 17 1 22Z" fill="url(#palm)"/>
+    <path d="M0 21c20-8 38 3 35 19l-4-3-1-7-1 5-5-5-1-7-1 5-4-3-2-6 0 5-7-3C4 20 2 22 0 24Z" fill="url(#palm)"/>
+    <path d="M4 20c13 7 15 22 8 30l-2-6 1-5-3 3-3-6 2-5-3 2-1-6C2 24 2 22 4 20Z" fill="url(#palm)"/>
+    <path d="M-1 25c9-8 20-9 32-4" fill="none" stroke="#c6efd3" stroke-width=".7" opacity=".7"/>
+  </g>
+  <circle cx="50" cy="50" r="48" fill="none" stroke="url(#edge)" stroke-width="1.2"/>
+  <path d="M5 37A47 47 0 0 1 76 10" fill="none" stroke="#fff" stroke-width=".65" opacity=".55"/>
+</svg>

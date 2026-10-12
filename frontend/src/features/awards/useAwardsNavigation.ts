@@ -27,6 +27,19 @@ export function awardsViewHref(collection: AwardsCollectionView, awardId?: Award
   return applicationHref('/awards' + hash)
 }
 
+/** App-level celebrations use the same detail URLs and committed navigation policy. */
+export function openAwardDetail(category: AwardCategory, awardId: AwardId): void {
+  prepareNavigationScroll()
+  const nextHref = awardsViewHref(category, awardId)
+  if (nextHref !== currentHref()) {
+    const entry = { key: newKey(), parentHref: currentHref() }
+    window.history.pushState({ sipawareAwards: entry }, '', nextHref)
+    // Synchronise both the app route and a possibly mounted Awards collection.
+    window.dispatchEvent(new PopStateEvent('popstate'))
+  }
+  requestNavigationScroll({ kind: 'top' })
+}
+
 /** Hash destinations keep Awards active in the existing app router. */
 export function useAwardsNavigation(root: RefObject<HTMLElement | null>) {
   const [view, setView] = useState<AwardsView>(readView)
