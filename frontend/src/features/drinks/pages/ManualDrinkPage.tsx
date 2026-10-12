@@ -6,7 +6,7 @@
  * repositories. Keeping persistence here prevents UI controls from depending
  * directly on IndexedDB and keeps SavedDrink and DrinkingRecord state separate.
  */
-import { updateAwardsAfterCheckIn } from '../../awards/awardFeedbackEvents'
+import { updateAwardsAfterCheckIn, updateAwardsForTrendsVisit } from '../../awards/awardFeedbackEvents'
 import { applicationHref, applicationPath, RECORD_HOME_EVENT } from '../../../app/entryPaths'
 import { prepareNavigationScroll, requestNavigationScroll } from '../../../app/navigationScroll'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -194,8 +194,9 @@ export function ManualDrinkPage({ initialView = 'record' }: { initialView?: 'rec
     requestNavigationScroll({ kind: 'top' })
   }
   async function confirmAlcoholFree(date: string) {
-    await checkInRepository.confirmAlcoholFree(date)
-    await updateAwardsAfterCheckIn()
+    const confirmation = await checkInRepository.confirmAlcoholFree(date)
+    await updateAwardsAfterCheckIn(confirmation.created
+      ? { type: 'created-check-in', checkIn: confirmation.checkIn } : { type: 'refresh' })
     if (isMounted.current) {
       setCheckIns(current => ({ ...current, alcoholFreeDates: [...new Set([...current.alcoholFreeDates, date])] }))
       showHistory(date)
@@ -203,7 +204,10 @@ export function ManualDrinkPage({ initialView = 'record' }: { initialView?: 'rec
   }
   function continueToHistory() {
     // A backfilled drink belongs to its consumed date, not today's page.
-    if (lastRecord) showHistory(getRecordLocalCalendarDateKey(lastRecord), lastRecord, templateFailed)
+    if (lastRecord) {
+      updateAwardsForTrendsVisit()
+      showHistory(getRecordLocalCalendarDateKey(lastRecord), lastRecord, templateFailed)
+    }
   }
   function returnToBrowse(preserveSelection = false) {
     prepareNavigationScroll()
@@ -362,7 +366,9 @@ export function ManualDrinkPage({ initialView = 'record' }: { initialView?: 'rec
       setRecords(persistedRecords)
       setCheckIns(current => ({ ...current, alcoholFreeDates: current.alcoholFreeDates.filter(date => date !== getRecordLocalCalendarDateKey(record)) }))
     }
-    await updateAwardsAfterCheckIn()
+    const createdRecord = persistedRecords.find(saved => saved.id === record.id)
+    await updateAwardsAfterCheckIn(createdRecord
+      ? { type: 'created-check-in', checkIn: createdRecord } : { type: 'refresh' })
   }
 
   async function updateRecord(record: DrinkingRecord): Promise<void> {
@@ -457,7 +463,10 @@ export function ManualDrinkPage({ initialView = 'record' }: { initialView?: 'rec
           ) : recordFlow.step === 'check-in' ? <DailyCheckIn dateTime={recordFlow.dateTime}
             onDateTimeChange={updateRecordDateTime}
             hasDrinks={records.some(record => getRecordLocalCalendarDateKey(record) === recordFlow.dateTime.date)}
-            onViewRecords={date => showHistory(date, undefined, false, false, true)}
+            onViewRecords={date => {
+              updateAwardsForTrendsVisit()
+              showHistory(date, undefined, false, false, true)
+            }}
             onNoAlcohol={confirmAlcoholFree} onDrink={startDrinking} /> : <>
             <ManualDrinkForm
             key={`${recordFlow.dateTime.date}T${recordFlow.dateTime.time}`}

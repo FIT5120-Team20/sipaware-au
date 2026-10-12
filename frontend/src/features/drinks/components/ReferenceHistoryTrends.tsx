@@ -4,7 +4,7 @@
  * offsets and full-precision calculation are preserved. Reference thresholds
  * use the same validated API across History, Trends and Report.
  */
-import { updateAwardsAfterCheckIn } from '../../awards/awardFeedbackEvents'
+import { updateAwardsForTrendsVisit } from '../../awards/awardFeedbackEvents'
 import { downloadDrinkingReportPdf } from '../utils/drinkingReportPdf'
 import { applicationHref } from '../../../app/entryPaths'
 import { captureNavigationScroll, prepareNavigationScroll, requestNavigationScroll, type NavigationScrollPosition } from '../../../app/navigationScroll'
@@ -346,6 +346,7 @@ export function ReferenceHistoryTrends({ records, initialRecordId, referenceCate
   if (activeTab === tab) return
   prepareNavigationScroll()
   window.history.pushState({ ...window.history.state }, '', applicationHref('/trends#' + tab))
+  updateAwardsForTrendsVisit()
   window.dispatchEvent(new PopStateEvent('popstate'))
   requestNavigationScroll({ kind: 'top' })
  }
@@ -372,9 +373,6 @@ export function ReferenceHistoryTrends({ records, initialRecordId, referenceCate
   window.addEventListener('hashchange', restore); window.addEventListener('popstate', restore)
   return () => { window.removeEventListener('hashchange', restore); window.removeEventListener('popstate', restore) }
  }, [])
- useEffect(() => {
-  if (activeTab === 'overview' && !editingId) void updateAwardsAfterCheckIn({ viewedTrends: true })
- }, [activeTab, editingId, records, checkInHistory.alcoholFreeDates, todayKey])
  const eligible = useMemo(() => views.filter(record => record.date <= todayKey), [views, todayKey])
  const editingRecord = records.find(record => record.id === editingId)
  const daily = guidelineStatus === 'loaded' ? guidelines?.guidelines.find(g => g.guidelineType === 'DAILY')?.thresholdStandardDrinks ?? null : null

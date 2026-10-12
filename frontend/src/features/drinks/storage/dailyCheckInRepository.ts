@@ -1,8 +1,14 @@
 /** Device-only day confirmations; actual drink snapshots always take precedence. */
 import { DRINKING_RECORDS_STORE_NAME, openSipAwareDatabase, type SipAwareDatabaseProvider } from './indexedDb'
 import { openCheckInDatabase, withDailyDataLock, type CheckInDatabaseProvider } from './dailyCheckInDatabase'
-import { checkInId, isCalendarDate, isDailyCheckIn, type DailyCheckInState } from '../types/dailyCheckIn'
+import { checkInId, isCalendarDate, isDailyCheckIn, type DailyCheckInState, type AlcoholFreeCheckIn } from '../types/dailyCheckIn'
+import { captureCheckInCreation } from '../types/checkInCreation'
 import { getCurrentLocalCalendarDateKey, getRecordLocalCalendarDateKey } from '../utils/localCalendarDate'
+
+export interface AlcoholFreeConfirmationResult {
+  created: boolean
+  checkIn: AlcoholFreeCheckIn
+}
 
 export class IndexedDbDailyCheckInRepository {
   constructor(private readonly openDatabase: SipAwareDatabaseProvider = openSipAwareDatabase,
@@ -25,7 +31,7 @@ export class IndexedDbDailyCheckInRepository {
     })
   }
 
-  async confirmAlcoholFree(date: string): Promise<void> {
+  async confirmAlcoholFree(date: string): Promise<AlcoholFreeConfirmationResult> {
     if (!isCalendarDate(date) || date > getCurrentLocalCalendarDateKey()) throw new Error('Choose today or a valid past date.')
     return withDailyDataLock(async () => {
       const original = await this.openDatabase()
@@ -37,11 +43,20 @@ export class IndexedDbDailyCheckInRepository {
       const tx = db.transaction('daily_checkins', 'readwrite')
       void tx.done.catch(() => undefined)
       // Idempotent key preserves the original confirmation time on retries.
-      if (!isDailyCheckIn(await tx.store.get(checkInId(date)))) {
-        await tx.store.put({ id: checkInId(date), kind: 'alcohol-free', date, confirmedAt: new Date().toISOString() })
+      const existing = await tx.store.get(checkInId(date))
+      const created = !isDailyCheckIn(existing) || existing.kind !== 'alcohol-free'
+      let checkIn: AlcoholFreeCheckIn
+      if (isDailyCheckIn(existing) && existing.kind === 'alcohol-free') {
+        checkIn = existing
+      } else {
+        const creation = captureCheckInCreation()
+        checkIn = { id: checkInId(date), kind: 'alcohol-free', date, confirmedAt: creation.createdAt, awardCreationPending: true,
+          createdLocalDate: creation.createdLocalDate, createdTimezoneOffsetMinutes: creation.createdTimezoneOffsetMinutes }
+        await tx.store.put(checkIn)
       }
       await tx.done
       if (await hasDrinks()) { await db.delete('daily_checkins', checkInId(date)); throw conflict() }
+      return { created, checkIn }
     })
   }
 }

@@ -12,6 +12,8 @@ import { ManualDrinkPage } from './features/drinks/pages/ManualDrinkPage'
 import { AlcoholInformationPage } from './features/drinks/pages/AlcoholInformationPage'
 import { ReferenceNavigation } from './components/ReferenceNavigation'
 import { AwardFeedback } from './features/awards/AwardNotice'
+import { AwardLifecycle } from './features/awards/AwardLifecycle'
+import { updateAwardsForTrendsVisit } from './features/awards/awardFeedbackEvents'
 import { AwardsPage } from './features/awards/AwardsPage'
 import { HomePage } from './pages/HomePage'
 import { RecordingReminderPage } from './features/reminders/RecordingReminderPage'
@@ -22,8 +24,10 @@ function App() {
   useNavigationScrollManager(contentRef)
 
   useEffect(() => {
-    function handlePopState() {
+    function handlePopState(event: PopStateEvent) {
       setPath(applicationPath())
+      // Synthetic save redirects are not explicit Trends visits.
+      if (event.isTrusted && applicationPath() === '/trends') updateAwardsForTrendsVisit()
     }
 
     window.addEventListener('popstate', handlePopState)
@@ -55,6 +59,7 @@ function App() {
     }
 
     setPath(nextPath)
+    if (nextPath === '/trends') updateAwardsForTrendsVisit()
     requestNavigationScroll({ kind: 'top' })
   }
 
@@ -62,6 +67,7 @@ function App() {
     <div className="reference-app">
       <ReferenceNavigation path={path} onNavigate={navigate} />
       <AwardFeedback />
+      <AwardLifecycle />
       <NavigationScrollDiagnostics contentRef={contentRef} />
 
       <div className="reference-content" ref={contentRef}>

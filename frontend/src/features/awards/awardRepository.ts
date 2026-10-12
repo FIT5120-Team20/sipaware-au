@@ -1,9 +1,12 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
-import { AWARDS, type AwardId } from './awardRules'
+import { getAwardDefinition, type AwardId } from './awardDefinitions'
+import { isCalendarDate } from '../drinks/types/dailyCheckIn'
+import { getCurrentLocalCalendarDateKey } from '../drinks/utils/localCalendarDate'
 
 export interface EarnedAward {
   id: AwardId
   earnedAt: string
+  earnedLocalDate: string
 }
 
 export interface AwardDatabaseSchema extends DBSchema {
@@ -16,8 +19,11 @@ let connection: Promise<IDBPDatabase<AwardDatabaseSchema>> | undefined
 
 /** Separate database: never upgrades the drink database used by retained releases. */
 export function openAwardDatabase(): Promise<IDBPDatabase<AwardDatabaseSchema>> {
-  connection ??= openDB<AwardDatabaseSchema>(AWARD_DATABASE_NAME, 1, {
+  connection ??= openDB<AwardDatabaseSchema>(AWARD_DATABASE_NAME, 2, {
     upgrade(database) {
+      // Development reset: discard obsolete awards only. Personal history and
+      // reminders live in other databases and are never touched by this reset.
+      if (database.objectStoreNames.contains('earned_awards')) database.deleteObjectStore('earned_awards')
       database.createObjectStore('earned_awards', { keyPath: 'id' })
     },
     blocking() {
@@ -39,11 +45,11 @@ export async function closeAwardDatabase(): Promise<void> {
   if (previous) (await previous).close()
 }
 
-const knownIds = new Set<string>(AWARDS.map(award => award.id))
 function isEarnedAward(value: unknown): value is EarnedAward {
   if (!value || typeof value !== 'object') return false
   const row = value as Partial<EarnedAward>
-  if (typeof row.id !== 'string' || !knownIds.has(row.id) || typeof row.earnedAt !== 'string') return false
+  if (typeof row.id !== 'string' || !getAwardDefinition(row.id) || typeof row.earnedAt !== 'string'
+    || !isCalendarDate(row.earnedLocalDate)) return false
   const date = new Date(row.earnedAt)
   return Number.isFinite(date.getTime()) && date.toISOString() === row.earnedAt
 }
@@ -70,10 +76,11 @@ export class IndexedDbAwardRepository {
    * other async work is allowed inside this IndexedDB transaction.
    */
   async grant(ids: readonly AwardId[], now: Date): Promise<AwardGrantResult> {
-    if (!Number.isFinite(now.getTime()) || ids.some(id => !knownIds.has(id))) {
+    if (!Number.isFinite(now.getTime()) || ids.some(id => !getAwardDefinition(id))) {
       throw new Error('Valid award IDs and a valid earning time are required.')
     }
     const earnedAt = now.toISOString()
+    const earnedLocalDate = getCurrentLocalCalendarDateKey(now)
     const database = await this.openDatabase()
     const tx = database.transaction('earned_awards', 'readwrite')
     void tx.done.catch(() => undefined)
@@ -84,7 +91,7 @@ export class IndexedDbAwardRepository {
       const newlyEarned: EarnedAward[] = []
       for (const id of new Set(ids)) {
         if (earnedIds.has(id)) continue
-        const row = { id, earnedAt }
+        const row = { id, earnedAt, earnedLocalDate }
         await tx.store.add(row)
         newlyEarned.push(row)
       }
