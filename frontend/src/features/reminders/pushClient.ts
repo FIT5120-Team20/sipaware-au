@@ -8,7 +8,15 @@ import { getCurrentLocalCalendarDateKey, getRecordLocalCalendarDateKey } from '.
 import { isReminderTime } from './reminderPreference'
 const DEVICE_KEY_STORAGE='sipaware.push.token.v1', ACTIVE='sipaware.push.active.v1', REVISION='sipaware.push.revision.v1', ACK='sipaware.push.ack.v1'
 export const PUSH_CHANGED='sipaware:push-changed'
-export interface PushStatus { enabled: boolean; saved: boolean; time: string | null; timezone: string | null; needs_attention?: boolean; next_due_at?: string | null }
+export interface PushStatus {
+  enabled: boolean
+  saved: boolean
+  time: string | null
+  timezone: string | null
+  needs_attention?: boolean
+  attention_reason?: 'scheduling' | 'missing' | 'overdue' | null
+  next_due_at?: string | null
+}
 export class ReminderRequestError extends Error {
   constructor(message:string, public readonly retryable:boolean) { super(message) }
 }

@@ -58,10 +58,20 @@ class ReminderRepository:
     def status(self, token):
         with connection() as db:
             row = db.execute('SELECT * FROM reminder_subscriptions WHERE token_hash=%s', (identity(token),)).fetchone()
-        attention = bool(row and row['enabled'] and (row['queue_pending'] or not row['next_due_at']
-                         or row['next_due_at'] < self.clock() - timedelta(minutes=15)))
+        attention_reason = None
+        if row and row['enabled']:
+            if not row['next_due_at']:
+                attention_reason = 'missing'
+            elif row['next_due_at'] < self.clock() - timedelta(minutes=15):
+                attention_reason = 'overdue'
+            elif row['queue_pending']:
+                # A pending publication alone is a system operation, not an
+                # instruction for the user to turn the reminder on again.
+                attention_reason = 'scheduling'
+        attention = attention_reason is not None
         return {'saved': bool(row), 'enabled': bool(row and row['enabled'] and not attention),
-                'needs_attention': attention, 'time': row['reminder_time'] if row else None,
+                'needs_attention': attention, 'attention_reason': attention_reason,
+                'time': row['reminder_time'] if row else None,
                 'timezone': row['timezone'] if row else None,
                 'next_due_at': row['next_due_at'].isoformat() if row and row['next_due_at'] else None}
 

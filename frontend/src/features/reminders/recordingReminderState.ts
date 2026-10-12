@@ -135,12 +135,28 @@ export function selectedReminderTime(snapshot = state) {
 export function reminderPresentation(snapshot: RecordingReminderState, timeFormat: ReminderTimeFormat = '12-hour') {
   const unavailable = { label: 'Unavailable', subtitle: 'Reminder status unavailable', ringing: false }
   if (snapshot.pending === 'enable') return { label: 'Setting up', subtitle: 'Setting up reminder', ringing: false }
+  if (snapshot.checking && !snapshot.verified) return { label: 'Checking', subtitle: 'Checking reminder status', ringing: false }
   if (!snapshot.verified || !snapshot.status) return unavailable
-  if (snapshot.status.needs_attention || (snapshot.status.enabled && (!snapshot.support.available || snapshot.support.permission !== 'granted'))) {
+  if ((snapshot.status.enabled || snapshot.status.needs_attention) && (!snapshot.support.available || snapshot.support.permission !== 'granted')) {
+    return { label: 'Needs attention', subtitle: 'Review notification settings', ringing: false }
+  }
+  if (snapshot.status.needs_attention && snapshot.status.attention_reason === 'scheduling') {
+    return { label: 'Updating', subtitle: 'Your reminder schedule is updating automatically.', ringing: false }
+  }
+  if (snapshot.status.needs_attention) {
     return { label: 'Needs attention', subtitle: 'Reminder needs attention', ringing: false }
   }
   if (snapshot.status.enabled) return { label: 'On', subtitle: `Daily at ${formatReminderTime(snapshot.status.time!, timeFormat)}`, ringing: true }
   return { label: 'Off', subtitle: 'Set a time for your daily check-in', ringing: false }
+}
+
+/** The Home entry is a summary; settings provide actionable status feedback. */
+export function homeReminderPresentation(snapshot: RecordingReminderState, timeFormat: ReminderTimeFormat = '12-hour') {
+  const presentation = reminderPresentation(snapshot, timeFormat)
+  return {
+    subtitle: presentation.ringing ? presentation.subtitle : 'Set a time for your daily check-in',
+    ringing: presentation.ringing,
+  }
 }
 
 function begin(pending: PendingOperation) {
