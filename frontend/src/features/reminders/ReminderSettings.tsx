@@ -70,7 +70,7 @@ function ReminderSetupDialog({ busy, error, timeError, permissionBlocked, onConf
 /** One settings surface, backed by the existing acknowledged push operations. */
 export function ReminderSettings() {
   const reminder = useRecordingReminder()
-  const presentation = reminderPresentation(reminder)
+  const presentation = reminderPresentation(reminder, '24-hour')
   const time = selectedReminderTime(reminder)
   const [draftTime, setDraftTime] = useState<string | null>(null)
   const [editingTime, setEditingTime] = useState(false)
@@ -152,7 +152,7 @@ export function ReminderSettings() {
             : reminder.status?.needs_attention && !permissionBlocked ? 'Turn on Daily reminder to restore your reminder.' : ''}
         </p>
         {reminder.verified && presentation.ringing && !busy && reminder.status &&
-          <p role="status">{nextReminderLabel(reminder.status)}</p>}
+          <p role="status">{nextReminderLabel(reminder.status, undefined, '24-hour')}</p>}
         {showPermission && <NotificationPermissionStatus id={id + '-permission'} />}
         {supportMessage && <p id={id + '-support'} className="recording-reminder-guidance">{supportMessage}</p>}
         {reminder.service === 'unavailable' &&

@@ -4,7 +4,7 @@ import { openCheckInDatabase, withDailyDataLock } from '../drinks/storage/dailyC
 import { ReferenceDialog } from '../drinks/components/ReferenceDialog'
 import { isReminderTime, readReminderPreference, saveReminderPreference } from './reminderPreference'
 import { suggestReminder, type ReminderSuggestion } from './reminderSuggestion'
-import { formatReminderTime } from './recordingReminderState'
+import { formatReminderTime } from './formatReminderTime'
 
 const PRESENTED_KEY = 'sipaware.reminder-suggestion-presented.v1'
 function materiallyDifferent(time: string, previous: string) {
@@ -84,7 +84,7 @@ export function ReminderSuggestionPrompt({ currentTime, busy = false, canPrompt 
     finally { setApplying(false) }
   }
   function keepTime() { setSheet(false); setError('') }
-  const formatted = candidate ? formatReminderTime(candidate.time) : ''
+  const formatted = candidate ? formatReminderTime(candidate.time, '24-hour') : ''
   return <>
     {candidate && <section className="recording-reminder-card recording-reminder-suggestion" aria-labelledby="reminder-suggestion-title">
       <h2 id="reminder-suggestion-title">Suggested reminder time</h2>
