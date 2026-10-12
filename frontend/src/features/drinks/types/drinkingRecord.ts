@@ -3,6 +3,8 @@
  * display labels. In particular, legacy `spirits` records remain valid even
  * though the current reference label is "Straight Spirits".
  */
+import { captureCheckInCreation, type CheckInCreationMetadata } from './checkInCreation'
+
 export type DrinkType =
   | 'beer'
   | 'wine'
@@ -26,7 +28,8 @@ export function isRecordSource(value: unknown): value is RecordSource | undefine
  * consumed. No SavedDrink reference is stored, protecting history from later
  * template edits/deletion and protecting templates from record corrections.
  */
-export interface DrinkingRecord {
+export interface DrinkingRecord extends Partial<CheckInCreationMetadata> {
+  awardCreationPending?: boolean
   recordSource?: RecordSource
   id: string
   drinkType: DrinkType
@@ -39,7 +42,7 @@ export interface DrinkingRecord {
   createdAt: string
 }
 
-export type NewDrinkingRecord = Omit<DrinkingRecord, 'id' | 'createdAt'>
+export type NewDrinkingRecord = Omit<DrinkingRecord, 'id' | 'createdAt' | 'awardCreationPending' | keyof CheckInCreationMetadata>
 
 let fallbackIdSequence = 0
 
@@ -58,7 +61,8 @@ export function createDrinkingRecord(
   return {
     id: createRecordId(),
     ...values,
-    createdAt: new Date().toISOString(),
+    // The repository captures the authoritative creation time when it writes.
+    ...captureCheckInCreation(),
   }
 }
 
@@ -82,5 +86,7 @@ export function createUpdatedDrinkingRecord(
     } : {}),
     id: record.id,
     createdAt: record.createdAt,
+    createdLocalDate: record.createdLocalDate,
+    createdTimezoneOffsetMinutes: record.createdTimezoneOffsetMinutes,
   }
 }

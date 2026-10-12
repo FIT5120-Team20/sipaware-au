@@ -8,6 +8,7 @@ import { getRecordLocalCalendarDateKey } from '../utils/localCalendarDate'
 
 import { isDrinkType } from '../config/drinkTypes'
 import { isRecordSource, type DrinkingRecord } from '../types/drinkingRecord'
+import { captureCheckInCreation } from '../types/checkInCreation'
 import {
   DRINKING_RECORDS_STORE_NAME,
   openSipAwareDatabase,
@@ -113,7 +114,8 @@ export class IndexedDbDrinkingRecordRepository
 
     // Keep the write and refreshed list in one transaction so UI state only
     // changes after IndexedDB has accepted the complete record snapshot.
-    await transaction.objectStore(DRINKING_RECORDS_STORE_NAME).add(record)
+    const persistedRecord = { ...record, ...captureCheckInCreation(), awardCreationPending: true }
+    await transaction.objectStore(DRINKING_RECORDS_STORE_NAME).add(persistedRecord)
     const records = sortRecords(await transaction.objectStore(DRINKING_RECORDS_STORE_NAME).getAll())
     await transaction.done
     // The drink is already committed. A check-in cleanup failure must not
@@ -149,10 +151,12 @@ export class IndexedDbDrinkingRecordRepository
       throw new Error('The drinking record no longer exists.')
     }
 
-    if (record.createdAt !== existingRecord.createdAt) {
+    if (record.createdAt !== existingRecord.createdAt
+      || record.createdLocalDate !== existingRecord.createdLocalDate
+      || record.createdTimezoneOffsetMinutes !== existingRecord.createdTimezoneOffsetMinutes) {
       transaction.abort()
       await transaction.done.catch(() => undefined)
-      throw new Error('A drinking record creation time cannot be changed.')
+      throw new Error('A drinking record creation time or date cannot be changed.')
     }
 
     // Enforce the same source/identity rule at the persistence boundary so
@@ -166,7 +170,9 @@ export class IndexedDbDrinkingRecordRepository
       throw new Error('The original database drink information cannot be changed.')
     }
 
-    await transaction.objectStore(DRINKING_RECORDS_STORE_NAME).put(record)
+    // A stale editor snapshot must not reopen an acknowledged creation event.
+    await transaction.objectStore(DRINKING_RECORDS_STORE_NAME).put({ ...record,
+      awardCreationPending: existingRecord.awardCreationPending })
     const records = sortRecords(await transaction.objectStore(DRINKING_RECORDS_STORE_NAME).getAll())
     await transaction.done
     // The drink is already committed. A check-in cleanup failure must not

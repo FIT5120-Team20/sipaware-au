@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b tsconfig.app.json tsconfig.node.json && vite build",
     "lint": "cd .. && eslint frontend tests/epic1/frontend tests/epic2/frontend tests/epic3/frontend tests/epic5/frontend tests/epic6/frontend tests/epic7/frontend tests/shared/frontend",
     "test": "vitest run",
     "preview": "vite preview"

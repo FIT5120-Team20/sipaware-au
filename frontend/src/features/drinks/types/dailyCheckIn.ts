@@ -4,13 +4,16 @@
  * instant: an alcohol-free day has a date, but no invented drinking time.
  */
 import { differenceInLocalCalendarDays, type LocalCalendarDateKey } from '../utils/localCalendarDate'
+import type { CheckInCreationMetadata } from './checkInCreation'
 
-export type DailyCheckIn = {
+export interface AlcoholFreeCheckIn extends Partial<CheckInCreationMetadata> {
+  awardCreationPending?: boolean
   id: string
   kind: 'alcohol-free'
   date: string
   confirmedAt: string
-} | {
+}
+export type DailyCheckIn = AlcoholFreeCheckIn | {
   id: 'tracking-start'
   kind: 'tracking-start'
   date: string
