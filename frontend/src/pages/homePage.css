@@ -6,16 +6,13 @@
       #ffffff00 70%, #ffffff26 80%, #ffffff80 90%, #ffffffe6 97%, #fff),
     linear-gradient(90deg, #fffffff2, #ffffff73 25%, #ffffff00 45%); }
 .home-hero h1 { position: absolute; z-index: 1; top: 20px; left: 20px; margin: 0;
-  width: min(240px, calc(100% - 40px)); line-height: 0; }
-.home-brand { display: block; border-radius: 4px; }
-.home-brand img { display: block; width: 100%; height: auto; }
-.home-brand:focus-visible { outline: 3px solid #1B63D4; outline-offset: 6px; }
+  color: #09136e; font: 700 34px/1.05 'Outfit', 'Segoe UI', sans-serif; }
 .home-main-content { padding: 0 20px 24px; }
 :where(button.home-feature-card) { padding: 0; border: 0; background: transparent; font: inherit; text-align: left; cursor: pointer; }
 .reminder-feature-entry { display: contents; }
 @media (min-width: 768px) {
   .home-hero { height: clamp(240px, 26vw, 360px); }
   .home-hero > img { object-position: center 65%; }
-  .home-hero h1 { left: 28px; top: 28px; width: min(320px, calc(100% - 56px)); }
+  .home-hero h1 { left: 28px; top: 28px; font-size: 42px; }
   .home-main-content { padding: 12px 28px 24px; }
 }

@@ -1,10 +1,10 @@
 # SipAware branding and installation icons
 
-The Home hero now uses the full transparent SipAware logo as an accessible Home
-link. Its image scales proportionally to 240px on small screens and 320px on
-desktop, with a narrower maximum if the available space requires it. Ordinary
-clicks and keyboard activation use the existing application navigation;
-modified clicks retain native browser behavior.
+The Home hero uses its original SipAware text heading and original responsive
+styles. The full-logo hero was removed after mobile visual review. Installation
+icons, browser icons and the SipAware home-screen name remain enabled. The
+Awards main heading retains the shared page typography: 36px below 1024px and
+42px from 1024px, matching Record, Learn and Trends.
 
 ## Assets
 
@@ -12,7 +12,7 @@ All assets are in `frontend/public/branding/`.
 
 | File | Size | Use |
 | --- | --- | --- |
-| `sipaware-logo.png` | 1400 × 414 | Full transparent hero logo |
+| `sipaware-logo.png` | 1400 × 414 | Retained source artwork; not displayed in the hero |
 | `favicon.ico` | 16, 32, 48 | Browser favicon, three PNG frames |
 | `favicon-16x16.png` | 16 × 16 | Transparent small favicon |
 | `favicon-32x32.png` | 32 × 32 | Transparent favicon |
@@ -46,8 +46,8 @@ Transparency prompt:
 
 ## Installation and routing
 
-HTML icon and manifest links use Vite's `%BASE_URL%`. The logo uses
-`import.meta.env.BASE_URL`. Built links therefore resolve under `/iteration3/`.
+HTML icon and manifest links use Vite's `%BASE_URL%`.
+Built links therefore resolve under `/iteration3/`.
 Manifest icon URLs resolve relative to the manifest. Both manifest names and the
 Apple home-screen title are `SipAware`.
 
@@ -59,7 +59,7 @@ the existing reminder icon file and the reminder registration code are unchanged
 Reference guidance: [Apple home-screen icons and title](https://developer.apple.com/library/archive/documentation/AppleApplications/Reference/SafariWebContent/ConfiguringWebApplications/ConfiguringWebApplications.html),
 [manifest icons](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Manifest/Reference/icons).
 
-## Verification — 13 October 2026
+## Initial branding verification — 13 October 2026
 
 Starting commit on main: `b88c0cd08a4bbb587ed3adc93cda86692f866520`.
 
@@ -91,3 +91,17 @@ branch is deployed over HTTPS, add `/iteration3/` to each device's home screen,
 confirm the SipAware title and symbol, launch the icon, and verify the Record
 entry. Existing installed icons may require removal and re-addition to refresh
 OS-cached artwork; user records remain in the browser's existing local storage.
+
+## Follow-up: restore the text hero — 13 October 2026
+
+`HomePage.tsx` and `homePage.css` now match their pre-branding main versions.
+The image-logo interaction tests were removed and the Home test again checks
+the text heading. The proposed white-gradient preview was never committed.
+Installation metadata and all icon files are unchanged from the branding
+update; Awards CSS is unchanged from its typography fix.
+
+The production build passed. Home and App navigation tests passed 6 of 8;
+the two failures are the existing removed-reminder-dialog expectations.
+Both reminder worker/scheduler tests passed. Browser checks at 390px and 1440px
+confirmed the original text hero, unchanged installation icon delivery and
+Record start URL, and retained Awards heading sizes of 36px and 42px.

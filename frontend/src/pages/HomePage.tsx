@@ -67,16 +67,7 @@ export function HomePage({ onNavigate }: { onNavigate?: (path: string) => void }
   return <main className="reference-home home-page">
     <header className="home-hero">
       <img src={import.meta.env.BASE_URL + 'reference-ui/home-hero-lime.png'} alt="" width="1680" height="936" fetchPriority="high" />
-      <h1 aria-label="SipAware">
-        <a href={applicationHref('/')} className="home-brand" aria-label="SipAware Home"
-          onClick={event => {
-            if (!onNavigate || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
-            event.preventDefault()
-            onNavigate('/')
-          }}>
-          <img src={import.meta.env.BASE_URL + 'branding/sipaware-logo.png'} alt="SipAware" width="1400" height="414" />
-        </a>
-      </h1>
+      <h1>SipAware</h1>
     </header>
     <div className="home-main-content">
       <section className="home-features" aria-labelledby="home-features-title">

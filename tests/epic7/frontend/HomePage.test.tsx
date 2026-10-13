@@ -10,10 +10,10 @@ import { REMINDER_PREFERENCE_KEY, readReminderPreference, saveReminderPreference
 
 afterEach(() => { vi.restoreAllMocks(); localStorage.removeItem(REMINDER_PREFERENCE_KEY) })
 
-it('shows a linked brand logo hero and exactly five approved feature actions within Iteration 3', () => {
+it('shows the original text hero and exactly five approved feature actions within Iteration 3', () => {
   window.history.replaceState({}, '', '/iteration3/')
   render(<HomePage />)
-  expect(screen.getByRole('heading', { level: 1 })).toHaveAccessibleName('SipAware')
+  expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('SipAware')
   const actions = within(screen.getByRole('region', { name: 'What you can do here' }))
   expect(actions.getAllByRole('link')).toHaveLength(5)
   expect(actions.queryAllByRole('button')).toHaveLength(0)
@@ -35,7 +35,7 @@ it('shows a linked brand logo hero and exactly five approved feature actions wit
   expect(screen.queryByText('Today’s check-in')).not.toBeInTheDocument()
   expect(screen.queryByText(/Achievements/)).not.toBeInTheDocument()
   expect(document.querySelector('.home-story-grid')).toBeNull()
-  expect(screen.getByRole('link', { name: 'SipAware Home' })).toHaveAttribute('href', '/iteration3/')
+  expect(document.querySelector('.home-hero a, .home-hero button, .home-hero h1 img')).toBeNull()
 })
 
 it('opens the existing settings from the feature row, preserves a time across reopening and keeps notifications off', async () => {
