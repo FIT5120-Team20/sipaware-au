@@ -1,7 +1,6 @@
 /* Medal-led Awards views retain SipAware's light theme and shared navigation. */
 .awards-page { width:100%; max-width:var(--page-content-max-width); padding:var(--page-top-spacing) var(--page-inline-spacing) 36px; margin:0 auto; }
 .awards-page > header { margin-bottom:16px; }
-.awards-page.awards-page > header h1 { font-size:32px; line-height:1.25; }
 .awards-page > header p { margin:6px 0 0; font-size:15px; color:#647280; }
 .awards-load-message, .awards-empty { color:#647280; }
 .awards-empty { margin:0; font-size:15px; }
@@ -241,7 +240,6 @@ html:has(.award-celebration-dialog[open]), body:has(.award-celebration-dialog[op
   .award-detail .award-goals { max-width:400px; }
   .award-detail .award-goals li > div { font-size:17px; }
 
-  #root .reference-app .awards-page > header h1 { font-size:34px; line-height:1.25; }
   #root .reference-app .awards-page--subpage > header h1 { font-size:32px; }
   #root .reference-app .awards-page > header p { font-size:16px; }
   #root .reference-app .award-keep-going-copy h2, #root .reference-app .award-category-card h2 { font-size:20px; line-height:1.3; }

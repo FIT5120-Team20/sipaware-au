@@ -10,18 +10,18 @@ import { REMINDER_PREFERENCE_KEY, readReminderPreference, saveReminderPreference
 
 afterEach(() => { vi.restoreAllMocks(); localStorage.removeItem(REMINDER_PREFERENCE_KEY) })
 
-it('shows a static wordmark hero and exactly five approved feature actions within Iteration 3', () => {
+it('shows a linked brand logo hero and exactly five approved feature actions within Iteration 3', () => {
   window.history.replaceState({}, '', '/iteration3/')
   render(<HomePage />)
-  expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('SipAware')
+  expect(screen.getByRole('heading', { level: 1 })).toHaveAccessibleName('SipAware')
   const actions = within(screen.getByRole('region', { name: 'What you can do here' }))
-  expect(actions.getAllByRole('link')).toHaveLength(4)
-  expect(actions.getAllByRole('button')).toHaveLength(1)
+  expect(actions.getAllByRole('link')).toHaveLength(5)
+  expect(actions.queryAllByRole('button')).toHaveLength(0)
   const expected = [
     ['Record your drinks', 'Understand what you’re drinking', '/iteration3/record'],
     ['Learn about alcohol', 'Alcohol, ageing and guidelines', '/iteration3/alcohol-guidelines'],
     ['Understand your patterns', 'Review your drinking over time', '/iteration3/trends'],
-    ['Set a reminder', 'Set a time for your daily check-in', null],
+    ['Set a reminder', 'Set a time for your daily check-in', '/iteration3/recording-reminder'],
     ['Earn awards', 'Celebrate your progress and milestones', '/iteration3/awards'],
   ]
   const entries = document.querySelectorAll('.home-feature-card')
@@ -35,7 +35,7 @@ it('shows a static wordmark hero and exactly five approved feature actions withi
   expect(screen.queryByText('Today’s check-in')).not.toBeInTheDocument()
   expect(screen.queryByText(/Achievements/)).not.toBeInTheDocument()
   expect(document.querySelector('.home-story-grid')).toBeNull()
-  expect(document.querySelector('.home-hero a, .home-hero button')).toBeNull()
+  expect(screen.getByRole('link', { name: 'SipAware Home' })).toHaveAttribute('href', '/iteration3/')
 })
 
 it('opens the existing settings from the feature row, preserves a time across reopening and keeps notifications off', async () => {
