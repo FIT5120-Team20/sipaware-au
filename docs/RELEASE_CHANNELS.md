@@ -92,3 +92,20 @@ This section takes effect when the separate freeze publication receipt is comple
 
 Future source changes to main must not replace the retained root or I3 build.
 Any later revision to a retained channel needs its own explicit reviewed decision.
+
+
+## Public teacher root; retained iterations unchanged - 2026-10-15
+
+This section takes effect only after its separate publication receipt is complete.
+The owner requested removal of the shared username/password from sipaware.app.
+Root uses an independent copy of the verified bccfa82 root package at
+sipaware-au-root-public-bccfa82.vercel.app. Only that copy's deployment proxy is
+removed; frontend, backend, service worker and existing service configuration
+remain unchanged. The main request boundary allows root pages/assets/APIs while
+keeping /access and /iterationN namespaces behind the classroom gate.
+Frozen Iteration 1/2/3 sources, aliases and final refs are not replaced or rebuilt.
+They retain login because the deployed authentication has no disable setting.
+Root reminder device ownership and the authenticated frozen I3 scheduler callback
+remain enforced. Personal records remain in browser IndexedDB; reference data
+continues to be shared. Previous retained aliases remain assigned for history.
+No dependencies, secrets, database schema, global protection or retention change.

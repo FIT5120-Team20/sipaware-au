@@ -1,8 +1,9 @@
 import { isReminderScheduler } from './security/reminderScheduler.mjs';
-/** Deployment-wide access boundary, including assets, APIs and retained origins.
- * Identical gate/configuration must be deployed on the retained copy as well.
- * Existing Vercel rewrites remain responsible for choosing the content version.
+/** Root is public after the owner's release decision; retained iterations keep
+ * their classroom login. Rewrites select independent copies, so the public root
+ * copy also omits its login proxy. Backend device/scheduler auth is unchanged.
  */
+import { requiresClassroomAccess } from './security/channelAccess.mjs';
 import { next } from '@vercel/functions';
 import { accessGate, privateHeaders } from './security/access.mjs';
 
@@ -10,6 +11,7 @@ export const config = { runtime: 'nodejs' };
 
 export default async function middleware(request) {
   try {
+    if (!requiresClassroomAccess(request)) return next({ headers: privateHeaders });
     if (isReminderScheduler(request)) return next({ headers: privateHeaders });
     return await accessGate(request) || next({ headers: privateHeaders });
   } catch {
