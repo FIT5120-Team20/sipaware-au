@@ -29,7 +29,7 @@
   "rewrites": [
     {
       "source": "/",
-      "destination": "https://sipaware-au-root-i3-bccfa82.vercel.app/index.html"
+      "destination": "https://sipaware-au-root-public-bccfa82.vercel.app/index.html"
     },
     {
       "source": "/iteration3",
@@ -55,7 +55,7 @@
     },
     {
       "source": "/:path*",
-      "destination": "https://sipaware-au-root-i3-bccfa82.vercel.app/:path*"
+      "destination": "https://sipaware-au-root-public-bccfa82.vercel.app/:path*"
     }
   ],
   "proxy": {
