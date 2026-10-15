@@ -32,22 +32,12 @@
       "destination": "https://sipaware-au-root-i3-bccfa82.vercel.app/index.html"
     },
     {
-      "source": "/iteration3/api/:path*",
-      "destination": {
-        "service": "backend"
-      }
-    },
-    {
       "source": "/iteration3",
-      "destination": {
-        "service": "frontend"
-      }
+      "destination": "https://sipaware-au-iteration3.vercel.app/iteration3"
     },
     {
       "source": "/iteration3/:path*",
-      "destination": {
-        "service": "frontend"
-      }
+      "destination": "https://sipaware-au-iteration3.vercel.app/iteration3/:path*"
     },
     {
       "source": "/iteration2",

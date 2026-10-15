@@ -65,3 +65,30 @@ Catalog and Learn reference data remain shared and mutable. Personal records
 remain in same-origin browser IndexedDB. Reminder scheduling, Web Push and OCR
 remain live services; the current /iteration3/api/reminders/dispatch callback
 must stay operational. Pinning the root code does not freeze these services.
+
+
+## Iteration 3 freeze following the verified root promotion - 2026-10-15
+
+The owner explicitly confirmed the second phase after inspecting the promoted root.
+This section takes effect when the separate freeze publication receipt is complete.
+- Root remains the independently verified bccfa82 root build at
+  sipaware-au-root-i3-bccfa82.vercel.app (dpl_7wL72TDeD3KZJBBGVS4FG9qw3riT).
+- /iteration3 is pinned to its independent snapshot at
+  sipaware-au-iteration3.vercel.app, including HTML, assets and API implementation.
+- Team20/Iteration3/final-build records source bccfa823ad444a8f7150c7e0ed9407715d66d2db.
+  Do not push further changes to this final ref or move its retained alias.
+- The frozen upload changes only vercel.json from that product source, so it serves
+  its own frontend and backend rather than recursively using channel rewrites.
+- Shared catalog/Learn data, OCR, and reminder runtime services remain mutable.
+  Personal records remain in same-origin IndexedDB and are not part of the snapshot.
+- Root reminders still use /iteration3/api/reminders/dispatch. Preserve this API
+  and its existing authentication and service configuration on the retained copy.
+- Existing Iteration 1/2 and prior root copies remain assigned and unchanged.
+- No new project, environment scope, retention policy, or global protection change.
+  Only the retained I3 alias receives the reviewed Vercel protection exception;
+  the application's shared login remains required.
+- Existing /iteration3/ trailing-slash 404 and prior full-suite failures are not
+  silently declared fixed by this code/deployment freeze. Use /iteration3.
+
+Future source changes to main must not replace the retained root or I3 build.
+Any later revision to a retained channel needs its own explicit reviewed decision.
