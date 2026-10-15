@@ -49,3 +49,19 @@ mapping above only after its deployment and live verification.
 The retained upload differs from the source only in `vercel.json` (serve its own
 frontend/API) and `frontend/vite.config.ts` (bare-root build base). Product behavior,
 including the current OCR integration and History pagination, is unchanged.
+
+
+## Root-only Iteration 3 promotion candidate - 2026-10-15
+
+This section takes effect only after the release receipt confirms deployment.
+Root https://sipaware.app is promoted to current source bccfa823ad444a8f7150c7e0ed9407715d66d2db
+through the independent root build at sipaware-au-root-i3-bccfa82.vercel.app.
+Root packaging adapts the build base, notification click destination and routing.
+/iteration3 remains active from main. No Iteration 3 final branch, frozen alias
+or frozen deployment is created by this promotion. Freeze requires a separate
+explicit user confirmation after inspecting the promoted root.
+Preserve previous root and Iteration 1/2 aliases and deployment identities.
+Catalog and Learn reference data remain shared and mutable. Personal records
+remain in same-origin browser IndexedDB. Reminder scheduling, Web Push and OCR
+remain live services; the current /iteration3/api/reminders/dispatch callback
+must stay operational. Pinning the root code does not freeze these services.
